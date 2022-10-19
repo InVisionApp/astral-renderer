@@ -1,0 +1,233 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stroke_capper_util.glsl.resource_string
+ * \brief astral_stroke_capper_util.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+struct astral_stroke_compute_stroke_location_query
+{
+  uint m_sub_shader;
+  float m_t;
+};
+
+struct astral_stroke_compute_stroke_location_result
+{
+  float m_distance_along_contour;
+  float m_primitive_length;
+  vec2 m_cap_direction;
+  vec2 m_p;
+  float m_contour_length;
+  float m_edge_length;
+  float m_distance_from_start_contour_minus_from_start_edge;
+};
+
+bool
+astral_stroke_square_capper_collapse(in uint sub_shader, in uint boundary_flags)
+{
+  uint mask;
+
+  mask = (astral_stroke_subshader(sub_shader) == ASTRAL_STROKE_CAPPER_START) ?
+    ASTRAL_STROKE_START_EDGE_MASK:
+    ASTRAL_STROKE_END_EDGE_MASK;
+
+  return 0u == (mask & boundary_flags);
+}
+
+void
+astral_stroke_compute_stroke_location_line_segment(in vec4 a0,
+                                                   in astral_stroke_compute_stroke_location_query query,
+                                                   in uint path_transformation_location,
+                                                   out astral_stroke_compute_stroke_location_result result)
+{
+  uint static_data_offset;
+  vec4 start_end;
+
+  static_data_offset = floatBitsToUint(a0.x);
+
+  if (astral_stroking_is_animated(query.m_sub_shader))
+    {
+      vec4 start_end0, start_end1, static_data;
+      float e;
+
+      start_end0 = astral_read_static_data32f(static_data_offset);
+      start_end1 = astral_read_static_data32f(static_data_offset + 1u);
+      start_end = mix(start_end0, start_end1, query.m_t);
+
+      static_data = astral_read_static_data32f(static_data_offset + 2u);
+      result.m_distance_along_contour = mix(static_data.x, static_data.y, query.m_t);
+      result.m_primitive_length = mix(static_data.z, static_data.w, query.m_t);
+
+      static_data = astral_read_static_data32f(static_data_offset + 3u);
+
+      e = mix(static_data.x, static_data.y, query.m_t);
+      result.m_contour_length = mix(static_data.z, static_data.w, query.m_t);
+      result.m_edge_length = mix(a0.z, a0.w, query.m_t);
+      result.m_distance_from_start_contour_minus_from_start_edge = result.m_distance_along_contour - e;
+    }
+  else
+    {
+      vec4 static_data;
+
+      start_end = astral_read_static_data32f(static_data_offset);
+      static_data = astral_read_static_data32f(static_data_offset + 1u);
+      result.m_distance_along_contour = static_data.x;
+      result.m_primitive_length = static_data.y;
+      result.m_contour_length = static_data.w;
+      result.m_edge_length = a0.z;
+      result.m_distance_from_start_contour_minus_from_start_edge = result.m_distance_along_contour - static_data.z;
+    }
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+      float D;
+
+      astral_load(path_transformation_location, P);
+      start_end.xy = astral_apply_transformation(P, start_end.xy);
+      start_end.zw = astral_apply_transformation(P, start_end.zw);
+
+      D = sqrt(abs(astral_det_matrix(P.m_matrix)));
+      result.m_distance_along_contour *= D;
+      result.m_primitive_length *= D;
+      result.m_contour_length *= D;
+      result.m_edge_length *= D;
+      result.m_distance_from_start_contour_minus_from_start_edge *= D;
+    }
+
+  if (start_end.xy != start_end.zw)
+    {
+      result.m_cap_direction = normalize(start_end.xy - start_end.zw);
+    }
+  else
+    {
+      result.m_cap_direction = vec2(0.0, 0.0);
+    }
+
+  if (astral_stroke_subshader(query.m_sub_shader) == ASTRAL_STROKE_CAPPER_START)
+    {
+      result.m_p = start_end.xy;
+    }
+  else
+    {
+      result.m_p = start_end.zw;
+      result.m_cap_direction = -result.m_cap_direction;
+      result.m_distance_along_contour += result.m_primitive_length;
+    }
+}
+
+void
+astral_stroke_compute_stroke_location_quadratic(in vec4 a0,
+                                                in astral_stroke_compute_stroke_location_query query,
+                                                in uint path_transformation_location,
+                                                out astral_stroke_compute_stroke_location_result result)
+{
+  uint static_data_offset;
+  vec2 start_pt, end_pt, control_pt, other_p;
+
+  static_data_offset = floatBitsToUint(a0.x);
+
+  if (astral_stroking_is_animated(query.m_sub_shader))
+    {
+      vec4 start_01, end_01, control_01, static_data;
+      float e;
+
+      start_01 = astral_read_static_data32f(static_data_offset + 0u);
+      control_01 = astral_read_static_data32f(static_data_offset + 1u);
+      end_01 = astral_read_static_data32f(static_data_offset + 2u);
+
+      start_pt = mix(start_01.xy, start_01.zw, query.m_t);
+      end_pt = mix(end_01.xy, end_01.zw, query.m_t);
+      control_pt = mix(control_01.xy, control_01.zw, query.m_t);
+
+      static_data = astral_read_static_data32f(static_data_offset + 3u);
+      result.m_distance_along_contour = mix(static_data.x, static_data.y, query.m_t);
+      result.m_primitive_length = mix(static_data.z, static_data.w, query.m_t);
+
+      static_data = astral_read_static_data32f(static_data_offset + 4u);
+      e = mix(static_data.x, static_data.y, query.m_t);
+      result.m_contour_length = mix(static_data.z, static_data.w, query.m_t);
+      result.m_edge_length = mix(a0.z, a0.w, query.m_t);
+      result.m_distance_from_start_contour_minus_from_start_edge = result.m_distance_along_contour - e;
+    }
+  else
+    {
+      vec4 data;
+      float e;
+
+      data = astral_read_static_data32f(static_data_offset + 0u);
+      start_pt = data.xy;
+      control_pt = data.zw;
+
+      data = astral_read_static_data32f(static_data_offset + 1u);
+      end_pt = data.xy;
+      result.m_distance_along_contour = data.z;
+      result.m_primitive_length = data.w;
+
+      data.xy = astral_read_static_data32f(static_data_offset + 2u).xy;
+      e = data.x;
+      result.m_contour_length = data.y;
+      result.m_edge_length = a0.z;
+      result.m_distance_from_start_contour_minus_from_start_edge = result.m_distance_along_contour - e;
+    }
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+      float D;
+
+      astral_load(path_transformation_location, P);
+      start_pt = astral_apply_transformation(P, start_pt);
+      end_pt = astral_apply_transformation(P, end_pt);
+      control_pt = astral_apply_transformation(P, control_pt);
+
+      D = sqrt(abs(astral_det_matrix(P.m_matrix)));
+      result.m_distance_along_contour *= D;
+      result.m_primitive_length *= D;
+      result.m_contour_length *= D;
+      result.m_edge_length *= D;
+      result.m_distance_from_start_contour_minus_from_start_edge *= D;
+    }
+
+  if (astral_stroke_subshader(query.m_sub_shader) == ASTRAL_STROKE_CAPPER_START)
+    {
+      result.m_p = start_pt;
+      other_p = end_pt;
+    }
+  else
+    {
+      result.m_p = end_pt;
+      other_p = start_pt;
+      result.m_distance_along_contour += result.m_primitive_length;
+    }
+
+  if (result.m_p == control_pt)
+    {
+      control_pt = other_p;
+    }
+
+  if (control_pt != result.m_p)
+    {
+      result.m_cap_direction = normalize(result.m_p - control_pt);
+    }
+  else
+    {
+      result.m_cap_direction = vec2(0.0, 0.0);
+    }
+}
+
+/*! @} */

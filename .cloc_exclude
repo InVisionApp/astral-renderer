@@ -1,0 +1,8 @@
+src/astral/util/gl/astral_gl.cpp
+inc/astral/util/gl/astral_gl.hpp
+src/astral/util/astral_gl_generator/gl.xml
+src/astral/util/astral_gl_generator/pugiconfig.hpp
+src/astral/util/astral_gl_generator/pugixml.cpp
+src/astral/util/astral_gl_generator/pugixml.hpp
+src/astral/util/astral_gl_generator/PUGIXML_README.md
+src/astral/util/astral_gl_generator/PUGIXML_LICENSE.md

@@ -1,0 +1,177 @@
+// -*- C++ -*-
+/*!
+ * \file astral_gradient_bo.glsl.resource_string
+ * \brief astral_gradient_bo.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLGradient
+ * @{
+ */
+
+float
+astral_compute_linear_gradient_interpolate(in AstralUnpackedGradient gradient, in vec2 p)
+{
+  p -= gradient.m_data.xy;
+  return dot(p, gradient.m_data.zw);
+}
+
+float
+astral_compute_radial_gradient_interpolate(in AstralUnpackedGradient gradient, in vec2 p, out float good)
+{
+  vec2 q, delta_p;
+  float t, delta_r, a, b, c, desc, t0, t1, recip_two_a, r0, r1, signA;
+  vec2 p0, p1;
+
+  p0 = gradient.m_data.xy;
+  p1 = gradient.m_data.zw;
+  r0 = gradient.m_start_radius;
+  r1 = gradient.m_end_radius;
+
+  q = p0 - p;
+  delta_p = p1 - p0;
+  delta_r = r1 - r0;
+
+  a = dot(delta_p, delta_p) - delta_r * delta_r;
+  signA = sign(a);
+
+  /* force a > 0 so that t0 > t1 */
+  a = abs(a);
+  b = 2.0 * signA * (dot(q, delta_p) - r0 * delta_r);
+  c = signA * dot(q, q) - r0 * r0;
+
+  desc = b * b - 4.0 * a * c;
+  if (desc < 0.0)
+    {
+      good = 0.0;
+      desc = 0.0;
+    }
+  else
+    {
+      good = 1.0;
+      desc = sqrt(abs(desc));
+    }
+
+  recip_two_a = 0.5 / a;
+  t0 = (-b + desc) * recip_two_a;
+  t1 = (-b - desc) * recip_two_a;
+
+  /* if both t0 and t1 are in range, then take the max
+   * if both t0 and t1 are not in range, then take the max
+   * if only one of t0 and t1 are in range take that one.
+   */
+  t = t0;
+  if (t > 1.0 && t1 >= 0.0)
+    {
+      t = t1;
+    }
+
+  return t;
+}
+
+float
+astral_compute_sweep_gradient_interpolate(in AstralUnpackedGradient gradient, in vec2 p)
+{
+  vec2 direction;
+  float t, angle, start_angle, sweep_signed_speed;
+
+  p -= gradient.m_data.xy;
+  start_angle = gradient.m_data.z;
+  sweep_signed_speed = gradient.m_data.w;
+
+  angle = atan(p.y, p.x);
+
+  /* Force the angle to be greater than start_angle */
+  if (angle < start_angle)
+    {
+      angle += ASTRAL_2PI;
+    }
+
+  /* normalize the angle from [0, 2 * PI] to [0, 1] */
+  t = (angle - start_angle) * ASTRAL_RECIP_2PI;
+
+  /* a negative sweep speed means go in the opposite direction */
+  if (sweep_signed_speed < 0.0)
+    {
+      t = 1.0 - t;
+    }
+
+  t *= abs(sweep_signed_speed);
+
+  return t;
+}
+
+float
+astral_compute_interpolate(in AstralUnpackedGradient gradient, in vec2 p, out float good)
+{
+  float t;
+
+  good = 1.0;
+  if (gradient.m_type == ASTRAL_GRADIENT_LINEAR)
+    {
+      t = astral_compute_linear_gradient_interpolate(gradient, p);
+    }
+  else if (gradient.m_type == ASTRAL_GRADIENT_SWEEP)
+    {
+      t = astral_compute_sweep_gradient_interpolate(gradient, p);
+    }
+  else
+    {
+      t = astral_compute_radial_gradient_interpolate(gradient, p, good);
+      if (gradient.m_type == ASTRAL_GRADIENT_RADIAL_EXTENDED)
+        {
+          good = 1.0;
+        }
+    }
+
+  if (gradient.m_tile_mode == ASTRAL_TILE_MODE_DECAL && (t > 1.0 || t < 0.0))
+    {
+      good = 0.0;
+      t = 0.0;
+    }
+  else
+    {
+      t = astral_apply_tile_mode(t, 0.0, 1.0, gradient.m_tile_mode);
+    }
+
+  return t;
+}
+
+vec4
+astral_sample_gradient(in AstralUnpackedGradient gradient, in uint colorspace, in vec2 p)
+{
+  float t, good;
+  vec4 return_value;
+
+  t = astral_compute_interpolate(gradient, p, good);
+  if (good < 0.5)
+    {
+      if (gradient.m_type == ASTRAL_GRADIENT_RADIAL_UNEXTENDED_OPAQUE)
+        {
+          return_value = vec4(0.0, 0.0, 0.0, 1.0);
+        }
+      else
+        {
+          return_value = vec4(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+  else
+    {
+      return_value = astral_sample_colorstop(gradient.m_start, gradient.m_size, gradient.m_layer, t);
+      return_value = astral_convert_colorspace(colorspace, gradient.m_colorspace, return_value);
+    }
+
+  return return_value;
+}
+
+/*! @} */

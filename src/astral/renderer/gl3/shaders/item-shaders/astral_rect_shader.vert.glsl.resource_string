@@ -1,0 +1,80 @@
+// -*- C++ -*-
+/*!
+ * \file astral_rect_bo.vert.glsl.resource_string
+ * \brief astral_rect_bo.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr,
+                   out vec2 item_p)
+{
+  vec2 p, rel;
+  vec4 rect;
+
+  rel = a0.xy;
+  rect = astral_read_item_dataf(item_data_location);
+
+  p = mix(rect.xy, rect.zw, rel);
+  item_p = p;
+
+  if (sub_shader == ASTRAL_MASKED_RECT_SHADER)
+    {
+      vec2 texel_coords;
+      uint padding, index_texel;
+      uvec2 tile_location;
+      uvec3 index_location, tile_atlas_location;
+      uvec4 udata;
+
+      udata = astral_read_item_datau(item_data_location + 1u);
+
+      tile_location.xy = udata.xy;
+      index_location.xy = astral_unpack_pair(udata.z);
+      padding = astral_unpack_bits(ASTRAL_MASKED_RECT_SHADER_PADDING_BIT0,
+                                   ASTRAL_MASKED_RECT_SHADER_PADDING_NUM_BITS,
+                                   udata.w);
+
+      index_location.z = astral_unpack_bits(ASTRAL_MASKED_RECT_SHADER_Z_BIT0,
+                                            ASTRAL_MASKED_RECT_SHADER_Z_NUM_BITS,
+                                            udata.w);
+      index_texel = texelFetch(astral_image_index_atlas, ivec3(index_location), 0).r;
+      tile_atlas_location = astral_unpack_index_texel(index_texel);
+
+      /* override the z-location is udata.w with tile_atlas_location.z */
+      udata.w &= ~astral_mask(ASTRAL_MASKED_RECT_SHADER_Z_BIT0, ASTRAL_MASKED_RECT_SHADER_Z_NUM_BITS);
+      udata.w |= astral_pack_bits(ASTRAL_MASKED_RECT_SHADER_Z_BIT0, tile_atlas_location.z);
+
+      texel_coords = p - vec2(tile_location) + vec2(tile_atlas_location.xy) + vec2(padding);
+
+      /* pass down to fragment shader */
+      astral_rect_texel_x = texel_coords.x;
+      astral_rect_texel_y = texel_coords.y;
+      astral_mask_sampling_and_layer = udata.w;
+    }
+  else
+    {
+      astral_rect_texel_x = 2.0 * rel.x - 1.0;
+      astral_rect_texel_y = 2.0 * rel.y - 1.0;
+    }
+
+  return astral_apply_transformation(tr, p);
+}

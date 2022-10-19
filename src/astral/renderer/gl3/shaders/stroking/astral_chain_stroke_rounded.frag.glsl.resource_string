@@ -1,0 +1,83 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_rounded.frag.glsl.resource_string
+ * \brief astral_chain_stroke_rounded.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  vec2 v, dvdx, dvdy;
+  float r, signed_distance, f, dx, dy;
+
+  v = vec2(astral_chain_stroke_offset_vector_x, astral_chain_stroke_offset_vector_y);
+  r = length(v);
+
+  dvdx = dFdx(v);
+  dvdy = dFdy(v);
+
+  /* Formula derivation. In scaled local coordinates, the
+   * distance from the center to the fragment is given by
+   *
+   *   r = ||v||
+   *
+   * in these scaled local coordinates, the stroking radius
+   * is one, thus the distance between the fragment and
+   * the stroking boundary is
+   *
+   *  d = 1.0 - r
+   *
+   * to realize d into pixel coordinates we need the value
+   *
+   *  D = d / ||grad d||
+   *
+   * Now,
+   *                         -dot(dFdx(v), v)
+   *  dFdx(d) = -dFdx(r) =  -----------------
+   *                             ||v||
+   *
+   *                         -dot(dFdy(v), v)
+   *  dFdx(d) = -dFdy(r) =  -----------------
+   *                             ||v||
+   *
+   *  ||grad d|| = sqrt(dFdx(d)^2 + dFdx(d)^2)
+   *
+   *             =   sqrt(dot(dFdx(v), v)^2 + dot(dFdy(v), v)^2)
+   *               -----------------------------------------------
+   *                             ||v||
+   *
+   * Thus,
+   *
+   *                   (1 - ||v||) * ||v||
+   *   D = ----------------------------------------------
+   *         sqrt(dot(dFdx(v), v)^2 + dot(dFdy(v), v)^2)
+   *
+   *                        r - r * r
+   *     = ----------------------------------------------
+   *         sqrt(dot(dFdx(v), v)^2 + dot(dFdy(v), v)^2)
+   */
+
+  f = r - r * r;
+  dx = dot(v, dvdx);
+  dy = dot(v, dvdy);
+  signed_distance = f * inversesqrt(dx * dx + dy * dy);
+
+  base_color = astral_compute_mask_emit_value(signed_distance, astral_chain_stroke_coverage_multiplier);
+}

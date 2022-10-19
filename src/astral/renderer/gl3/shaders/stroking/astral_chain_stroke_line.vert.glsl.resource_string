@@ -1,0 +1,255 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_line.vert.glsl.resource_string
+ * \brief astral_chain_stroke_line.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  uint static_data_offset, role, path_transformation_location;
+  vec4 start_end, item_data;
+  vec2 p, rel_p, v, n, base_pt, return_value;
+  float R, dist_start, dist_end, packed_stroke_radius, s;
+  astral_stroke_radius_info_t detailed_radii;
+
+  static_data_offset = floatBitsToUint(a0.x);
+  role = astral_vertex_role(floatBitsToUint(a0.y));
+
+  item_data.xyz = astral_read_item_dataf(item_data_location).xyz;
+  packed_stroke_radius = item_data.x;
+  path_transformation_location = floatBitsToUint(item_data.z);
+
+  if (astral_stroking_is_animated(sub_shader))
+    {
+      vec4 start_end0, start_end1;
+      float t;
+
+      t = item_data.y;
+      start_end0 = astral_read_static_data32f(static_data_offset);
+      start_end1 = astral_read_static_data32f(static_data_offset + 1u);
+      start_end = mix(start_end0, start_end1, t);
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          float e;
+          vec4 static_data;
+
+          static_data = astral_read_static_data32f(static_data_offset + 2u).xyzw;
+          dist_start = mix(static_data.x, static_data.y, t);
+          dist_end = dist_start +  mix(static_data.z, static_data.w, t);
+
+          if ((role & ASTRAL_STROKE_SHADER_LINE_END_POINT_MASK) == 0u)
+            {
+              astral_chain_stroke_distance_along_contour = dist_start;
+            }
+          else
+            {
+              astral_chain_stroke_distance_along_contour = dist_end;
+            }
+
+          /* also emit the distance from the start of the edge,
+           * along with the length of the edge and contour.
+           */
+          static_data = astral_read_static_data32f(static_data_offset + 3u).xyzw;
+
+          e = mix(static_data.x, static_data.y, t);
+
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge = dist_start - e;
+          astral_chain_stroke_contour_length = mix(static_data.z, static_data.w, t);
+          astral_chain_stroke_edge_length = mix(a0.z, a0.w, t);
+        }
+      #endif
+    }
+  else
+    {
+      start_end = astral_read_static_data32f(static_data_offset);
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          vec4 static_data;
+
+          static_data = astral_read_static_data32f(static_data_offset + 1u);
+
+          dist_start = static_data.x;
+          dist_end = dist_start + static_data.y;
+
+          if ((role & ASTRAL_STROKE_SHADER_LINE_END_POINT_MASK) == 0u)
+            {
+              astral_chain_stroke_distance_along_contour = dist_start;
+            }
+          else
+            {
+              astral_chain_stroke_distance_along_contour = dist_end;
+            }
+
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge = dist_start - static_data.z;
+          astral_chain_stroke_contour_length = static_data.w;
+          astral_chain_stroke_edge_length = a0.z;
+        }
+      #endif
+    }
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+
+      astral_load(path_transformation_location, P);
+      start_end.xy = astral_apply_transformation(P, start_end.xy);
+      start_end.zw = astral_apply_transformation(P, start_end.zw);
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          float D;
+
+          D = sqrt(abs(astral_det_matrix(P.m_matrix)));
+          astral_chain_stroke_distance_along_contour *= D;
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge *= D;
+          astral_chain_stroke_contour_length *= D;
+          astral_chain_stroke_edge_length *= D;
+
+          dist_start *= D;
+          dist_end *= D;
+        }
+      #endif
+    }
+
+  astral_chain_stroke_edge_start_x = start_end.x;
+  astral_chain_stroke_edge_start_y = start_end.y;
+  astral_chain_stroke_edge_end_x = start_end.z;
+  astral_chain_stroke_edge_end_y = start_end.w;
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      astral_chain_stroke_distance_along_contour_start = dist_start;
+      astral_chain_stroke_distance_along_contour_end = dist_end;
+      astral_chain_stroke_boundary_flags = astral_vertex_flags(floatBitsToUint(a0.y));
+    }
+  #endif
+
+  if ((role & ASTRAL_STROKE_SHADER_LINE_END_POINT_MASK) == 0u)
+    {
+      base_pt = start_end.xy;
+    }
+  else
+    {
+      base_pt = start_end.zw;
+    }
+
+  v = start_end.zw - start_end.xy;
+  n = normalize(vec2(-v.y, v.x));
+
+  detailed_radii = astral_stroke_radius_info(packed_stroke_radius, tr.m_matrix, astral_render_scale());
+  R = detailed_radii.m_vertex_radius;
+  astral_chain_stroke_radius = detailed_radii.m_fragment_radius;
+  astral_chain_stroke_coverage_multiplier = detailed_radii.m_coverage_multiplier;
+
+  /* The offset type
+   *   ASTRAL_STROKE_SHADER_LINE_NEGATE_NORMAL --> 0
+   *   ASTRAL_STROKE_SHADER_LINE_BASE_POINT    --> 1
+   *   ASTRAL_STROKE_SHADER_LINE_ADD_NORMAL    --> 2
+   */
+  s = (-1.0 + float(role & ASTRAL_STROKE_SHADER_LINE_OFFSET_TYPE_MASK));
+
+  p = base_pt + (R * s) * n;
+  astral_chain_stroke_perp_distance_to_curve = R * s;
+
+  #ifdef ASTRAL_STROKING_WITH_DASHING
+    {
+      astral_dash_pattern_header header;
+      bool dash_pattern_per_edge;
+
+      dash_pattern_per_edge = astral_load_dash_pattern_header(astral_chain_stroke_edge_length,
+                                                              astral_chain_stroke_contour_length,
+                                                              item_data_location, header);
+
+      if (dash_pattern_per_edge)
+        {
+          astral_chain_stroke_distance_along_contour -= astral_chain_stroke_distance_from_start_contour_minus_from_start_edge;
+          astral_chain_stroke_distance_along_contour_start -= astral_chain_stroke_distance_from_start_contour_minus_from_start_edge;
+          astral_chain_stroke_distance_along_contour_end -= astral_chain_stroke_distance_from_start_contour_minus_from_start_edge;
+        }
+
+      astral_chain_stroke_dash_xz_draw_factor = header.m_xz_factor;
+      astral_chain_stroke_dash_yw_draw_factor = header.m_yw_factor;
+      astral_chain_stroke_dash_corner = header.m_dash_corner;
+      astral_chain_stroke_dash_end_length = header.m_end_length;
+      astral_chain_stroke_dash_total_length = header.m_total_length;
+    }
+  #endif
+
+  return_value = astral_apply_transformation(tr, p);
+
+  /* initialize to some large obscene positive value to make it not matter */
+  astral_chain_stroke_pixel_distance_from_end = 1e6;
+  if (astral_stroke_cap_style(sub_shader) == ASTRAL_STROKE_CAP_STYLE_FLAT_CAP)
+    {
+      uint flags;
+
+      flags = astral_vertex_flags(floatBitsToUint(a0.y));
+      if ((flags & ASTRAL_STROKE_CLOSED_CONTOUR_MASK) == 0u
+          && (flags & (ASTRAL_STROKE_START_CONTOUR_MASK | ASTRAL_STROKE_END_CONTOUR_MASK)) != 0u)
+        {
+          float svv;
+          vec2 pp, q, vv;
+
+          /* NOTE: if an edge connects from the start to the end
+           *       of an open contour, we should actually have
+           *       two varyings; we will assume/require that it
+           *       is never the case that an open contour consists
+           *       of a single line segment.
+           */
+          if ((flags & ASTRAL_STROKE_START_CONTOUR_MASK) != 0u)
+            {
+              svv = 1.0;
+              q = start_end.xy;
+            }
+          else
+            {
+              svv = -1.0;
+              q = start_end.zw;
+            }
+
+          /* map q to pixel coordinates */
+          q = astral_apply_transformation(tr, q);
+
+          /* map the velocity vector to pixel coordinates */
+          vv = astral_apply_matrix(tr.m_matrix, v);
+
+          /* center return_value at q */
+          pp = return_value - q;
+
+          /* map pp and vv to rasterized coordinates */
+          pp *= astral_render_scale();
+          vv *= astral_render_scale();
+
+          /* normalize vv */
+          vv = normalize(vv);
+
+          /* start at -0.5 to match more closely with fill */
+          astral_chain_stroke_pixel_distance_from_end = -0.5 + svv * dot(vv, pp);
+        }
+    }
+
+  return return_value;
+}

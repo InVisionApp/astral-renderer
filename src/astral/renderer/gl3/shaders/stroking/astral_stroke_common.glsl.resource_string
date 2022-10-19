@@ -1,0 +1,886 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stroke_common.glsl.resource_string
+ * \brief astral_stroke_common.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+#define astral_stroking_is_animated(subshader) (((subshader) & ASTRAL_STROKE_SHADER_ANIMATED_MASK) != 0u)
+#define astral_stroke_subshader(subshader) (((subshader) & ASTRAL_STROKE_SUB_SHADER_MASK) >> ASTRAL_STROKE_SUB_SHADER_BIT0)
+#define astral_stroke_cap_style(subshader) (((subshader) & ASTRAL_STROKE_CAP_STYLE_MASK) >> ASTRAL_STROKE_CAP_STYLE_BIT0)
+#define astral_vertex_role(role_and_flags) astral_unpack_bits(ASTRAL_STROKE_ROLE_BIT0, ASTRAL_STROKE_ROLE_NUM_BITS, (role_and_flags))
+#define astral_vertex_flags(role_and_flags) astral_unpack_bits(ASTRAL_STROKE_FLAGS_BIT0, ASTRAL_STROKE_FLAGS_NUM_BITS, (role_and_flags))
+
+/*!
+ * Radius info for stroking
+ */
+struct astral_stroke_radius_info_t
+{
+  /*!
+   * Amount by which to push in the direction
+   * perpindicular to the path to realize the
+   * vertices on the boundary of the stroke;
+   * this will include padding to allow the
+   * fragment shader to perform anti-aliasing.
+   */
+  float m_vertex_radius;
+
+  /*!
+   * Stroking radius value to push down to the
+   * fragment shader
+   */
+  float m_fragment_radius;
+
+  /*!
+   * Amoount by which to multiply the coverage
+   * to implement graceful thin stroking.
+   */
+  float m_coverage_multiplier;
+};
+
+/*!
+ * Represents the information of \ref astral_stroke_radius_info_t
+ * in a fashion more suitable for stroking caps and joins.
+ */
+struct astral_stroke_radius_info_as_ratio_t
+{
+  /*!
+   * The stroking radius to pass to the fragment shader, i.e. this
+   * is the same as astral_stroke_radius_info_t::m_fragment_radius
+   */
+  float m_radius;
+
+  /*!
+   * The value of astral_stroke_radius_info_t::m_vertex_radius / astral_stroke_radius_info_t::m_fragment_radius
+   */
+  float m_vertex_to_fragment_radius_ratio;
+
+  /*!
+   * Amoount by which to multiply the coverage to implement graceful
+   * thin stroking, same as astral_stroke_radius_info_t::m_coverage_multiplier
+   */
+  float m_coverage_multiplier;
+};
+
+/*!
+ * Given a stroking radius in logical coordinates, returns the
+ * value of astral_stroke_radius_info_t to use for stroking.
+ *
+ * NOTE: when both the stroking radius in pixels is small and graceful
+ *       stroking is true, m_fragment_radius is 0. It is expected that
+ *       edge shaders (i.e. line and biarc) will increment the computed
+ *       signed distance by ASTRAL_STROKE_HARILINE_PIXEL_RADIUS. This is
+ *       also the case for hairline stroking too.
+ *
+ * \param packed_stroke_radius stroking radius packed by astral::StrokeShader::ItemDataPacker
+ * \param tr transformation from logical to screen coordinates
+ * \param sc render scale factor
+ * \param out_coverage_multiplier location to which to write the coverage multiplier
+ *                                for when doing hairline strokes that modify the
+ *                                coverage.
+ */
+astral_stroke_radius_info_t
+astral_stroke_radius_info(in float packed_stroke_radius, in AstralMatrix tr, in vec2 sc)
+{
+  float inverse_operator_norm;
+  astral_stroke_radius_info_t return_value;
+
+  tr = astral_compose_scale_and_matrix(sc, tr);
+  inverse_operator_norm = astral_fast_inverse_operator_norm(tr);
+
+  return_value.m_coverage_multiplier = 1.0;
+
+  if (packed_stroke_radius == 0.0)
+    {
+      return_value.m_fragment_radius = 0.0;
+      return_value.m_vertex_radius = ASTRAL_STROKE_HARILINE_PIXEL_RADIUS * inverse_operator_norm;
+    }
+  else
+    {
+      float pixel_radius;
+
+      pixel_radius = abs(packed_stroke_radius) * astral_fast_operator_norm(tr);
+      if (pixel_radius < ASTRAL_STROKE_HARILINE_PIXEL_RADIUS && packed_stroke_radius < 0.0)
+        {
+          return_value.m_coverage_multiplier = pixel_radius / ASTRAL_STROKE_HARILINE_PIXEL_RADIUS;
+          return_value.m_fragment_radius = ASTRAL_STROKE_HARILINE_PIXEL_RADIUS * inverse_operator_norm;
+        }
+      else
+        {
+          return_value.m_fragment_radius = abs(packed_stroke_radius);
+        }
+      return_value.m_vertex_radius = return_value.m_fragment_radius +  ASTRAL_STROKE_HARILINE_PIXEL_RADIUS * inverse_operator_norm;
+    }
+
+  return return_value;
+}
+
+/*!
+ * Compute a \ref astral_stroke_radius_info_as_ratio_t from a
+ * \ref astral_stroke_radius_info_t
+ */
+astral_stroke_radius_info_as_ratio_t
+astral_stroke_radius_info_as_ratio(in astral_stroke_radius_info_t v)
+{
+  astral_stroke_radius_info_as_ratio_t return_value;
+
+  return_value.m_radius = v.m_fragment_radius;
+  return_value.m_coverage_multiplier = v.m_coverage_multiplier;
+  return_value.m_vertex_to_fragment_radius_ratio = (v.m_fragment_radius) != 0.0 ?
+    v.m_vertex_radius / v.m_fragment_radius :
+    0.0;
+
+  return return_value;
+}
+
+/*!
+ * Provided as a conveniance, equivalent to
+ * \code
+ * astral_stroke_radius_info_as_ratio(astral_stroke_radius_info(packed_stroke_radius, tr, sc));
+ * \endcode
+ */
+astral_stroke_radius_info_as_ratio_t
+astral_stroke_radius_info_as_ratio(in float packed_stroke_radius, in AstralMatrix tr, in vec2 sc)
+{
+  return astral_stroke_radius_info_as_ratio(astral_stroke_radius_info(packed_stroke_radius, tr, sc));
+}
+
+/*!
+ * Represents values from a dash pattern that are computed
+ * whose values can be shared across an entire edge. These
+ * should be realized in a vertex shader and passed down
+ * to fragment shader.
+ */
+struct astral_dash_pattern_header
+{
+  /* multiplier for lengths encoded in .x and .z channels */
+  float m_xz_factor;
+
+  /* multiplier for lengths encoded in .y and .w channels */
+  float m_yw_factor;
+
+  /* dash corner radius, a negative value indicates no dash corner */
+  float m_dash_corner;
+
+  /* The absolute value gives the length of the contour or edge
+   * the dash pattern is to be applied to; if the value is negative
+   * then the dash pattern is adjusted, of the value is positive then
+   * the dash pattern is unadjusted.
+   */
+  float m_end_length;
+
+  /* the absolute value is the total length of the dash pattern
+   * taking into account m_xz_factor and m_yw_factor values;
+   * if the value is negative, then the dash pattern is applied
+   * per-edge; if positive then per-contour
+   */
+  float m_total_length;
+};
+
+/*!
+ * Represents values of a dash pattern that are loaded directly
+ * from item data; it is reasonable to reload these value in
+ * the fragment shader
+ */
+struct astral_dash_pattern
+{
+  /* the dash pattern header */
+  astral_dash_pattern_header m_header;
+
+  /* length of the last interval of the dash
+   * pattern, a negative value indicates that
+   * the last interval is a skip, a positive
+   * value indicates that the last value is
+   * a draw.
+   */
+  float m_last_interval;
+
+  /* length of the first interval with same
+   * sign encoding as m_last_interval
+   */
+  float m_first_interval;
+
+  /* number of intervals in the dash pattern */
+  uint m_number_intervals;
+
+  /* location of intervals */
+  uint m_interval_location;
+};
+
+struct astral_dash_interval_result
+{
+  // the input value
+  float m_input;
+
+  // the closest interval boundary
+  float m_closest_interval_boundary;
+
+  // the interval boundary futher away
+  float m_furthest_interval_boundary;
+
+  // the start of the interval where the query lies
+  float m_interval_begin;
+
+  // the end of the interval where the query lies
+  float m_interval_end;
+
+  // -1 if in a skip interval, +1 if in a draw interval
+  float m_covered;
+
+  // if covered because inside dash-corner
+  bool m_inside_dash_corner;
+};
+
+/*!
+ * Macro function to take as input a astral_dash_pattern_header variable
+ * and return true if an only if the dash pattern interval lengths get
+ * adjusted
+ */
+#define astral_dash_pattern_is_adjusted(D) (D.m_end_length < 0.0)
+
+/*!
+ * Macro function to take as input a astral_dash_pattern_header variable
+ * and return true if an only if the dash pattern is applied per edge
+ */
+#define astral_dash_pattern_is_applied_per_edge(D) (D.m_total_length < 0.0)
+
+/*!
+ * Macro function to take as input a astral_dash_pattern_header variable
+ * and return the length of the dash pattern *WITH* adjustment applied
+ */
+#define astral_dash_pattern_total_length(D) (abs(D.m_total_length))
+
+/*!
+ * Macro function to take as input a astral_dash_pattern_header variable
+ * and return the length of contour or edge that the dash pattern is
+ * applied to
+ */
+#define astral_dash_pattern_end_length(D) (abs(D.m_end_length))
+
+
+/*!
+ * Load a astral_dash_pattern value; returns true
+ * if the dash pattern restarts on each edge.
+ */
+bool
+astral_load_dash_pattern_header(in float edge_length,
+                                in float contour_length,
+                                in uint item_data_location,
+                                out astral_dash_pattern_header out_dash)
+{
+  /* DashPattern packing is
+   *   [0] --> Base stroking data (stroke_radius, t, transformation_cookie, signed miter-limit)
+   *   [1] --> (total_xz_length, total_yw_length, dash_corner, flags)
+   *   [2] --> (FREE, last_interval_length, first_interval_length, number_of_intervals)
+   *
+   * Flags are wired for encoding in XZ/YW adjust flags.
+   */
+
+  vec4 data;
+  uint flags;
+  float XZ, YW, P, L, sign_of_adjusted;
+
+  data = astral_read_item_dataf(item_data_location + ASTRAL_STROKING_DASH_DATA_START);
+  XZ = data.x;
+  YW = data.y;
+  out_dash.m_dash_corner = data.z;
+  flags = floatBitsToUint(data.w);
+
+  if ((flags & ASTRAL_STROKE_DASH_STARTS_PER_EDGE) != 0u)
+    {
+      out_dash.m_end_length = edge_length;
+    }
+  else
+    {
+      out_dash.m_end_length = contour_length;
+    }
+
+  /* can't adjust if there is nothing to adjust */
+  if (XZ <= 0.0)
+    {
+      flags &= ~ASTRAL_STROKE_DASH_ADJUST_XZ;
+    }
+
+  /* can't adjust if there is nothing to adjust */
+  if (YW <= 0.0)
+    {
+      flags &= ~ASTRAL_STROKE_DASH_ADJUST_YW;
+    }
+
+  P = XZ + YW;
+  L = out_dash.m_end_length - 2.0 * out_dash.m_dash_corner;
+
+  out_dash.m_xz_factor = 1.0;
+  out_dash.m_yw_factor = 1.0;
+
+  if (out_dash.m_dash_corner >= 0.0
+      && (flags & ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW) != 0u
+      && L > 0.0)
+    {
+      float N, subtract, denonimator, f, r;
+
+      if (L > P)
+        {
+          r = L / P;
+          N = floor(r);
+
+          /* if we are compressing, then increment N */
+          if ((flags & ASTRAL_STROKE_DASH_ADJUST_COMPRESS) != 0u && r > N)
+            {
+              N += 1.0;
+            }
+
+          /* make sure N is non-zero */
+          N = max(N, 1.0);
+        }
+      else
+        {
+          flags |= ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW;
+          N = 1.0;
+        }
+
+      if ((flags & ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW) == ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW)
+        {
+          denonimator = P;
+          subtract = 0.0;
+        }
+      else if ((flags & ASTRAL_STROKE_DASH_ADJUST_XZ) != 0u)
+        {
+          denonimator = XZ;
+          subtract = YW;
+        }
+      else
+        {
+          denonimator = YW;
+          subtract = XZ;
+        }
+
+      if (subtract * N > L)
+        {
+          N -= 1.0;
+        }
+
+      f = (L - N * subtract) / (N * denonimator);
+
+      if ((flags & ASTRAL_STROKE_DASH_ADJUST_XZ) != 0u)
+        {
+          out_dash.m_xz_factor = f;
+        }
+
+      if ((flags & ASTRAL_STROKE_DASH_ADJUST_YW) != 0u)
+        {
+          out_dash.m_yw_factor = f;
+        }
+
+      sign_of_adjusted = -1.0;
+    }
+  else
+    {
+      sign_of_adjusted = 1.0;
+    }
+
+  out_dash.m_total_length = out_dash.m_xz_factor * XZ + out_dash.m_yw_factor * YW;
+
+  /* encode if the pattern is adjust with the sign of out_dash.m_end_length */
+  out_dash.m_end_length *= sign_of_adjusted;
+
+  /* Encode if it starts per edge by the sign of out_dash.m_total_length */
+  if ((flags & ASTRAL_STROKE_DASH_STARTS_PER_EDGE) != 0u)
+    {
+      out_dash.m_total_length *= -1.0;
+    }
+
+  return astral_dash_pattern_is_applied_per_edge(out_dash);
+}
+
+void
+astral_load_dash_pattern(in uint item_data_location,
+                         in astral_dash_pattern_header header,
+                         out astral_dash_pattern out_data)
+{
+  vec4 data;
+
+  data = astral_read_item_dataf(item_data_location + ASTRAL_STROKING_DASH_DATA_START + 1u);
+  out_data.m_header = header;
+  out_data.m_last_interval = data.y;
+  out_data.m_first_interval = data.z;
+  out_data.m_number_intervals = floatBitsToUint(data.w);
+  out_data.m_interval_location = item_data_location + ASTRAL_STROKING_DASH_DATA_START + 2u;
+}
+
+bool
+astral_load_dash_pattern(in float edge_length,
+                         in float contour_length,
+                         in uint item_data_location,
+                         out astral_dash_pattern out_data)
+{
+  bool return_value;
+  astral_dash_pattern_header header;
+
+  return_value = astral_load_dash_pattern_header(edge_length, contour_length,
+                                                 item_data_location, header);
+  astral_load_dash_pattern(item_data_location, header, out_data);
+
+  return return_value;
+}
+
+/* Performs a simple -linear- search to comptue what interval
+ * a distance is located at. Returns 1.0 if it is an interval
+ * with positive sign and -1.0 if it is an interval with negative
+ * sign
+ * \param interval_location location of interval values
+ * \param dash dash pattern
+ * \param[out] interval_begin start of the interval
+ * \param[out] interval_end end of the interval
+ */
+float
+astral_compute_interval(in float in_distance, in astral_dash_pattern dash,
+                        out float interval_begin, out float interval_end,
+                        out bool inside_dash_corner)
+{
+  float s, tmp, roll_over, maxE, minB;
+
+  if (dash.m_header.m_dash_corner >= 0.0)
+    {
+      inside_dash_corner = true;
+      if (2.0 * dash.m_header.m_dash_corner >= abs(dash.m_header.m_end_length))
+        {
+          /* the dash corner consumes the entire length */
+          interval_begin = -dash.m_header.m_dash_corner;
+          interval_end = abs(dash.m_header.m_end_length) + dash.m_header.m_dash_corner;
+          return 1.0;
+        }
+
+      minB = dash.m_header.m_dash_corner + dash.m_header.m_xz_factor * max(0.0, dash.m_first_interval);
+      if (in_distance < minB)
+        {
+          interval_begin = -dash.m_header.m_dash_corner;
+          interval_end = minB;
+          return 1.0;
+        }
+
+      maxE = abs(dash.m_header.m_end_length) - dash.m_header.m_dash_corner;
+      if (astral_dash_pattern_is_adjusted(dash.m_header))
+        {
+          float factor;
+
+          /* this additional padding is not correct if the dash pattern
+           * is not adjusted so that dash.m_header_m_end_length is a
+           * multiple of the length of the dash pattern.
+           */
+          factor = ((dash.m_number_intervals & 1u) == 1u) ? dash.m_header.m_xz_factor : dash.m_header.m_yw_factor;
+          maxE -= factor * max(0.0, dash.m_last_interval);
+        }
+
+      if (in_distance >= maxE)
+        {
+          interval_begin = maxE;
+          interval_end = abs(dash.m_header.m_end_length) + dash.m_header.m_dash_corner;
+          return 1.0;
+        }
+    }
+  else
+    {
+      /* since there is no dash corner boundary to worry about,
+       * make maxE extremely positive longer than the length
+       * and make minB the negative of that.
+       */
+      maxE = (abs(dash.m_header.m_end_length) + 1.0) * 2.0;
+      minB = -maxE;
+    }
+
+  inside_dash_corner = false;
+
+  s = max(0.0, dash.m_header.m_dash_corner);
+  tmp = (in_distance - s) / abs(dash.m_header.m_total_length);
+
+  /* Well, this is awkward. This ugly bit of code is for when
+   * a line segment or arc starts -exactly- were the dash pattern
+   * repeats, starts with a draw interval and end with a skip
+   * interval. If we take the roll-over as is, then begin interval
+   * would be initialized to at the start of a draw interval
+   * and the start capper would miss that boundary. By decrementing
+   * tmp by 1.0, we start at the repeat of the dash pattern that
+   * -ends- where the line segment or arc start. This will allow
+   * for the capper vertex shader to capture that boundary and
+   * register as not inside the dash pattern.
+   */
+  if (tmp > 0.0 && dash.m_first_interval >= 0.0 && floor(tmp) == tmp)
+    {
+      tmp -= 1.0;
+    }
+  tmp = floor(tmp);
+  roll_over = tmp * abs(dash.m_header.m_total_length);
+
+  interval_begin = s + roll_over;
+  interval_end = interval_begin;
+
+  if ((dash.m_last_interval >= 0.0) == (dash.m_first_interval > 0.0))
+    {
+      /* push the beginning of the interval back by the length
+       * of the last interval when both the first and last
+       * intervals are the same kind of intervals
+       */
+      interval_begin -= abs(dash.m_last_interval);
+    }
+
+  /* If there is a dash corner, the value of minB and maxE are where
+   * the boundaries of the dash corner. The output values are clamped
+   * to minB and maxE so that the dash corner boundary is used. If
+   * there was no dash corner, then minB and maxE are chosen so that
+   * clamping to them has no effect on the output values.
+   */
+  for (uint c = 0u, loc = dash.m_interval_location; c < dash.m_number_intervals; ++loc, c += 4u)
+    {
+      vec4 dash_elements;
+
+      dash_elements = astral_read_item_dataf(loc);
+
+      interval_end += dash.m_header.m_xz_factor * abs(dash_elements.x);
+      if (in_distance < interval_end)
+        {
+          interval_begin = max(interval_begin, minB);
+          interval_end = min(interval_end, maxE);
+          return sign(dash_elements.x);
+        }
+      interval_begin = interval_end;
+
+      interval_end += dash.m_header.m_yw_factor * abs(dash_elements.y);
+      if (in_distance < interval_end)
+        {
+          interval_begin = max(interval_begin, minB);
+          interval_end = min(interval_end, maxE);
+          return sign(dash_elements.y);
+        }
+      interval_begin = interval_end;
+
+      interval_end += dash.m_header.m_xz_factor * abs(dash_elements.z);
+      if (in_distance < interval_end)
+        {
+          interval_begin = max(interval_begin, minB);
+          interval_end = min(interval_end, maxE);
+          return sign(dash_elements.z);
+        }
+      interval_begin = interval_end;
+
+      interval_end += dash.m_header.m_yw_factor * abs(dash_elements.w);
+      if (in_distance < interval_end)
+        {
+          interval_begin = max(interval_begin, minB);
+          interval_end = min(interval_end, maxE);
+          return sign(dash_elements.w);
+        }
+      interval_begin = interval_end;
+    }
+
+  /* if we got here, then we have roll-over so we test
+   * against the first interval.
+   */
+  interval_end += dash.m_header.m_xz_factor * abs(dash.m_first_interval);
+  return sign(dash.m_first_interval);
+}
+
+/* Builds from astral_compute_interval() to give a distance
+ * value to the nearest interval boudnary. The distance value
+ * is signed with negative indicating the interval is a skip
+ * interval and positive indicating it is a draw interval.
+ * \param in_distance query
+ * \param dash dash pattern
+ * \param[out] result result of query
+ */
+float
+astral_compute_dash_distance(in float in_distance, in astral_dash_pattern dash,
+                             out astral_dash_interval_result result)
+{
+  float d0, d1, d;
+
+  result.m_input = in_distance;
+  result.m_covered = astral_compute_interval(in_distance, dash,
+                                             result.m_interval_begin,
+                                             result.m_interval_end,
+                                             result.m_inside_dash_corner);
+
+  d0 = in_distance - result.m_interval_begin;
+  d1 = result.m_interval_end - in_distance;
+  if (d0 < d1)
+    {
+      result.m_closest_interval_boundary = result.m_interval_begin;
+      result.m_furthest_interval_boundary = result.m_interval_end;
+      d = d0;
+    }
+  else
+    {
+      result.m_closest_interval_boundary = result.m_interval_end;
+      result.m_furthest_interval_boundary = result.m_interval_begin;
+      d = d1;
+    }
+
+  return result.m_covered * d;
+}
+
+
+/* Convenience overload when one does not want/need the
+ * astral_dash_interval_result value
+ */
+float
+astral_compute_dash_distance(in float raw_distance, in astral_dash_pattern dash)
+{
+  astral_dash_interval_result ignored;
+  return astral_compute_dash_distance(raw_distance, dash, ignored);
+}
+
+struct astral_capped_dash_query
+{
+  uint m_subshader; //identifies the subshader
+  float m_dash_distance; //return value of astral_compute_dash_distance()
+  astral_dash_interval_result m_dash_result; //detailed return value of astral_compute_dash_distance()
+
+  float m_stroke_radius;
+  float m_distance_to_curve; //distance of query point from the curve
+  float m_begin_curve; //distance from where the curve begins
+  float m_end_curve; //distance from where the curve ends
+
+  /* if ASTRAL_STROKE_START_EDGE_MASK is up, indicates that the
+   * curve starts an edge.
+   *
+   * if ASTRAL_STROKE_END_EDGE_MASK is up, indicates that the
+   * curve ends an edge.
+   */
+  uint m_boundary_flags;
+};
+
+struct astral_capped_dash_anti_alias_params
+{
+  /* Provides the screen space gradient of
+   * astral_capped_dash_query::m_dash_distance
+   */
+  vec2 m_gradient_dash_distance;
+
+  /* Provides the screen space gradient of
+   * astral_capped_dash_query::m_distance_to_curve;
+   * only needed for capped rounded stroking
+   */
+  vec2 m_gradient_distance_to_curve;
+};
+
+/* routine used by astral_compute_dash_distance_capped() to decide
+ * if a cap should be taken into acount.
+ */
+bool
+astral_cap_starts_within_curve(in uint cap_style, inout astral_capped_dash_query query)
+{
+  /* If the closest interval is inside the curve, then that boundary can
+   * be used to create a cap.
+   */
+  if (query.m_dash_result.m_closest_interval_boundary >= query.m_begin_curve
+      && query.m_dash_result.m_closest_interval_boundary <= query.m_end_curve)
+    {
+      return true;
+    }
+
+  /* Secondly check if the boundary that is further away can be used to generate a cap,
+   * which requires
+   *   (1) furthest boundary point is inside of the curve
+   *   (2) if the closest bounary point failed because it came before the start of the curve, then it must have ASTRAL_STROKE_START_EDGE_MASK
+   *   (3) if the closest bounary point failed because it came afte the end of the curve, then it must be a ASTRAL_STROKE_END_EDGE_MASK
+   */
+  if (query.m_dash_result.m_furthest_interval_boundary >= query.m_begin_curve
+      && query.m_dash_result.m_furthest_interval_boundary <= query.m_end_curve
+      && ((0u != (query.m_boundary_flags & ASTRAL_STROKE_START_EDGE_MASK)
+           && query.m_dash_result.m_closest_interval_boundary < query.m_begin_curve)
+          || (0u != (query.m_boundary_flags & ASTRAL_STROKE_END_EDGE_MASK)
+              && query.m_dash_result.m_closest_interval_boundary > query.m_end_curve)))
+    {
+      query.m_dash_distance = query.m_dash_result.m_covered * abs(query.m_dash_result.m_furthest_interval_boundary - query.m_dash_result.m_input);
+      return true;
+    }
+
+  return false;
+}
+
+/*!
+ * Computes the signed distance suitable for anti-aliasing to a dash pattern
+ * taking into account the cap style. However, a cap induced from the dash
+ * pattern is ignored if the start of the cap comes from outside of the curve.
+ * \param query describes the curve and location within the curve, output
+ *              of astral_compute_dash_distance()
+ * \param aa_params values needed to scale distance vaues to pixels
+ * \param signed_distance signed distance value with which to combine
+ *                        the distance to the dash pattern
+ */
+float
+astral_compute_dash_distance_capped(in astral_capped_dash_query query,
+                                    in astral_capped_dash_anti_alias_params aa_params,
+                                    in float signed_distance)
+{
+  uint cap_style;
+  float D, Q, inv_mag_dash_gradient;
+  const float pixel_slack = 1.01;
+
+  cap_style = astral_stroke_cap_style(query.m_subshader);
+
+  inv_mag_dash_gradient = dot(aa_params.m_gradient_dash_distance,
+                              aa_params.m_gradient_dash_distance);
+  inv_mag_dash_gradient = inversesqrt(inv_mag_dash_gradient);
+
+  D = query.m_dash_distance * inv_mag_dash_gradient;
+  Q = query.m_stroke_radius * inv_mag_dash_gradient;
+
+  /* modify D to respect the cap style; Note that we
+   * have the condition  D > -pixel_slack OR
+   * astral_cap_starts_within_curve() is true; the
+   * motivation is to handle the case where a cap starts
+   * at NEARLY the exact edge of a triangle; in this case
+   * the capper may not hit the pixels on the boundary and
+   * thus get a rasterization gap. In addition, if the capper
+   * would draw over, then it will max over these pixels anyways.
+   */
+  if (ASTRAL_STROKE_CAP_STYLE_FLAT_CAP != cap_style
+      && D > -Q - pixel_slack
+      && D < pixel_slack
+      && (D > -pixel_slack || astral_cap_starts_within_curve(cap_style, query)))
+    {
+      if (ASTRAL_STROKE_CAP_STYLE_ROUNDED_CAP == cap_style)
+        {
+          vec2 v, dvdx, dvdy;
+          float f, L, m, dx, dy;
+
+          /* The value of L is the distance from the position
+           * of the query point to the center of the stroke
+           * where the dash patterns ends.
+           */
+          v = vec2(query.m_dash_distance, query.m_distance_to_curve);
+          dvdx = vec2(aa_params.m_gradient_dash_distance.x, aa_params.m_gradient_distance_to_curve.x);
+          dvdy = vec2(aa_params.m_gradient_dash_distance.y, aa_params.m_gradient_distance_to_curve.y);
+          L = length(v);
+
+          /* This is the signed distance in local coordinates to the
+           * boundary of the -STROKE- in coordinate system of along
+           * the path,
+           */
+          f = query.m_stroke_radius - L;
+
+          /* normalized the distance to a value in pixel coordinates */
+          dx = dot(v, dvdx);
+          dy = dot(v, dvdy);
+          m = L * inversesqrt(dx * dx + dy * dy);
+
+          D = max(D, f * m);
+        }
+      else
+        {
+          vec2 v, f, u;
+
+          /* A square cap is the same a rounded cap, but uses the max-norm
+           * given by ||v||_max := max(|v.x|, |v.y|) instead of the unsual L2-norm
+           * which is given by ||v||_2 := sqrt(dot(v, v)).
+           *
+           * The main icky issue is that we want a value in pixels, but the
+           * normalization between the along the curve and perpindicular to
+           * the curve are different. Before computing the max(), we normalize
+           */
+          v = vec2(query.m_dash_distance, query.m_distance_to_curve);
+          f = vec2(query.m_stroke_radius, query.m_stroke_radius) - abs(v);
+
+          u = vec2(aa_params.m_gradient_distance_to_curve.x, aa_params.m_gradient_distance_to_curve.y);
+
+          f.x *= inv_mag_dash_gradient;
+          f.y *= inversesqrt(dot(u, u));
+
+          D = max(D, min(f.x, f.y));
+        }
+    }
+
+  return astral_combine_signed_distances_intersect(signed_distance, D);
+}
+
+/*!
+ * Computes the signed distance suitable for no anti-aliasing to a dash pattern
+ * taking into account the cap style. However, a cap induced from the dash
+ * pattern is ignored if the start of the cap comes from outside of the curve.
+ * \param query describes the curve and location within the curve, output
+ *              of astral_compute_dash_distance()
+ * \param signed_distance signed distance value with which to combine
+ *                        the distance to the dash pattern
+ */
+float
+astral_compute_dash_distance_capped(in astral_capped_dash_query query,
+                                    in float signed_distance)
+{
+  uint cap_style;
+  float Q, D;
+
+  cap_style = astral_stroke_cap_style(query.m_subshader);
+  D = query.m_dash_distance;
+  Q = query.m_stroke_radius;
+
+  if (ASTRAL_STROKE_CAP_STYLE_FLAT_CAP != cap_style
+      && D > -Q
+      && astral_cap_starts_within_curve(cap_style, query))
+    {
+      if (ASTRAL_STROKE_CAP_STYLE_ROUNDED_CAP == cap_style)
+        {
+          vec2 v;
+
+          v = vec2(query.m_dash_distance, query.m_distance_to_curve);
+          D = max(D, query.m_stroke_radius - length(v));
+        }
+      else
+        {
+          D = max(D, query.m_stroke_radius - abs(query.m_dash_distance));
+        }
+    }
+
+  return astral_combine_signed_distances_intersect(D, signed_distance);
+}
+
+/*!
+ * In contrast to astral_compute_dash_distance_capped() which takes
+ * a astral_capped_dash_query argument, this routine computes the
+ * signed distance taking into the account cap style without ever
+ * dropping induced caps
+ * \param subshader used to identify the cap style
+ * \param dash_distance return value of astral_compute_dash_distance()
+ * \param stroke_radius the stroking radius
+ * \param distance_to_curve the distance of the fragment to the curve
+ */
+float
+astral_compute_dash_distance_capped(in uint subshader,
+                                    in float dash_distance,
+                                    in float stroke_radius,
+                                    in float distance_to_curve)
+{
+  uint cap_style;
+
+  cap_style = astral_stroke_cap_style(subshader);
+  if (cap_style == ASTRAL_STROKE_CAP_STYLE_SQUARE_CAP)
+    {
+      dash_distance += stroke_radius;
+    }
+  else if (cap_style == ASTRAL_STROKE_CAP_STYLE_ROUNDED_CAP)
+    {
+      float m;
+
+      m = dash_distance * dash_distance + distance_to_curve * distance_to_curve;
+      m = stroke_radius - sqrt(m);
+      dash_distance = max(dash_distance, m);
+    }
+
+  return dash_distance;
+}
+
+/*! @} */

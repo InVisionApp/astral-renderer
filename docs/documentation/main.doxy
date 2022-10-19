@@ -1,0 +1,295 @@
+/*!
+  \file main.doxy
+  \brief main.doxy
+ */
+
+/*!
+\defgroup Utility Utility
+@{
+\brief
+Utility provides simple utility, the most important and
+commonly used ones being astral::reference_counted_ptr, astral::vecN,
+and astral::c_array.
+@}
+*/
+
+/*!
+\defgroup Renderer Renderer
+@{
+\brief
+Renderer provides the how to draw with Astral
+@}
+*/
+
+/*!
+\defgroup RendererBackend Render Backend
+@{
+\brief
+Render Backend provides the interface with which to make a backend for Astral rendering
+@}
+*/
+
+/*!
+\defgroup Paths Paths
+@{
+\brief
+Paths provides the definition and creation of paths and animated paths.
+@}
+*/
+
+/*!
+\defgroup gl_util GL Utility
+@{
+\brief
+GL Utility provides utility for dealing with OpenGL
+@}
+*/
+
+/*!
+\defgroup gl GL
+@{
+\brief
+GL provides the functionality for the GL backend(s) for Astal
+@}
+*/
+
+/*!
+\defgroup GLSLBase GLSL Base Functions
+@{
+\brief
+GLSL functions provided by Astral when creating shader source for an
+astral::gl::ItemShaderBackendGL3 or an astral::gl::MaterialShaderGL3.
+@}
+*/
+
+/*!
+\defgroup GLSLStroke GLSL Stroking Functions
+@{
+\brief
+GLSL functions related to stroking provided by Astral when creating
+shader source for an astral::gl::ItemShaderBackendGL3 or an
+astral::gl::MaterialShaderGL3 when the astral::gl::ShaderLibrary
+astral::gl::ShaderLibraryGL3::m_stroke_lib is included.
+@}
+*/
+
+/*!
+\defgroup GLSLGradient GLSL Gradient Functions
+@{
+\brief
+GLSL functions related to gradients provided by Astral when creating
+shader source for an astral::gl::ItemShaderBackendGL3 or an
+astral::gl::MaterialShaderGL3 when the astral::gl::ShaderLibrary
+astral::gl::ShaderLibraryGL3::m_gradient_lib is included.
+@}
+*/
+
+/*!
+\defgroup GLSLImage GLSL Image Functions
+@{
+\brief
+GLSL functions related to imaging provided by Astral when creating
+shader source for an astral::gl::ItemShaderBackendGL3 or an
+astral::gl::MaterialShaderGL3 when the astral::gl::ShaderLibrary
+astral::gl::ShaderLibraryGL3::m_image_lib is included.
+@}
+*/
+
+/*!
+\defgroup GLSLItemPath GLSL Shader Path Functions
+@{
+\brief
+GLSL functions for rendering astral::ItemPath objects provided by
+Astral when creating shader source for an astral::gl::ItemShaderBackendGL3
+or an astral::gl::MaterialShaderGL3 when the astral::gl::ShaderLibrary
+astral::gl::ShaderLibraryGL3::m_item_path_lib is included.
+@}
+*/
+
+/*!
+ * \brief
+ * The namespace where all functions and classes of Astral reside
+ */
+namespace astral
+{
+  /*!
+   * \brief
+   * The namespace within \ref astral for where the GL backend
+   * and GL utility classes and functions reside.
+   */
+  namespace gl
+  {
+  }
+}
+
+/*! \mainpage Astral
+
+  \section Purpose Purpose
+  Astral is a GPU only canvas renderer with an emphasis on providing high
+  performance animated rendering (in particular stroking and filling of path).
+  Astral does not have any CPU backend and all rendering is performed by
+  the GPU.
+
+  \section HighLevel Rendering Concepts: High Level
+
+    \subsection Transformations
+    Transformations in Astral are 2D only, i.e. a 2x2 matrix with a
+    translation. They are embodied by astral::Transformation.
+
+    \subsection RenderingBasics Rendering Basics
+    - Astral rendering is completely deferred until the end of a frame,
+      see astral::Renderer::begin() and astral::Renderer::end(). By
+      doing so, Astral can batch draws, even across virtual render
+      targets together. This technique allows for Astral to use a
+      GPU dramatically more efficitiently.
+
+    - For an application, all of the contents of a single frame
+      should be rendered within a single astral::Renderer::begin(),
+      astral::Renderer::end() pair. However, rendering commands
+      are not processed by astral::Renderer. Instead, the method
+      astral::Renderer::begin() returns an astral::RenderEncoderSurface,
+      which is a handle. The handle has methods for adding renderer
+      content to the astral::RenderTarget passed to the method
+      astral::Renderer::begin().
+
+    - Through the class astral::Brush, all objects in Astral
+      can have a rich brush applied to their pixels. A brush has
+      a base color, an optional image and an optional gradient.
+      Both the gradient and image can have a repeat window and a
+      transformation applied to them.
+
+    - Astral requires applications to use the interface embodied
+      by astral::RenderValue to enable reducing upload of duplicate
+      data to the GPU. For example, when drawing with a brush, the
+      draw calls of astral::RenderEncoderBase do not accept an
+      astral::Brush directly to specify the brush, but instead
+      accept an astral::RenderValue<astral::Brush> which
+      represents a handle to data uploaded (or to be uplaoded) to
+      a GPU to represent the brush. An astral::RenderValue value
+      in valid only within the astral::Renderer::begin() /
+      astral::Renderer::end() pair when it was made.
+
+    \subsection Clipping
+    - The clipping state for any astral::RenderEncoderBase derived
+      object is immutable. To perform clipping, one uses the methods
+      astral::RenderEncoderBase::clip_node_logical() and
+      astral::RenderEncoderBase::clip_node_pixel() which returns
+      two astral::RenderEncoderImage values: one for content that is
+      to be clipped-in and one for content that is to be clipped-out.
+      One can call astral::RenderEncoderBase::clip_node_logical()
+      on the returned values to intersect clip regions. A clip region
+      can be given by a mask (embodied by astral::Image), a fill of
+      an astral::Path, astral::AnimatedPath, or the collective fill
+      of a collection of astral::Path and astral::AnimatedPath objects.
+
+    \subsection Masks
+    - A mask is emboded by an astral::Image whose astral::Image::format()
+      is astral::image_format_mask. Masks are used to perform clipping,
+      stroke paths and to fill paths. A caller can save renders of masks
+      from one frame to the next to improve performance. In addition when
+      rendering a mask, a caller can elect to render the mask at a lower
+      resolution than that which it projects onto the screen. This works
+      incredibly well for the rendering of fills because a mask also
+      provides a signed distance field value. For most paths, rendering
+      the mask for fills at half the resolution in each dimension is nearly
+      indistinguishable from rendering at full resolution; the half
+      resolution though is only 25% the number of pixels. See the
+      method overloads for astral::RenderEncoderBase::generate_mask()
+      on generating masks from stroking or filling paths.
+
+    \subsection OffscreenRendering Offscreen Rendering
+    - Rendering to an offscreen buffer is a first class citizen in
+      Astral. An offscreen buffer can be a color buffer of mask.
+      Rendering to a color buffer is accomplished by the methods
+      astral::RenderEncoderBase::encoder_image_relative() and
+      astral::RenderEncoderBase::encoder_image() which return
+      an astral::RenderEncoderImage value. Rendering a mask is
+      done with astral::RenderEncoderBase::encoder_mask_relative()
+      and astral::RenderEncoderBase::encoder_mask() each of which
+      return an astral::RenderEncoderMask value.
+
+    - In addition, for rendering layers to have alpha blending
+      applied or to have an effect (such as Gaussian blur) is
+      performed by offscreen rendering via rendering to an
+      astral::Image via an astral::RenderEncoderImage value,
+      see the overloads of astral::RenderEncoderBase::encoder_layer().
+
+  \section LowLevel Rendering Concepts: Low Level
+  An astral::RenderEngine derived type, for example the class
+  astral::gl::RenderEngineGL3, embodies how Astral stores data
+  and sends commands to a GPU. An application should have only
+  one astral::RenderEngine derived object for its entire lifetime.
+  An astral::RenderEngine can then be used to create the gateway
+  to rendering an astral::Renderer. In the vast super-majority
+  of situations, there should be onle one astral::Renderer object
+  for an application lifetime as well.
+
+  Astral supports the ability for applications to do custom shading.
+  There are two kinds of shaders: item shading embodied by the
+  class astral::ItemShader and material shading embodied by the
+  class astral::MaterialShader. A material shader represents how to
+  compute the color at each pixel covered by an item. Item shading
+  specifies where the vertices land along with the "start" color and
+  "start" coverage to feed a material shader. In addition, there are
+  three classes of item shaders: one for color rendering
+  (astral::ColorItemShader), one for mask rendering (astral::MaskItemShader)
+  and one for generating shadow maps (astral::ShadowMapItemShader).
+  A custom shader is tied to backend, so for example for the GL3
+  backend, astral::gl::RenderEngineGL3, to create a material shader
+  one would create an astral::gl::MaterialShaderGL3 object. The
+  immutable portion of data for a shader to process is implemented
+  by the two classes:
+  - astral::VertexData embodies the indices and vertices
+    of drawing with a shader. This is what is fed directly to the
+    3D API for attributes. This data is immutable. To create
+    vertex data, use the astral::VertexDataAllocator returned by
+    astral::RenderEngine::vertex_data_allocator().
+  - astral::StaticData embodies addition data, typically to be
+    used within a shader across many vertices. This data is also
+    immutable. To create data that is four channels wide with each
+    channel 32-bits use the astral::StaticDataAllocator returned
+    by astral::RenderEngine::static_data_allocator32(). To create
+    four channel wide data where each channel is a 16-bit float
+    use the astral::StaticDataAllocator returned by
+    astral::RenderEngine::static_data_allocator16().
+  .
+  The data of astral::VertexData and astral::StaticData
+  embody the "what" to draw and should be generated once for an item
+  and reused across many frames. As an example rendering a path or
+  animated path reuses the same immutable data and this is also why
+  path and animated path objects should NEVER be regenereated each frame.
+  Variation of how to draw is accomplished by astral::ItemData
+  which is a small amount of data is cheap to regenerate. It embodies
+  the custom "how" to draw. One example is the animation interpolate
+  for drawing animated paths.
+
+  The template class astral::RenderValue represents typed data
+  uploaded to the GPU. Using the value of astral::RenderValue::cookie()
+  together with astral::ItemDataValueMapping, a custom shader can
+  refer to various typed values from a shader.
+
+  \section Interfaces Interfaces
+  - Main interface: astral::RenderEngine, astral::Renderer,
+    astral::RenderEncoderSurface, astral::RenderEncoderImage,
+    astral::RenderEncoderMask, astral::Transformation and
+    astral::RenderValue
+  - Paths: astral::Path and astral::AnimatedPath; see also
+    astral::CombinedPath, astral::FillCombinedPathParameters,
+    astral::StrokeParameters and astral::StrokeMaskProperties
+  - Image data: astral::Image and astral::ColorStopSequence
+  - Brushes: astral::Brush, astral::ImageSampler, astral::Gradient
+  - Effects: astral::Effect and astral::GaussianBlurParameters
+  - Custom Shading: astral::ItemShader, astral::VertexData,
+    astral::StaticData, astral::ItemData, astral::RenderValue
+  - Making a new backend: astral::RenderBackend, astral::RenderEngine,
+    astral::ImageAtlasBacking, astral::ColorStopSequenceAtlasBacking,
+    astral::VertexDataBacking, astral::StaticDataBacking,
+    astral::ShaderSet and astral::EffectShaderSet.
+
+  \section Examples Examples
+  - See \ref ex_framework for the example framework to get started with the examples.
+  - See \ref ex_initialization for the intialization code for Astral.
+  - See \ref ex_brush for example on applying a brush.
+  - See \ref ex_custom_brush for example on creating and applying a custom material.
+  - See \ref ex_path for example on stroking, filling and clipping against a path.
+*/

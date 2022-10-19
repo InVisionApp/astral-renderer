@@ -1,0 +1,160 @@
+// -*- C++ -*-
+/*!
+ * \file astral_shadow_util.glsl.resource_string
+ * \brief astral_shadow_util.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+#define ASTRAL_MIN_SIDE_ACTIVE 1u
+#define ASTRAL_MAX_SIDE_ACTIVE 2u
+#define ASTRAL_EDGE_SHADOW_CLIPPED 4u
+
+struct astral_edge_shadow
+{
+  /* if the projection is empty */
+  uint m_flags;
+
+  /* begin and end range in [-1, 1] of edge shadow casted on a side */
+  float m_begin, m_end;
+};
+
+float
+astral_edge_shadow_compute_projection(vec2 p)
+{
+  float v;
+
+  /* assume p.y >= 0 */
+  v = clamp(p.x, -p.y, p.y);
+
+  return (p.y > 0.0) ? v / p.y : sign(p.x);
+}
+
+void
+astral_edge_shadow_union(in astral_edge_shadow v0, in astral_edge_shadow v1, out astral_edge_shadow out_shadow)
+{
+  out_shadow.m_flags = v0.m_flags | v1.m_flags;
+  out_shadow.m_begin = min(v0.m_begin, v1.m_begin);
+  out_shadow.m_end = max(v0.m_end, v1.m_end);
+}
+
+/* given p and q, compute the projection of the [p, q]
+ * onto the "max-y side at infinity". Formally, this means
+ *  1) clip [p, q] against y >= -x to give [p', q']
+ *  2) clip [p', q'] against y >= x to give [P, Q]
+ *  3) the range is then the interval containing P.x/P.y and Q.x/Q.y
+ *
+ * However, we can severely simplify this.
+ *  1) check the signs of p.y and q.y
+ *  2) if both are negative, then the intersection is empty
+ *  3) if both are non-negative, then range is then the
+ *     interval containing clamp(p.x, -p.y, p.y) / p.y
+ *     and clamp(q.x, -q.y, q.y) / q.y
+ *  4) if one is positive and the other is negative, then
+ *     intersect [p, q] against y = 0, to get an x. If
+ *     x is negative then -1 is in the range and if x is
+ *     positive then +1 is in the range.
+ */
+void
+astral_edge_shadow_compute_range_max_y_side(in vec2 p, in vec2 q, in uint flags, out astral_edge_shadow out_shadow)
+{
+  if (p.y <= 0.0 && q.y <= 0.0)
+    {
+      out_shadow.m_flags = 0u;
+      out_shadow.m_begin = 2.0;
+      out_shadow.m_end = -2.0;
+    }
+  else if (p.y >= 0.0 && q.y >= 0.0)
+    {
+      float P, Q;
+
+      P = astral_edge_shadow_compute_projection(p);
+      Q = astral_edge_shadow_compute_projection(q);
+      out_shadow.m_flags = flags;
+      out_shadow.m_begin = min(P, Q);
+      out_shadow.m_end = max(P, Q);
+    }
+  else
+    {
+      /* solution is symmetric in p and q, so lets make it so
+       * that p.y > 0 and q.y < 0.0
+       */
+      if (p.y < 0.0)
+        {
+          vec2 f;
+
+          f = p;
+          p = q;
+          q = f;
+        }
+
+      float P, S;
+
+      P = astral_edge_shadow_compute_projection(p);
+
+      /* compute at what time L(t) = P + t * (Q - P)
+       * has L_y(t) = 0, this is given by
+       *
+       *          p_y
+       *  t = -----------
+       *       p_y - q_y
+       *
+       * We want to know if L_x(t) is positive, negative
+       * or zero. L_x(t) is given by
+       *
+       *                  p_y * (q_x - p_x)
+       *  L_x(t) = p_x + -------------------
+       *                     p_y - q_y
+       *
+       * Now, p_y >= 0.0 and q_y <= 0.0, thus p_y - q_y > 0.0
+       * thus we can just examine L_x(t) * (p_y - q_y) which gives
+       *
+       *
+       *  p_x * (p_y - q_y) + p_y * (q_x - p_x)
+       *
+       * and just examine the sign of that. Note that a
+       * value of zero means that the (0, 0), p and q
+       * are collinear and that the line segment casts
+       * an empty interval.
+       */
+      S = sign(p.x * (p.y - q.y) + p.y * (q.x - p.x));
+      out_shadow.m_flags = (S != 0.0) ? (flags | ASTRAL_EDGE_SHADOW_CLIPPED) : 0u;
+      out_shadow.m_begin = (S != 0.0) ? min(P, S) : 2.0;
+      out_shadow.m_end = (S != 0.0) ? max(P, S) : -2.0;
+    }
+}
+
+/* given p and q, compute the projection of the edge
+ * on the side y = -1.
+ */
+void
+astral_edge_shadow_compute_range_min_y_side(in vec2 p, in vec2 q, in uint flags, out astral_edge_shadow S)
+{
+  /* this is the same computation as projecting onto y = 1
+   * if we negate p.y and q.y
+   */
+  astral_edge_shadow_compute_range_max_y_side(vec2(p.x, -p.y), vec2(q.x, -q.y), flags, S);
+}
+
+/* Returns the normalized x-range of a shadow region inflated on both sides.
+ * Without this inflate, we can get cracks in the shadow map. At first I
+ * figured it was caused by that the x-coordinates are computed from a divide
+ * and round off error together with unsafe math optimizations created the
+ * crack. However, there are cases where padding by just one pixel on each
+ * side still leaves a crack behind. Thus we pad by two, which seems excessive.
+ */
+void
+astral_edge_shadow_inflate(in astral_edge_shadow S, out float min_x, out float max_x)
+{
+  min_x = max(-1.0, S.m_begin - astral_shadow_map_inverse_width);
+  max_x = min(1.0, S.m_end + astral_shadow_map_inverse_width);
+}

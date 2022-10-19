@@ -1,0 +1,75 @@
+// -*- C++ -*-
+/*!
+ * \file astral_combine_clip.vert.glsl.resource_string
+ * \brief astral_combine_clip.vert.glsl.resource_string
+ *
+ * Copyright 2021 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  /* We need to read a tile which means we need:
+   *   - what channel for the distance field value
+   *   - what channel for the coverage value
+   *   - what layer of the tile
+   *   - the difference between tile coordinates and texture atlas coordinates
+   *   - the size of the tile blit
+   */
+  uvec4 item_data;
+  uvec3 index_location;
+  uvec3 tile_atlas_location;
+  uint packed_size, bits, index_texel;
+  vec2 p, tile_size_f;
+  uvec2 tile_size_u;
+
+  item_data = astral_read_item_datau(item_data_location).xyzw;
+
+  index_location.xy = item_data.xy;
+  packed_size = item_data.z;
+  bits = item_data.w;
+
+  index_location.z = astral_unpack_bits(ASTRAL_CLIP_COMBINE_LAYER_BIT0,
+                                        ASTRAL_CLIP_COMBINE_LAYER_NUMBER_BITS,
+                                        bits);
+
+  index_texel = texelFetch(astral_image_index_atlas, ivec3(index_location), 0).r;
+  tile_atlas_location = astral_unpack_index_texel(index_texel);
+
+  if ((bits & ASTRAL_CLIP_COMBINE_ADD_PADDING_MASK) != 0u)
+    {
+      tile_atlas_location.xy += uvec2(ASTRAL_TILE_PADDING);
+    }
+
+  /* replace index_location.z in bits with tile_atlas_location.z */
+  bits &= ~astral_mask(ASTRAL_CLIP_COMBINE_LAYER_BIT0, ASTRAL_CLIP_COMBINE_LAYER_NUMBER_BITS);
+  bits |= astral_pack_bits(ASTRAL_CLIP_COMBINE_LAYER_BIT0, tile_atlas_location.z);
+
+  tile_size_u = astral_unpack_pair(packed_size);
+  tile_size_f = vec2(tile_size_u);
+  p = mix(vec2(0.0, 0.0), tile_size_f, a0.xy);
+
+  astral_combine_texel_x = float(tile_atlas_location.x) + p.x;
+  astral_combine_texel_y = float(tile_atlas_location.y) + p.y;
+  astral_combine_bits = bits;
+
+  return astral_apply_transformation(tr, p);
+}

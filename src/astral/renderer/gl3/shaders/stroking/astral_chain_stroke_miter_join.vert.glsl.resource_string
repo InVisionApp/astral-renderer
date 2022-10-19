@@ -1,0 +1,147 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_miter_join.vert.glsl.resource_string
+ * \brief astral_chain_stroke_miter_join.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+  astral_join_point join;
+  vec2 v;
+  float A, saa, aa, lambda, parallel_or_anti_parallel;
+  const float thresh = 1e-4;
+
+  astral_stroke_join_common(sub_shader, item_data_location, a0, tr, astral_render_scale(), join);
+  lambda = astral_join_lambda(thresh, join.m_join);
+  parallel_or_anti_parallel = astral_join_is_parallel_or_anti_parallel(thresh, join.m_join);
+
+  if (parallel_or_anti_parallel == 0.0)
+    {
+      /* Compute the length along the tangent unit vector for the
+       * location of the miter point.
+       */
+      A = astral_join_compute_miter_along_tangent(join.m_join);
+
+      /* obey the miter-limit requirements */
+      if (join.m_max_length_along_tangent_for_miter_limit >= 0.0)
+        {
+          /* a positive value for the miter-limit indicates
+           * to clip the miter-join to the miter-limit
+           */
+          A = clamp(A, -join.m_max_length_along_tangent_for_miter_limit, join.m_max_length_along_tangent_for_miter_limit);
+        }
+      else if (abs(A) >= -join.m_max_length_along_tangent_for_miter_limit)
+        {
+          /* A negative value indicates that if the miter-join
+           * exceeds the miter-limit to then draw the miter-join
+           * as a bevel join.
+           */
+          A = 0.0;
+        }
+    }
+  else
+    {
+      A = 0.0;
+    }
+
+  if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH)
+    {
+      aa = 0.0;
+      saa = join.m_stroke_radius.m_radius;
+      v = vec2(0.0);
+    }
+  else if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY)
+    {
+      aa = 1.0;
+      saa = join.m_stroke_radius.m_radius;
+      v = (join.m_is_leaving_pt) ? join.m_join.m_post_n : join.m_join.m_prev_n;
+    }
+  else
+    {
+      aa = 1.0;
+      saa = 0.0;
+      if (join.m_is_leaving_pt)
+        {
+          v = join.m_join.m_post_n - A * join.m_join.m_post_v;
+        }
+      else
+        {
+          v = join.m_join.m_prev_n + A * join.m_join.m_prev_v;
+        }
+    }
+  v *= lambda;
+
+  if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY && parallel_or_anti_parallel == -1.0)
+    {
+      /* this miter join is essentially a bevel join on edges that meet
+       * anti-parellel. We push it forward by a pixel or so in the direction
+       * the line segment connecting the sides of the bevel.
+       */
+      AstralMatrix real_pixel_transformation_logical;
+      float m, D, inverse_operator_norm;
+      vec2 p, minor, major;
+
+      real_pixel_transformation_logical = astral_compose_scale_and_matrix(astral_render_scale(), tr.m_matrix);
+      inverse_operator_norm = astral_fast_inverse_operator_norm(real_pixel_transformation_logical);
+      D = ASTRAL_STROKING_SECONDARY_AA_FUZZ_DISTANCE * inverse_operator_norm;
+
+      major = join.m_join.m_post_n - join.m_join.m_prev_n;
+      m = dot(major, major);
+
+      if (m > 1e-8)
+        {
+          minor = normalize(vec2(-major.y, major.x));
+        }
+      else
+        {
+          minor = join.m_join.m_prev_v;
+        }
+
+      p = D * minor;
+
+      saa = -D;
+      join.m_join.m_p.x += p.x;
+      join.m_join.m_p.y += p.y;
+    }
+
+  astral_chain_stroke_secondary_aa = (parallel_or_anti_parallel == -1.0) ? saa : ASTRAL_STROKING_SECONDARY_AA_DISABLED;
+
+  // symbols for caller
+  astral_chain_stroke_position_x = join.m_join.m_p.x;
+  astral_chain_stroke_position_y = join.m_join.m_p.y;
+  astral_chain_stroke_offset_vector_x = v.x;
+  astral_chain_stroke_offset_vector_y = v.y;
+  astral_chain_stroke_radius = join.m_stroke_radius.m_radius;
+  astral_chain_stroke_vertex_to_fragment_radius_ratio = join.m_stroke_radius.m_vertex_to_fragment_radius_ratio;
+  astral_chain_stroke_coverage_multiplier = join.m_stroke_radius.m_coverage_multiplier;
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      astral_join_distances DJ;
+
+      astral_load_stroke_join_distance(sub_shader, a0, join.m_t, join.m_distance_multiplier, DJ);
+      astral_chain_stroke_distance_along_contour = DJ.m_distance_from_contour_start;
+      astral_chain_stroke_contour_length = DJ.m_contour_length;
+      astral_chain_stroke_edge_into_join_length = DJ.m_edge_into_join_length;
+      astral_chain_stroke_edge_leaving_join_length = DJ.m_edge_leaving_join_length;
+      astral_chain_stroke_distance_from_start_edge = DJ.m_distance_from_edge_start;
+    }
+  #endif
+
+  // varying for AA
+  astral_chain_stroke_normalized_distance_to_path = aa;
+}

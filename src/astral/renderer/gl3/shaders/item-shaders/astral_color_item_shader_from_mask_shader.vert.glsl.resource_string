@@ -1,0 +1,34 @@
+// -*- C++ -*-
+/*!
+ * \file astral_color_item_shader_from_mask_shader.vert.glsl.resource_string
+ * \brief astral_color_item_shader_from_mask_shader.vert.glsl.resource_string
+ *
+ * Copyright 2021 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr,
+                   out vec2 item_p)
+{
+  vec2 p;
+
+  p = astral_vert_shader(sub_shader, item_data_location, a0, tr);
+
+  AstralTransformation itr;
+
+  itr = astral_compute_inverse(tr);
+  item_p = astral_apply_transformation(itr, p);
+
+  return p;
+}

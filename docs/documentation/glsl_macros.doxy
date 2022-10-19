@@ -1,0 +1,845 @@
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+// constants
+/*!\def ASTRAL_PI
+ * Hard-coded value of the number π
+ */
+#define ASTRAL_PI 3.14159265358979323846f
+
+/*!\def ASTRAL_2PI
+ * Hard-coded value of 2π
+ */
+#define ASTRAL_2PI 2.0f * 3.14159265358979323846f
+
+/*!\def ASTRAL_RECIP_PI
+ * Hard-coded value of 1/π
+ */
+#define ASTRAL_RECIP_PI 1.0f / 3.14159265358979323846f
+
+/*!\def ASTRAL_RECIP_2PI
+ * Hard-coded value of 1/2π
+ */
+#define ASTRAL_RECIP_2PI 0.5f / 3.14159265358979323846f
+
+/*!\def ASTRAL_INVALID_INDEX
+ * \brief
+ * Indicates that the index value for a given data object is invalid, which is the case
+ * when the corresponding astral::RenderValue::valid() in the C++ code returns false.
+ */
+#define ASTRAL_INVALID_INDEX
+
+/*!\def ASTRAL_DEPTH_CLEAR
+ * Enumeration mapping to astral::RenderBackend::depth_buffer_value_clear
+ */
+#define ASTRAL_DEPTH_CLEAR astral::RenderBackend::depth_buffer_value_clear
+
+/*!\def ASTRAL_DEPTH_OCCLUDE
+ * Enumeration mapping to astral::RenderBackend::depth_buffer_value_occlude
+ */
+#define ASTRAL_DEPTH_OCCLUDE astral::RenderBackend::depth_buffer_value_occlude
+
+// TODO: This may not belong in the public GLSL documentation
+/*!\def ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK
+ * Enumeration mapping to astral::FillSTCShader::ConicTriangle::max_major
+ */
+#define ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK astral::FillSTCShader::ConicTriangle::max_major
+
+// TODO: This may not belong in the public GLSL documentation
+/*!\def ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK
+ * Enumeration mapping to astral::FillSTCShader::ConicTriangle::max_minor
+ */
+#define ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK astral::FillSTCShader::ConicTriangle::max_minor
+
+/*!\def astral_colorstop_inverse_width
+ * Inverse of the colorstop atlas width
+ */
+#define astral_colorstop_inverse_width 1.0f / float(1u << astral::gl::RenderEngineGL3::Config::m_log2_dims_colorstop_atlas)
+
+/*!\def astral_shadow_map_inverse_width
+ * Inverse of the shadow map width
+ */
+#define astral_shadow_map_inverse_width 1.0f / float(astral::gl::RenderEngineGL3::Config::m_shadow_map_atlas_width)
+
+// fill rule enums
+/*!\def ASTRAL_ODD_EVEN_FILL_RULE
+ * Enumeration mapping to astral::odd_even_fill_rule
+ */
+#define ASTRAL_ODD_EVEN_FILL_RULE astral::odd_even_fill_rule
+
+/*!\def ASTRAL_NON_ZERO_FILL_RULE
+ * Enumeration mapping to astral::nonzero_fill_rule
+ */
+#define ASTRAL_NON_ZERO_FILL_RULE astral::nonzero_fill_rule
+
+/*!\def ASTRAL_COMPLEMENT_ODD_EVEN_FILL_RULE
+ * Enumeration mapping to astral::complement_odd_even_fill_rule
+ */
+#define ASTRAL_COMPLEMENT_ODD_EVEN_FILL_RULE astral::complement_odd_even_fill_rule
+
+/*!\def ASTRAL_COMPLEMENT_NON_ZERO_FILL_RULE
+ * Enumeration mapping to astral::complement_nonzero_fill_rule
+ */
+#define ASTRAL_COMPLEMENT_NON_ZERO_FILL_RULE astral::complement_nonzero_fill_rule
+
+// tile enums
+/*!\def ASTRAL_TILE_MODE_CLAMP
+ * \brief
+ * Indicates to clamp within the image for images and to clamp the interpolate to [0, 1] for gradients.
+ */
+#define ASTRAL_TILE_MODE_CLAMP astral::tile_mode_clamp
+
+/*!\def ASTRAL_TILE_MODE_MIRROR
+ * \brief
+ * Indicates to mirror once.
+ */
+#define ASTRAL_TILE_MODE_MIRROR astral::tile_mode_mirror
+
+/*!\def ASTRAL_TILE_MODE_REPEAT
+ * \brief
+ * Indicates to repeat.
+ */
+#define ASTRAL_TILE_MODE_REPEAT astral::tile_mode_repeat
+
+/*!\def ASTRAL_TILE_MODE_MIRROR_REPEAT
+ * \brief
+ * Indicates to repeat a mirror pattern.
+ */
+#define ASTRAL_TILE_MODE_MIRROR_REPEAT astral::tile_mode_mirror_repeat
+
+/*!\def ASTRAL_TILE_MODE_DECAL
+ * \brief
+ * Indicates no tile mode.
+ */
+#define ASTRAL_TILE_MODE_DECAL astral::tile_mode_decal
+
+/*!\def ASTRAL_TILE_MODE_NUMBER_BITS
+ * \brief
+ * Number of bits needed to encode an astral::tile_mode_t.
+ */
+#define ASTRAL_TILE_MODE_NUMBER_BITS astral::ImageSamplerBits::tile_mode_num_bits
+ //a tile mode requires 3 bits to pack
+/*!\def ASTRAL_X_TILE_MODE_BIT0
+ * \brief
+ * What bit that the encoding of astral::tile_mode_t in the x-direction starts at.
+ */
+#define ASTRAL_X_TILE_MODE_BIT0 astral::ImageSamplerBits::x_tile_mode_bit0
+
+/*!\def ASTRAL_Y_TILE_MODE_BIT0
+ * \brief
+ * What bit that the encoding of astral::tile_mode_t in the y-direction starts at.
+ */
+#define ASTRAL_Y_TILE_MODE_BIT0 astral::ImageSamplerBits::y_tile_mode_bit0
+
+/*!\def ASTRAL_WINDOW_TILE_MODE_NUM_BITS
+ * \brief
+ * Number of bits needed to encode astral::tile_mode_t for two dimensions.
+ */
+#define ASTRAL_WINDOW_TILE_MODE_NUM_BITS 2u * astral::ImageSamplerBits::tile_mode_num_bits
+
+// sRGB or linear encoding
+/*!\def ASTRAL_COLORSPACE_LINEAR
+ * Enumeration mapping to astral::colorspace_linear
+ */
+#define ASTRAL_COLORSPACE_LINEAR astral::colorspace_linear
+
+/*!\def ASTRAL_COLORSPACE_SRGB
+ * Enumeration mapping to astral::colorspace_srgb
+ */
+#define ASTRAL_COLORSPACE_SRGB astral::colorspace_srgb
+
+/*!\def ASTRAL_IMAGE_COLORSPACE_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::colorspace_bit0
+ */
+#define ASTRAL_IMAGE_COLORSPACE_BIT0 astral::ImageSamplerBits::colorspace_bit0
+
+/*!\def ASTRAL_IMAGE_COLORSPACE_NUMBER_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::colorspace_num_bits
+ */
+#define ASTRAL_IMAGE_COLORSPACE_NUMBER_BITS astral::ImageSamplerBits::colorspace_num_bits
+
+// mask-channel enums
+/*!\def ASTRAL_MASK_CHANNEL_RED
+ * Enumeration mapping to astral::mask_channel_red
+ */
+#define ASTRAL_MASK_CHANNEL_RED astral::mask_channel_red
+
+/*!\def ASTRAL_MASK_CHANNEL_GREEN
+ * Enumeration mapping to astral::mask_channel_green
+ */
+#define ASTRAL_MASK_CHANNEL_GREEN astral::mask_channel_green
+
+/*!\def ASTRAL_MASK_CHANNEL_BLUE
+ * Enumeration mapping to astral::mask_channel_blue
+ */
+#define ASTRAL_MASK_CHANNEL_BLUE astral::mask_channel_blue
+
+/*!\def ASTRAL_MASK_CHANNEL_ALPHA
+ * Enumeration mapping to astral::mask_channel_alpha
+ */
+#define ASTRAL_MASK_CHANNEL_ALPHA astral::mask_channel_alpha
+
+/*!\def ASTRAL_MASK_CHANNEL_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::mask_channel_bit0
+ */
+#define ASTRAL_MASK_CHANNEL_BIT0 astral::ImageSamplerBits::mask_channel_bit0
+
+/*!\def ASTRAL_MASK_CHANNEL_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::mask_channel_num_bits
+ */
+#define ASTRAL_MASK_CHANNEL_NUM_BITS astral::ImageSamplerBits::mask_channel_num_bits
+
+/*!\def ASTRAL_MASK_CHANNEL_MASK
+ * Enumeration mapping to astral::ImageSamplerBits::mask_channel_mask
+ */
+#define ASTRAL_MASK_CHANNEL_MASK astral::ImageSamplerBits::mask_channel_mask
+
+// post-sampling mode enums
+
+/*!\def ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT
+ * Enumeration mapping to astral::mask_post_sampling_mode_direct
+ */
+#define ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT astral::mask_post_sampling_mode_direct
+
+/*!\def ASTRAL_MASK_POST_SAMPLING_MODE_INVERT
+ * Enumeration mapping to astral::mask_post_sampling_mode_invert
+ */
+#define ASTRAL_MASK_POST_SAMPLING_MODE_INVERT astral::mask_post_sampling_mode_invert
+
+/*!\def ASTRAL_MASK_POST_SAMPLING_MODE_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::mask_post_sampling_mode_bit0
+ */
+#define ASTRAL_MASK_POST_SAMPLING_MODE_BIT0 astral::ImageSamplerBits::mask_post_sampling_mode_bit0
+
+/*!\def ASTRAL_MASK_POST_SAMPLING_MODE_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::mask_post_sampling_mode_num_bits
+ */
+#define ASTRAL_MASK_POST_SAMPLING_MODE_NUM_BITS astral::ImageSamplerBits::mask_post_sampling_mode_num_bits
+
+/*!\def ASTRAL_MASK_POST_SAMPLING_MODE_MASK
+ * Enumeration mapping to astral::ImageSamplerBits::mask_post_sampling_mode_mask
+ */
+#define ASTRAL_MASK_POST_SAMPLING_MODE_MASK astral::ImageSamplerBits::mask_post_sampling_mode_mask
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_ALPHA_INVERT
+ * Enumeration mapping to astral::color_alpha_post_sampling_mode_invert
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_ALPHA_INVERT astral::color_alpha_post_sampling_mode_invert
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_ALPHA_ONE
+ * Enumeration mapping to astral::color_alpha_post_sampling_mode_one
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_ALPHA_ONE astral::color_alpha_post_sampling_mode_one
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_INVERT
+ * Enumeration mapping to astral::color_rgb_post_sampling_mode_invert
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_INVERT astral::color_rgb_post_sampling_mode_invert
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_ONE
+ * Enumeration mapping to astral::color_rgb_post_sampling_mode_one
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_ONE astral::color_rgb_post_sampling_mode_one
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::color_post_sampling_mode_bit0
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_BIT0 astral::ImageSamplerBits::color_post_sampling_mode_bit0
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::color_post_sampling_mode_num_bits
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_NUM_BITS astral::ImageSamplerBits::color_post_sampling_mode_num_bits
+
+/*!\def ASTRAL_COLOR_POST_SAMPLING_MODE_MASK
+ * Enumeration mapping to astral::ImageSamplerBits::color_post_sampling_mode_mask
+ */
+#define ASTRAL_COLOR_POST_SAMPLING_MODE_MASK astral::ImageSamplerBits::color_post_sampling_mode_mask
+
+
+// mask_type enums
+/*!\def ASTRAL_COVERAGE_MASK
+ * Enumeration mapping to astral::mask_type_coverage
+ */
+#define ASTRAL_COVERAGE_MASK astral::mask_type_coverage
+
+/*!\def ASTRAL_DISTANCE_FIELD_MASK
+ * Enumeration mapping to astral::mask_type_distance_field
+ */
+#define ASTRAL_DISTANCE_FIELD_MASK astral::mask_type_distance_field
+
+/*!\def ASTRAL_MASK_TYPE_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::mask_type_bit
+ */
+#define ASTRAL_MASK_TYPE_BIT0 astral::ImageSamplerBits::mask_type_bit
+
+/*!\def ASTRAL_MASK_TYPE_NUM_BITS
+ * Enumeration mapping to astral::1u
+ */
+#define ASTRAL_MASK_TYPE_NUM_BITS astral::1u
+
+/*!\def ASTRAL_MASK_TYPE_MASK
+ * Enumeration mapping to astral::ImageSamplerBits::mask_type_mask
+ */
+#define ASTRAL_MASK_TYPE_MASK astral::ImageSamplerBits::mask_type_mask
+
+// filter enums
+/*!\def ASTRAL_FILTER_NEAREST
+ * Enumeration mapping to astral::filter_nearest
+ */
+#define ASTRAL_FILTER_NEAREST astral::filter_nearest
+
+/*!\def ASTRAL_FILTER_LINEAR
+ * Enumeration mapping to astral::filter_linear
+ */
+#define ASTRAL_FILTER_LINEAR astral::filter_linear
+
+/*!\def ASTRAL_FILTER_CUBIC
+ * Enumeration mapping to astral::filter_cubic
+ */
+#define ASTRAL_FILTER_CUBIC astral::filter_cubic
+
+/*!\def ASTRAL_FILTER_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::filter_bit0
+ */
+#define ASTRAL_FILTER_BIT0 astral::ImageSamplerBits::filter_bit0
+
+/*!\def ASTRAL_FILTER_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::filter_num_bits
+ */
+#define ASTRAL_FILTER_NUM_BITS astral::ImageSamplerBits::filter_num_bits
+
+// minification mipmap mode enums
+/*!\def ASTRAL_MIPMAP_NONE
+ * Enumeration mapping to astral::mipmap_none
+ */
+#define ASTRAL_MIPMAP_NONE astral::mipmap_none
+
+/*!\def ASTRAL_MIPMAP_CEILING
+ * Enumeration mapping to astral::mipmap_ceiling
+ */
+#define ASTRAL_MIPMAP_CEILING astral::mipmap_ceiling
+
+/*!\def ASTRAL_MIPMAP_FLOOR
+ * Enumeration mapping to astral::mipmap_floor
+ */
+#define ASTRAL_MIPMAP_FLOOR astral::mipmap_floor
+
+/*!\def ASTRAL_MIPMAP_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::mipmap_bit0
+ */
+#define ASTRAL_MIPMAP_BIT0 astral::ImageSamplerBits::mipmap_bit0
+
+/*!\def ASTRAL_MIPMAP_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::mipmap_num_bits
+ */
+#define ASTRAL_MIPMAP_NUM_BITS astral::ImageSamplerBits::mipmap_num_bits
+
+// unpacking max-LOD
+/*!\def ASTRAL_MAX_LOD_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::maximum_lod_bit0
+ */
+#define ASTRAL_MAX_LOD_BIT0 astral::ImageSamplerBits::maximum_lod_bit0
+
+/*!\def ASTRAL_MAX_LOD_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::maximum_lod_num_bits
+ */
+#define ASTRAL_MAX_LOD_NUM_BITS astral::ImageSamplerBits::maximum_lod_num_bits
+
+// constant color ImageSampler
+/*!\def ASTRAL_IS_CONST_IMAGE_MASK
+ * Enumeration mapping to astral::ImageSamplerBits::is_constant_color_mask
+ */
+#define ASTRAL_IS_CONST_IMAGE_MASK astral::ImageSamplerBits::is_constant_color_mask
+
+// use texel padding for ImageSampler
+/*!\def ASTRAL_NUMBER_PRE_PADDING_TEXELS_BIT0
+ * Enumeration mapping to astral::ImageSamplerBits::numbers_texels_pre_padding_bit0
+ */
+#define ASTRAL_NUMBER_PRE_PADDING_TEXELS_BIT0 astral::ImageSamplerBits::numbers_texels_pre_padding_bit0
+
+/*!\def ASTRAL_NUMBER_PRE_PADDING_TEXELS_NUM_BITS
+ * Enumeration mapping to astral::ImageSamplerBits::numbers_texels_pre_padding_num_bits
+ */
+#define ASTRAL_NUMBER_PRE_PADDING_TEXELS_NUM_BITS astral::ImageSamplerBits::numbers_texels_pre_padding_num_bits
+
+/*!\def ASTRAL_GRADIENT_LINEAR
+ * Enumeration mapping to astral::Gradient::linear
+ */
+#define ASTRAL_GRADIENT_LINEAR astral::Gradient::linear
+
+/*!\def ASTRAL_GRADIENT_SWEEP
+ * Enumeration mapping to astral::Gradient::sweep
+ */
+#define ASTRAL_GRADIENT_SWEEP astral::Gradient::sweep
+
+/*!\def ASTRAL_GRADIENT_RADIAL_UNEXTENDED_OPAQUE
+ * Enumeration mapping to astral::Gradient::radial_unextended_opaque
+ */
+#define ASTRAL_GRADIENT_RADIAL_UNEXTENDED_OPAQUE astral::Gradient::radial_unextended_opaque
+
+/*!\def ASTRAL_GRADIENT_RADIAL_UNEXTENDED_CLEAR
+ * Enumeration mapping to astral::Gradient::radial_unextended_clear
+ */
+#define ASTRAL_GRADIENT_RADIAL_UNEXTENDED_CLEAR astral::Gradient::radial_unextended_clear
+
+/*!\def ASTRAL_GRADIENT_RADIAL_EXTENDED
+ * Enumeration mapping to astral::Gradient::radial_extended
+ */
+#define ASTRAL_GRADIENT_RADIAL_EXTENDED astral::Gradient::radial_extended
+
+// macro values for handling tiled images
+/*!\def ASTRAL_LOG2_TILE_SIZE
+ * Enumeration mapping to astral:ImageAtlas::log2_tile_size
+ */
+#define ASTRAL_LOG2_TILE_SIZE astral::ImageAtlas::log2_tile_size
+
+/*!\def ASTRAL_TILE_SIZE
+ * Enumeration mapping to astral::ImageAtlas::tile_size
+ */
+#define ASTRAL_TILE_SIZE astral::ImageAtlas::tile_size
+
+/*!\def ASTRAL_TILE_PADDING
+ * Enumeration mapping to astral::ImageAtlas::tile_padding
+ */
+#define ASTRAL_TILE_PADDING astral::ImageAtlas::tile_padding
+
+/*!\def ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_BIT0
+ * Enumeration mapping to astral::PackedImageMipElement::root_tile_z_bit0
+ */
+#define ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_BIT0 astral::PackedImageMipElement::root_tile_z_bit0
+
+/*!\def ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_NUMBITS
+ * Enumeration mapping to astral::PackedImageMipElement::root_tile_z_num_bits
+ */
+#define ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_NUMBITS astral::PackedImageMipElement::root_tile_z_num_bits
+
+/*!\def ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_BIT0
+ * Enumeration mapping to astral::PackedImageMipElement::number_index_levels_bit0
+ */
+#define ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_BIT0 astral::PackedImageMipElement::number_index_levels_bit0
+
+/*!\def ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_NUMBITS
+ * Enumeration mapping to astral::PackedImageMipElement::number_index_levels_num_bits
+ */
+#define ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_NUMBITS astral::PackedImageMipElement::number_index_levels_num_bits
+
+/*!\def astral_image_color_atlas_inverse_size
+ * Inverse of the color atlas width (and height)
+ */
+#define astral_image_color_atlas_inverse_size 1.0f / static_cast<float>(astral::gl::RenderEngineGL3::Config::m_image_color_atlas_width_height)
+
+// macros describing shadow mapping
+/*!\def ASTRAL_SHADOW_MAP_MAX_DEPTH_VALUE
+ * The maximum shadow map depth value statically defined as 2<SUP>22</SUP> (4194304)
+ */
+#define ASTRAL_SHADOW_MAP_MAX_DEPTH_VALUE (1u << 22u)
+
+/*!\def ASTRAL_SHADOW_MAP_RECIRPOCAL_MAX_DEPTH_VALUE
+ * Reciprocal of the maximum shadow map depth value statically defined as 1 / 2<SUP>22</SUP>
+ */
+#define ASTRAL_SHADOW_MAP_RECIRPOCAL_MAX_DEPTH_VALUE 1.0f / (1u << 22u)
+
+// brush macros
+/*!\def ASTRAL_BRUSH_ACTIVE_BIT
+ * \brief
+ * If this bit is down, then there is no active astral::Brush, thus
+ * the color emitted by the material is opaque white.
+ */
+#define ASTRAL_BRUSH_ACTIVE_BIT astral::gl::ShaderSetGL3::brush_active_bit
+
+/*!\def ASTRAL_BRUSH_HAS_IMAGE_BIT
+ * \brief
+ * If this bit is up, then the brush has an image
+ */
+#define ASTRAL_BRUSH_HAS_IMAGE_BIT astral::gl::ShaderSetGL3::brush_has_image_bit
+
+/*!\def ASTRAL_BRUSH_HAS_GRADIENT_BIT
+ * \brief
+ * If this bit is up, then the brush has a gradient
+ */
+#define ASTRAL_BRUSH_HAS_GRADIENT_BIT astral::gl::ShaderSetGL3::brush_has_gradient_bit
+
+/*!\def ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION_BIT
+ * \brief
+ * If this bit is up, then the gradient has an astral::GradientTransformation applied to it
+ */
+#define ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION_BIT astral::gl::ShaderSetGL3::brush_has_gradient_transformation_bit
+
+/*!\def ASTRAL_BRUSH_COLORSPACE_BIT
+ * \brief
+ * Which bit that specifies in what colorspace the brush works in
+ * when \ref ASTRAL_BRUSH_SPECIFIED_COLORSPACE is true (non-zero).
+ */
+#define ASTRAL_BRUSH_COLORSPACE_BIT astral::gl::ShaderSetGL3::brush_colorspace_bit
+
+/*!\def ASTRAL_BRUSH_ACTIVE
+ * \brief
+ * Bitmask that indicates, if 0, there is no active astral::Brush
+ */
+#define ASTRAL_BRUSH_ACTIVE (1u << astral::gl::ShaderSetGL3::brush_active_bit)
+
+/*!\def ASTRAL_BRUSH_HAS_IMAGE
+ * \brief
+ * Bitmask that indicates, if non-zero, the brush has an image
+ */
+#define ASTRAL_BRUSH_HAS_IMAGE (1u << astral::gl::ShaderSetGL3::brush_has_image_bit)
+
+/*!\def ASTRAL_BRUSH_HAS_GRADIENT
+ * \brief
+ * Bitmask that indicates, if non-zero, the brush has a gradient
+ */
+#define ASTRAL_BRUSH_HAS_GRADIENT (1u << astral::gl::ShaderSetGL3::brush_has_gradient_bit)
+
+/*!\def ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION
+ * \brief
+ * Bitmask that indicates, if non-zero, the gradient has an astral::GradientTransformation applied to it
+ */
+#define ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION (1u << astral::gl::ShaderSetGL3::brush_has_gradient_transformation_bit)
+
+/*!\def ASTRAL_BRUSH_SPECIFIED_COLORSPACE
+ * \brief
+ * Bitmask that indicates, if non-zero, the brush works in its own color space
+ */
+#define ASTRAL_BRUSH_SPECIFIED_COLORSPACE (1u << astral::gl::ShaderSetGL3::brush_specified_colorspace_bit)
+
+/*! @} */
+
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+/*!\def ASTRAL_STROKE_SHADER_STATIC
+ * Enumeration mapping to astral::StrokeShader::static_path_shader
+ */
+#define ASTRAL_STROKE_SHADER_STATIC astral::StrokeShader::static_path_shader
+
+/*!\def ASTRAL_STROKE_SHADER_ANIMATED
+ * Enumeration mapping to astral::StrokeShader::animated_path_shader
+ */
+#define ASTRAL_STROKE_SHADER_ANIMATED astral::StrokeShader::animated_path_shader
+
+/*!\def ASTRAL_STROKE_SHADER_ANIMATED_MASK
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_animation_mask
+ */
+#define ASTRAL_STROKE_SHADER_ANIMATED_MASK astral::gl::StrokeShaderGL3Enums::stroker_shader_animation_mask
+
+/*!\def ASTRAL_STROKE_SHADER_ANIMATED_BIT0
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_animation_bit0
+ */
+#define ASTRAL_STROKE_SHADER_ANIMATED_BIT0 astral::gl::StrokeShaderGL3Enums::stroker_shader_animation_bit0
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_MASK
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_subtype_mask
+ */
+#define ASTRAL_STROKE_SUB_SHADER_MASK astral::gl::StrokeShaderGL3Enums::stroker_shader_subtype_mask
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_BIT0
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_subtype_bit0
+ */
+#define ASTRAL_STROKE_SUB_SHADER_BIT0 astral::gl::StrokeShaderGL3Enums::stroker_shader_subtype_bit0
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_SQUARE_CAP
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::square_cap_sub_shader
+ */
+#define ASTRAL_STROKE_SUB_SHADER_SQUARE_CAP astral::gl::StrokeShaderGL3Enums::square_cap_sub_shader
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_FLAT_CAP
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::flat_cap_sub_shader
+ */
+#define ASTRAL_STROKE_SUB_SHADER_FLAT_CAP astral::gl::StrokeShaderGL3Enums::flat_cap_sub_shader
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_OUTER_JOIN
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::outer_join_sub_shader
+ */
+#define ASTRAL_STROKE_SUB_SHADER_OUTER_JOIN astral::gl::StrokeShaderGL3Enums::outer_join_sub_shader
+
+/*!\def ASTRAL_STROKE_SUB_SHADER_INNER_JOIN
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::inner_join_sub_shader
+ */
+#define ASTRAL_STROKE_SUB_SHADER_INNER_JOIN astral::gl::StrokeShaderGL3Enums::inner_join_sub_shader
+
+/*!\def ASTRAL_STROKE_HARILINE_PIXEL_RADIUS
+ * Static value returned from astral::detail::hairline_pixel_radius()
+ */
+#define ASTRAL_STROKE_HARILINE_PIXEL_RADIUS astral::detail::hairline_pixel_radius()
+
+/*!\def ASTRAL_STROKE_DASHED_MASK
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_dash_mask
+ */
+#define ASTRAL_STROKE_DASHED_MASK astral::gl::StrokeShaderGL3Enums::stroker_shader_dash_mask
+
+/*!\def ASTRAL_STROKE_DASHED_BIT0
+ * Enumeration mapping to astral::gl::StrokeShaderGL3Enums::stroker_shader_dashed_bit0
+ */
+#define ASTRAL_STROKE_DASHED_BIT0 astral::gl::StrokeShaderGL3Enums::stroker_shader_dashed_bit0
+
+/*!\def ASTRAL_STROKE_DASHED_FLAT_CAP
+ * Enumeration mapping to astral::cap_flat
+ */
+#define ASTRAL_STROKE_DASHED_FLAT_CAP astral::cap_flat
+
+/*!\def ASTRAL_STROKE_DASHED_ROUNDED_CAP
+ * Enumeration mapping to astral::cap_rounded
+ */
+#define ASTRAL_STROKE_DASHED_ROUNDED_CAP astral::cap_rounded
+
+/*!\def ASTRAL_STROKE_DASHED_SQUARE_CAP
+ * Enumeration mapping to astral::cap_square
+ */
+#define ASTRAL_STROKE_DASHED_SQUARE_CAP astral::cap_square
+
+/*!\def ASTRAL_STROKE_CAPPER_START
+ * Enumeration mapping to astral::StrokeShader::capper_shader_start
+ */
+#define ASTRAL_STROKE_CAPPER_START astral::StrokeShader::capper_shader_start
+
+/*!\def ASTRAL_STROKE_CAPPER_END
+ * Enumeration mapping to astral::StrokeShader::capper_shader_end
+ */
+#define ASTRAL_STROKE_CAPPER_END astral::StrokeShader::capper_shader_end
+
+/*!\def ASTRAL_STROKE_START_EDGE_MASK
+ * Enumeration mapping to astral::StrokeShader::start_edge_mask
+ */
+#define ASTRAL_STROKE_START_EDGE_MASK astral::StrokeShader::start_edge_mask
+
+/*!\def ASTRAL_STROKE_END_EDGE_MASK
+ * Enumeration mapping to astral::StrokeShader::end_edge_mask
+ */
+#define ASTRAL_STROKE_END_EDGE_MASK astral::StrokeShader::end_edge_mask
+
+/*!\def ASTRAL_STROKE_START_CONTOUR_MASK
+ * Enumeration mapping to astral::StrokeShader::start_contour_mask
+ */
+#define ASTRAL_STROKE_START_CONTOUR_MASK astral::StrokeShader::start_contour_mask
+
+/*!\def ASTRAL_STROKE_END_CONTOUR_MASK
+ * Enumeration mapping to astral::StrokeShader::end_contour_mask
+ */
+#define ASTRAL_STROKE_END_CONTOUR_MASK astral::StrokeShader::end_contour_mask
+
+/*!\def ASTRAL_STROKE_CLOSED_CONTOUR_MASK
+ * Enumeration mapping to astral::StrokeShader::contour_closed_mask
+ */
+#define ASTRAL_STROKE_CLOSED_CONTOUR_MASK astral::StrokeShader::contour_closed_mask
+
+/*!\def ASTRAL_STROKE_END_CAP_MASK
+ * Enumeration mapping to astral::StrokeShader::cap_end_mask
+ */
+#define ASTRAL_STROKE_END_CAP_MASK astral::StrokeShader::cap_end_mask
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_OFFSET_TYPE_MASK
+ * Enumeration mapping to astral::StrokeShader::line_offset_type_mask
+ */
+#define ASTRAL_STROKE_SHADER_LINE_OFFSET_TYPE_MASK astral::StrokeShader::line_offset_type_mask
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_END_POINT_MASK
+ * Enumeration mapping to astral::StrokeShader::line_is_end_point_mask
+ */
+#define ASTRAL_STROKE_SHADER_LINE_END_POINT_MASK astral::StrokeShader::line_is_end_point_mask
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_NEGATE_NORMAL
+ * Enumeration mapping to astral::StrokeShader::line_offset_negate_normal
+ */
+#define ASTRAL_STROKE_SHADER_LINE_NEGATE_NORMAL astral::StrokeShader::line_offset_negate_normal
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_BASE_POINT
+ * Enumeration mapping to astral::StrokeShader::line_offset_base_point
+ */
+#define ASTRAL_STROKE_SHADER_LINE_BASE_POINT astral::StrokeShader::line_offset_base_point
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_ADD_NORMAL
+ * Enumeration mapping to astral::StrokeShader::line_offset_normal
+ */
+#define ASTRAL_STROKE_SHADER_LINE_ADD_NORMAL astral::StrokeShader::line_offset_normal
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_OFFSET_TYPE_MASK
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_type_mask
+ */
+#define ASTRAL_STROKE_SHADER_ARC_OFFSET_TYPE_MASK astral::StrokeShader::biarc_offset_type_mask
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_END_POINT_MASK
+ * Enumeration mapping to astral::StrokeShader::biarc_is_end_point_mask
+ */
+#define ASTRAL_STROKE_SHADER_ARC_END_POINT_MASK astral::StrokeShader::biarc_is_end_point_mask
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_OMEGA
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_omega
+ */
+#define ASTRAL_STROKE_SHADER_ARC_OMEGA astral::StrokeShader::biarc_offset_omega
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_ZETA
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_zeta
+ */
+#define ASTRAL_STROKE_SHADER_ARC_ZETA astral::StrokeShader::biarc_offset_zeta
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_TOWARDS_CENTER
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_towards_center
+ */
+#define ASTRAL_STROKE_SHADER_ARC_TOWARDS_CENTER astral::StrokeShader::biarc_offset_towards_center
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_BASE_POINT
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_base_point
+ */
+#define ASTRAL_STROKE_SHADER_ARC_BASE_POINT astral::StrokeShader::biarc_offset_base_point
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_AWAY_FROM_CENTER
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_away_from_center
+ */
+#define ASTRAL_STROKE_SHADER_ARC_AWAY_FROM_CENTER astral::StrokeShader::biarc_offset_away_from_center
+
+/*!\def ASTRAL_STROKE_SHADER_ARC_TOP
+ * Enumeration mapping to astral::StrokeShader::biarc_offset_top
+ */
+#define ASTRAL_STROKE_SHADER_ARC_TOP astral::StrokeShader::biarc_offset_top
+
+/*!\def ASTRAL_STROKE_SHADER_BIARC_SECOND_ARC_MASK
+ * Enumeration mapping to astral::StrokeShader::biarc_is_second_arc_mask
+ */
+#define ASTRAL_STROKE_SHADER_BIARC_SECOND_ARC_MASK astral::StrokeShader::biarc_is_second_arc_mask
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_OFFSET_TYPE_MASK
+ * Enumeration mapping to astral::StrokeShader::join_offset_type_mask
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_OFFSET_TYPE_MASK astral::StrokeShader::join_offset_type_mask
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_END_POINT_MASK
+ * Enumeration mapping to astral::StrokeShader::join_point_leave_mask
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_END_POINT_MASK astral::StrokeShader::join_point_leave_mask
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH
+ * Enumeration mapping to astral::StrokeShader::join_point_on_path
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH astral::StrokeShader::join_point_on_path
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY
+ * Enumeration mapping to astral::StrokeShader::join_point_edge_boundary
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY astral::StrokeShader::join_point_edge_boundary
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY
+ * Enumeration mapping to astral::StrokeShader::join_point_beyond_boundary
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY astral::StrokeShader::join_point_beyond_boundary
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_OFFSET_TYPE_MASK
+ * Enumeration mapping to astral::StrokeShader::cap_offset_type_mask
+ */
+#define ASTRAL_STROKE_SHADER_CAP_OFFSET_TYPE_MASK astral::StrokeShader::cap_offset_type_mask
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_SIDE_MASK
+ * Enumeration mapping to astral::StrokeShader::cap_point_side_mask
+ */
+#define ASTRAL_STROKE_SHADER_CAP_SIDE_MASK astral::StrokeShader::cap_point_side_mask
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_POINT_ON_PATH
+ * Enumeration mapping to astral::StrokeShader::cap_point_path
+ */
+#define ASTRAL_STROKE_SHADER_CAP_POINT_ON_PATH astral::StrokeShader::cap_point_path
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY
+ * Enumeration mapping to astral::StrokeShader::cap_point_edge_boundary
+ */
+#define ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY astral::StrokeShader::cap_point_edge_boundary
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY
+ * Enumeration mapping to astral::StrokeShader::cap_point_beyond_boundary
+ */
+#define ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY astral::StrokeShader::cap_point_beyond_boundary
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_SEGMENT_SIZE
+ * Enumeration mapping to astral::StrokeShader::line_segment_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_LINE_SEGMENT_SIZE astral::StrokeShader::line_segment_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_QUADRATIC_CURVE_SIZE
+ * Enumeration mapping to astral::StrokeShader::quadratic_curve_data_data_size
+ */
+#define ASTRAL_STROKE_SHADER_QUADRATIC_CURVE_SIZE astral::StrokeShader::quadratic_curve_data_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_SIZE
+ * Enumeration mapping to astral::StrokeShader::join_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_SIZE astral::StrokeShader::join_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_SIZE
+ * Enumeration mapping to astral::StrokeShader::cap_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_CAP_SIZE astral::StrokeShader::cap_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_LINE_SEGMENT_PAIR_SIZE
+ * Enumeration mapping to astral::StrokeShader::line_segment_pair_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_LINE_SEGMENT_PAIR_SIZE astral::StrokeShader::line_segment_pair_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_QUADRATIC_CURVE_PAIR_SIZE
+ * Enumeration mapping to astral::StrokeShader::quadratic_curve_pair_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_QUADRATIC_CURVE_PAIR_SIZE astral::StrokeShader::quadratic_curve_pair_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_JOIN_PAIR_SIZE
+ * Enumeration mapping to astral::StrokeShader::join_pair_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_JOIN_PAIR_SIZE astral::StrokeShader::join_pair_static_data_size
+
+/*!\def ASTRAL_STROKE_SHADER_CAP_PAIR_SIZE
+ * Enumeration mapping to astral::StrokeShader::cap_pair_static_data_size
+ */
+#define ASTRAL_STROKE_SHADER_CAP_PAIR_SIZE astral::StrokeShader::cap_pair_static_data_size
+
+/*!\def ASTRAL_STROKE_ROLE_BIT0
+ * Enumeration mapping to astral::StrokeShader::role_bit0
+ */
+#define ASTRAL_STROKE_ROLE_BIT0 astral::StrokeShader::role_bit0
+
+/*!\def ASTRAL_STROKE_ROLE_NUM_BITS
+ * Enumeration mapping to astral::StrokeShader::role_number_bits
+ */
+#define ASTRAL_STROKE_ROLE_NUM_BITS astral::StrokeShader::role_number_bits
+
+/*!\def ASTRAL_STROKE_FLAGS_BIT0
+ * Enumeration mapping to astral::StrokeShader::flags_bit0
+ */
+#define ASTRAL_STROKE_FLAGS_BIT0 astral::StrokeShader::flags_bit0
+
+/*!\def ASTRAL_STROKE_FLAGS_NUM_BITS
+ * Enumeration mapping to astral::StrokeShader::flags_number_bits
+ */
+#define ASTRAL_STROKE_FLAGS_NUM_BITS astral::StrokeShader::flags_number_bits
+
+/*!\def ASTRAL_STROKE_DASH_ADJUST_COMPRESS
+ * Enumeration mapping to astral::StrokeShader::DashPattern::length_adjust_compress
+ */
+#define ASTRAL_STROKE_DASH_ADJUST_COMPRESS astral::StrokeShader::DashPattern::length_adjust_compress
+
+/*!\def ASTRAL_STROKE_DASH_ADJUST_STRETCH
+ * Enumeration mapping to astral::StrokeShader::DashPattern::length_adjust_stretch
+ */
+#define ASTRAL_STROKE_DASH_ADJUST_STRETCH astral::StrokeShader::DashPattern::length_adjust_stretch
+
+/*!\def ASTRAL_STROKE_DASH_STARTS_PER_EDGE
+ * Enumeration mapping to astral::StrokeShader::DashPattern::stroke_starts_at_edge
+ */
+#define ASTRAL_STROKE_DASH_STARTS_PER_EDGE astral::StrokeShader::DashPattern::stroke_starts_at_edge
+
+/*!\def ASTRAL_STROKE_DASH_ADJUST_XZ
+ * Enumeration mapping to astral::StrokeShader::DashPattern::adjust_xz_lengths
+ */
+#define ASTRAL_STROKE_DASH_ADJUST_XZ astral::StrokeShader::DashPattern::adjust_xz_lengths
+
+/*!\def ASTRAL_STROKE_DASH_ADJUST_YW
+ * Enumeration mapping to astral::StrokeShader::DashPattern::adjust_yw_lengths
+ */
+#define ASTRAL_STROKE_DASH_ADJUST_YW astral::StrokeShader::DashPattern::adjust_yw_lengths
+
+/*!\def ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW
+ * Enumeration mapping to astral::StrokeShader::DashPattern::adjust_xz_and_yw_lengths
+ */
+#define ASTRAL_STROKE_DASH_ADJUST_XZ_AND_YW astral::StrokeShader::DashPattern::adjust_xz_and_yw_lengths
+
+/*! @} */

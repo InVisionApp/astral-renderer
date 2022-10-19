@@ -1,0 +1,117 @@
+// -*- C++ -*-
+/*!
+ * \file astral_light_material.frag.glsl.resource_string
+ * \brief astral_light_material.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_frag_shader(in uint sub_shader, in uint color_space)
+{
+}
+
+void
+astral_material_frag_shader(in uint sub_shader, in uint color_space, inout vec4 color, inout float coverage)
+{
+  float dir_attenuation, shadow_attenuation, light_attenuation;
+  float mag_sq, dot_sq, thresh_sq;
+  vec2 light_vector, L, dL_dx, dL_dy;
+  vec4 light_color, shadow_color, cc;
+
+  light_vector = vec2(astral_light_vector_x, astral_light_vector_y);
+
+  mag_sq = dot(light_vector, light_vector);
+  dot_sq = astral_light_material_dot * astral_light_material_dot * sign(astral_light_material_dot);
+  thresh_sq = astral_light_directional_cos_thresh * astral_light_directional_cos_thresh * sign(astral_light_directional_cos_thresh) * mag_sq;
+
+  light_attenuation = (astral_light_z > 0.0) ?
+    astral_light_z * inversesqrt(astral_light_z * astral_light_z + mag_sq) :
+    1.0;
+
+  dir_attenuation = smoothstep(thresh_sq - 0.5 * fwidth(thresh_sq), thresh_sq, dot_sq);
+
+  L = vec2(astral_light_vector_shadow_map_x, astral_light_vector_shadow_map_y);
+  dL_dx = dFdx(vec2(astral_light_vector_shadow_map_x, astral_light_vector_shadow_map_y));
+  dL_dy = dFdy(vec2(astral_light_vector_shadow_map_x, astral_light_vector_shadow_map_y));
+
+  if (dir_attenuation > 0.0)
+    {
+      float shadow_fall_off = 0.0;
+      if (astral_light_shadow_fall_off > 0.0)
+        {
+          shadow_fall_off = smoothstep(astral_light_shadow_fall_off * astral_light_shadow_fall_off,
+                                       astral_light_shadow_fall_off * astral_light_shadow_fall_off + max(fwidth(mag_sq), astral_light_shadow_fall_off_length_sq),
+                                       mag_sq);
+        }
+
+      if (shadow_fall_off < 1.0)
+        {
+          AstralShadowMap shadow_map;
+          float S;
+
+          shadow_map.m_atlas_location = vec2(astral_light_shadow_map_atlas_location_x, astral_light_shadow_map_atlas_location_y);
+          shadow_map.m_dimensions = astral_light_shadow_map_size;
+
+          if (sub_shader == ASTRAL_LIGHT_MAP_WITH_AA16)
+            {
+              S = astral_compute_shadow_16xAA(shadow_map, L, dL_dx, dL_dy);
+            }
+          else if (sub_shader == ASTRAL_LIGHT_MAP_WITH_AA8)
+            {
+              S = astral_compute_shadow_8xAA(shadow_map, L, dL_dx, dL_dy);
+            }
+          else if (sub_shader == ASTRAL_LIGHT_MAP_WITH_AA4)
+            {
+              S = astral_compute_shadow_4xAA(shadow_map, L, dL_dx, dL_dy);
+            }
+          else
+            {
+              S = astral_compute_shadow(shadow_map, L);
+            }
+
+          shadow_attenuation = mix(S, 1.0, shadow_fall_off);
+        }
+      else
+        {
+          shadow_attenuation = 1.0;
+        }
+    }
+  else
+    {
+      shadow_attenuation = 0.0;
+    }
+
+  light_color = astral_normalize_unpack_u8vec4(astral_light_color);
+  shadow_color = astral_normalize_unpack_u8vec4(astral_light_shadow_color);
+
+  cc = mix(shadow_color, light_color, dir_attenuation * shadow_attenuation * light_attenuation);
+  cc.rgb *= cc.a;
+
+  color *= cc;
+
+  /*
+  color.r = shadow_attenuation;
+  if (abs(light_vector.x) > abs(light_vector.y))
+    {
+      color.g = 1.0;
+      color.b = light_vector.x > 0.0 ? 1.0 : 0.0;
+    }
+  else
+    {
+      color.g = 0.0;
+      color.b = light_vector.y > 0.0 ? 1.0 : 0.0;
+    }
+
+  color.a = 1.0;
+  */
+}

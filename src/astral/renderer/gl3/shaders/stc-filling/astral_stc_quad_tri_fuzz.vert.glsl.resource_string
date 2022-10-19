@@ -1,0 +1,212 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_quad_tri_fuzz.vert.glsl.resource_string
+ * \brief astral_stc_quad_tri_fuzz.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 in_a0,
+                   in AstralTransformation tr)
+{
+  uint tp, static_data_offset;
+  float t, scale_tol_l1;
+  vec2 inverse_scale_factor;
+  vec2 pt;
+  vec4 a0_a1, b0_b1, c0_c1;
+  vec3 raw_item_data;
+  vec2 tex, scale_factor, inflate;
+  astral_stc_quadratic_curve Q;
+  astral_stc_quadratic_curve_analysis AQ;
+
+  static_data_offset = floatBitsToUint(in_a0.x);
+  tp = floatBitsToUint(in_a0.w);
+
+  a0_a1 = astral_read_static_data32f(static_data_offset + 0u);
+  b0_b1 = astral_read_static_data32f(static_data_offset + 1u);
+  c0_c1 = astral_read_static_data32f(static_data_offset + 2u);
+
+  raw_item_data = astral_read_item_dataf(item_data_location).xyz;
+  t = raw_item_data.x;
+  inverse_scale_factor = raw_item_data.yz;
+  scale_factor = 1.0 / inverse_scale_factor;
+
+  Q.m_start = astral_apply_transformation(tr, mix(a0_a1.xy, a0_a1.zw, t));
+  Q.m_control = astral_apply_transformation(tr, mix(b0_b1.xy, b0_b1.zw, t));
+  Q.m_end = astral_apply_transformation(tr, mix(c0_c1.xy, c0_c1.zw, t));
+
+  inflate = ASTRAL_STC_MAX_DISTANCE * inverse_scale_factor;
+  astral_compute_analysis(Q, scale_factor, AQ);
+
+  if (AQ.m_classification == ASTRAL_STC_POINT)
+    {
+      /* The base line collapses, as far as the
+       * rasterizer is concerned, to a single point.
+       * Just collapse the entire thing to a point.
+       */
+      pt = Q.m_start;
+      tex.xy = vec2(0.0);
+
+      astral_stc_quad_tri_fuzz_type = ASTRAL_STC_LINE;
+    }
+  else if (AQ.m_classification == ASTRAL_STC_QUAD)
+    {
+      /* non-degenerate case. We already have that the triangle
+       * [a, b, c] contains the curve. However we can tighten the
+       * triangle significantly. First lets work in the coordinate
+       * system S where a <--> (0, 0) and c <--> (||c - a||, 0).
+       *
+       * The mapping to this coordiante system is given by
+       *
+       *  Q <----> (dot(Q - a, major), dot(Q - a, minor))
+       *
+       * where major = (c - a) / ||c - a|| and minor = (-major.y, major.x).
+       *
+       * Let h be the maximum/minmum of the curve in this coordinate
+       * system.
+       *
+       * Let f(t) be the parameterization of the curve. Then f(t) is
+       * given by
+       *
+       *  f(t) = a * (1 - t)^2 + b * 2t(1 - t) + c * t^2
+       *
+       * in our coordinate system S, f(t) is then given by
+       *
+       *  f(t) = (mbx, mby) * 2t(1 - t) + (||c - a||, 0) * t^2
+       *
+       * where (mbx, mby) is the point b mapped and is given by
+       *
+       *  mbx = dot(b - a, major);
+       *  mby = dot(b - a, minor);
+       *
+       * We need to optimize f_y(t) on [0, 1]. We have
+       *
+       *   f_y(t) = mby * 2t(1 - t)
+       *          = 2 * mby * (t - t^2)
+       *
+       * thus,
+       *
+       *  f_y`(t) = 2 * mby * (1 - 2t)
+       *
+       * which achieves its extrema at t = 0.5 giving that
+       *
+       *  h = 0.5 * mby
+       *
+       * For notation we will define:
+       *
+       *   Q0 = a
+       *   Q1 = c
+       *   T0 = point where the line L0 connecting a to b intersects the line y = h
+       *   T1 = point where the line L1 connecting c to b intersects the line y = h
+       *
+       * We will emit the bounding box that contains (Q0, Q1, T0, T1) 
+       *
+       *   (tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) == 0 <--> emit QQ0 or QQ1
+       *   (tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) != 0 <--> emit TT0 or T1
+       *
+       *   (tp & ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK) == 0 <--> emit QQ0 or TT0
+       *   (tp & ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK) != 0 <--> emit QQ1 or TT1
+       *
+       */
+      AstralBoundingBox bb;
+      vec2 pt_a;
+      float padding, B, C, recM, mbx;
+
+      mbx = dot(Q.m_control - Q.m_start, AQ.m_major);
+
+      bb.m_min = vec2(0.0, 0.0);
+      bb.m_max = vec2(AQ.m_base_line_length, 0.0);
+
+      padding = max(inflate.x, inflate.y);
+
+      /* The Line L0 is given by
+       *
+       *   y * mbx = x * mby
+       *
+       * giving
+       *
+       *  x = mbx * y / mby
+       *
+       * plugging in y = h = 0.5 * mby gives x = 0.5 * mbx
+       */
+      astral_union_point(vec2(0.5 * mbx, 0.5 * AQ.m_mby), bb);
+
+      /* The Line L1 is given by
+       *
+       *   y * (mbx - AQ.m_base_line_length) = (x - AQ.m_base_line_length) * mby
+       *
+       * giving
+       *
+       *  x = AQ.m_base_line_length + (mbx - AQ.m_base_line_length) * y / mby
+       *
+       * plugging in y = h = 0.5 * mby gives
+       *
+       *   x = AQ.m_base_line_length + 0.5 * (mbx - AQ.m_base_line_length)
+       *     = 0.5 * (AQ.m_base_line_length + mbx)
+       */
+      astral_union_point(vec2(0.5 * (AQ.m_base_line_length + mbx), 0.5 * AQ.m_mby), bb);
+
+      /* now inflate bb along both axis by padding */
+      bb.m_min -= vec2(padding);
+      bb.m_max += vec2(padding);
+
+      /* now get the correct corner of bb in coordinates of bb */
+      pt.x = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK) == 0u) ? bb.m_min.x : bb.m_max.x;
+      pt.y = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) == 0u) ? bb.m_min.y : bb.m_max.y;
+
+      /* now realize pt in pixel coordinates */
+      pt_a = pt.x * AQ.m_major + pt.y * AQ.m_minor;
+      pt = pt_a + Q.m_start;
+
+      /* compute the barcentric coordinates of pt */
+      recM = 1.0 / AQ.m_det;
+      B = AQ.m_end_start.y * pt_a.x - AQ.m_end_start.x * pt_a.y;
+      C = AQ.m_control_start.x * pt_a.y - AQ.m_control_start.y * pt_a.x;
+      B *= recM;
+      C *= recM;
+
+      /* using the barycentric coordinates, compute the texture coordinate */
+      tex.xy = vec2(B * 0.5 + C, C);
+      astral_stc_quad_tri_fuzz_type = ASTRAL_STC_QUAD;
+    }
+  else
+    {
+      float s;
+
+      /* The control point is terribly close to the line
+       * segment [a, c]. Just expand the triangle like
+       * we would a line.
+       */
+      pt = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK) == 0u) ? Q.m_start : Q.m_end;
+      s = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) == 0u) ? -1.0: 1.0;
+
+      /* we need to inflate by values as indicated by the scale factor */
+      pt += s * inflate * AQ.m_minor;
+      tex.xy = vec2(s, 0.0);
+
+      astral_stc_quad_tri_fuzz_type = ASTRAL_STC_LINE;
+    }
+
+  astral_stc_quad_tri_fuzz_tex_x = tex.x;
+  astral_stc_quad_tri_fuzz_tex_y = tex.y;
+
+  return pt;
+}

@@ -1,0 +1,29 @@
+// -*- C++ -*-
+/*!
+ * \file astral_gpu_vertex_streaming_blitter.frag.glsl.resource_string
+ * \brief astral_gpu_vertex_streaming_blitter.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+flat in uint out_header_id;
+flat in uint out_vertex_src_start;
+in float out_vertex_src_offset;
+
+out uvec2 out_render_target;
+
+void
+main(void)
+{
+  out_render_target.x = out_vertex_src_start + uint(out_vertex_src_offset);
+  out_render_target.y = out_header_id;
+}

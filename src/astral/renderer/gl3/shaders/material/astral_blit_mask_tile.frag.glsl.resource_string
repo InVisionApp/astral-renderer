@@ -1,0 +1,124 @@
+// -*- C++ -*-
+/*!
+ * \file astral_blit_mask_tile.frag.glsl.resource_string
+ * \brief astral_blit_mask_tile.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_frag_shader(in uint sub_shader, in uint color_space)
+{
+}
+
+void
+astral_material_frag_shader(in uint sub_shader, in uint color_space, inout vec4 color, inout float coverage)
+{
+  uint layer, xfer, mask_filter, mask_type;
+  uint mask_channel, optional_mask_channel;
+  uvec4 packed_clip_in_image, packed_clip_out_image;
+  AstralImageLOD clip_in_image, clip_out_image;
+  vec4 clip_in_sample, clip_out_sample, mask_sample;
+  vec2 p, dpdx, dpdy;
+  float clip_in_coeff, clip_out_coeff, sharpness_factor, adjust_value;
+
+  packed_clip_in_image = uvec4(astral_clip_in_image_x, astral_clip_in_image_y,
+                               astral_clip_in_image_z, astral_clip_in_image_w);
+  packed_clip_out_image = uvec4(astral_clip_out_image_x, astral_clip_out_image_y,
+                                astral_clip_out_image_z, astral_clip_out_image_w);
+
+  astral_compute_image_lod_from_packed_image_mip_element(packed_clip_in_image, clip_in_image);
+  astral_compute_image_lod_from_packed_image_mip_element(packed_clip_out_image, clip_out_image);
+
+  layer = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PACK_ATLAS_Z_BIT0,
+                             ASTRAL_BLIT_MASK_TILE_LAYER_NUM_BITS,
+                             astral_mask_texel_z_xfer_filter);
+
+  mask_filter = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PACK_FILTER_BIT0,
+                                   ASTRAL_FILTER_NUM_BITS,
+                                   astral_mask_texel_z_xfer_filter);
+
+  p = vec2(astral_clip_in_texel_x, astral_clip_in_texel_y);
+  clip_in_sample = astral_sample_image(clip_in_image, color_space, p);
+
+  p = vec2(astral_clip_out_texel_x, astral_clip_out_texel_y);
+  clip_out_sample = astral_sample_image(clip_out_image, color_space, p);
+
+  p = vec2(astral_mask_texel_x, astral_mask_texel_y);
+  dpdx = dFdx(p);
+  dpdy = dFdy(p);
+
+  if (mask_filter == ASTRAL_FILTER_LINEAR)
+    {
+      p *= astral_image_color_atlas_inverse_size;
+      mask_sample = textureLod(astral_image_color_atlas, vec3(p, layer), 0.0);
+    }
+  else if (mask_filter == ASTRAL_FILTER_CUBIC)
+    {
+      /* some obscene value since we know we stay inside the tile */
+      vec2 texel_min = p - vec2(10000.0);
+      vec2 texel_max = p + vec2(10000.0);
+
+      mask_sample = astral_sample_cubic(astral_image_color_atlas,
+                                        astral_image_color_atlas_inverse_size,
+                                        vec3(p, layer),
+                                        texel_min, texel_max);
+    }
+  else
+    {
+      mask_sample = texelFetch(astral_image_color_atlas,
+                               ivec3(p, layer),
+                               0);
+    }
+
+  mask_channel = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PACK_MASK_CHANNEL_BIT0,
+                                    ASTRAL_MASK_CHANNEL_NUM_BITS,
+                                    astral_mask_texel_z_xfer_filter);
+
+  optional_mask_channel = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PACK_OPTIONAL_MASK_CHANNEL_BIT0,
+                                             ASTRAL_MASK_CHANNEL_NUM_BITS + 1u,
+                                             astral_mask_texel_z_xfer_filter);
+
+  mask_type = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PACK_MASK_VALUE_TYPE_BIT0,
+                                       ASTRAL_MASK_TYPE_NUM_BITS,
+                                       astral_mask_texel_z_xfer_filter);
+
+  clip_in_coeff = astral_extract_channel(mask_channel, mask_sample);
+  if (mask_type == ASTRAL_DISTANCE_FIELD_MASK)
+    {
+      sharpness_factor = astral_compute_sharpness_factor(dpdx, dpdy);
+      clip_in_coeff = astral_apply_sharpness_factor_to_distance_field(clip_in_coeff, sharpness_factor);
+    }
+
+  if (sub_shader == ASTRAL_BLIT_MASK_TILE_MASK_DETAILS_VARIANT)
+    {
+      clip_out_coeff = 1.0 - clip_in_coeff;
+      adjust_value = 1.0;
+    }
+  else
+    {
+      float sum;
+
+      clip_out_coeff = astral_extract_channel(optional_mask_channel, mask_sample);
+      if (mask_type == ASTRAL_DISTANCE_FIELD_MASK)
+        {
+          clip_out_coeff = astral_apply_sharpness_factor_to_distance_field(clip_out_coeff, sharpness_factor);
+        }
+
+      sum = clip_out_coeff + clip_in_coeff;
+
+      coverage *= sum;
+      adjust_value = (sum != 0.0) ? 1.0 / min(sum, 1.0) : 1.0;
+    }
+
+  color = adjust_value * (clip_out_coeff * clip_out_sample + clip_in_coeff * clip_in_sample);
+}

@@ -1,0 +1,27 @@
+// -*- C++ -*-
+/*!
+ * \file astral_blending_hardlight.glsl.resource_string
+ * \brief astral_blending_hardlight.glsl.resource_string
+ *
+ * Copyright 2021 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+vec4
+astral_apply_blending(float coverage, in vec4 color)
+{
+  vec4 v, dst;
+
+  dst = astral_framebuffer_fetch_pre_multiplied_alpha();
+  v = astral_blend_hardlight(color, dst);
+
+  return mix(dst, v, coverage);
+}

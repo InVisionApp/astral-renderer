@@ -1,0 +1,536 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stroke_common_join.glsl.resource_string
+ * \brief astral_stroke_common_join.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+struct astral_raw_join
+{
+  vec2 m_p, m_prev_p, m_post_p;
+};
+
+struct astral_join
+{
+  vec2 m_p, m_prev_v, m_prev_n, m_post_v, m_post_n;
+
+  /* The determinant computation use to compute lambda.
+   * A value close to zero indicates that the join is
+   * parallel or anti-parallel. The sign of the determinant
+   * provides lambda.
+   */
+  float m_det;
+};
+
+/*!
+ * Returns the value by which to multiply the normal vector to
+ * get to the outside of the stroke, specifying the threshhold
+ * on the astral_join::m_det to determine if the join is to be
+ * considered parrallel or anti-parralel.
+ */
+float
+astral_join_lambda(in float thresh, in astral_join J)
+{
+  return abs(J.m_det) > thresh ?
+    sign(J.m_det) :
+    sign(dot(J.m_prev_v, J.m_post_v));
+}
+
+/*!
+ * Returns the value by which to multiply the normal vector to
+ * get to the outside of the stroke.
+ */
+float
+astral_join_lambda(in astral_join J)
+{
+  return astral_join_lambda(1e-6, J);
+}
+
+/*!
+ * Returns the following:
+ *   - 0 if the edges going into the join are not parallel or anti-parallel
+ *   - -1 if the edges going into the join are anti-parallel
+ *   - +1 if the edges going into the join are parallel
+ */
+float
+astral_join_is_parallel_or_anti_parallel(in float thresh, in astral_join J)
+{
+  return abs(J.m_det) > thresh ?
+    0.0f:
+    sign(dot(J.m_prev_v, J.m_post_v));
+}
+
+/*!
+ * Returns the following:
+ *   - 0 if the edges going into the join are not parallel or anti-parallel
+ *   - -1 if the edges going into the join are anti-parallel
+ *   - +1 if the edges going into the join are parallel
+ */
+float
+astral_join_is_parallel_or_anti_parallel(in astral_join J)
+{
+  return astral_join_is_parallel_or_anti_parallel(1e-6, J);
+}
+
+struct astral_join_point
+{
+  astral_join m_join;
+  astral_stroke_radius_info_as_ratio_t m_stroke_radius;
+  bool m_is_leaving_pt;
+  uint m_offset_type;
+  float m_max_length_along_tangent_for_miter_limit;
+  float m_t;
+  float m_distance_multiplier;
+};
+
+struct astral_join_distances
+{
+  float m_distance_from_contour_start;
+  float m_distance_from_edge_start;
+  float m_contour_length;
+  float m_edge_into_join_length;
+  float m_edge_leaving_join_length;
+};
+
+/*!
+ * Given an astral_raw_join, compute an astral_join
+ */
+void
+astral_compute_join(in astral_raw_join raw_join, out astral_join join)
+{
+  join.m_prev_v = raw_join.m_p - raw_join.m_prev_p;
+  join.m_post_v = raw_join.m_post_p - raw_join.m_p;
+
+  join.m_prev_v = normalize(join.m_prev_v);
+  join.m_prev_n = vec2(-join.m_prev_v.y, join.m_prev_v.x);
+
+  join.m_post_v = normalize(join.m_post_v);
+  join.m_post_n = vec2(-join.m_post_v.y, join.m_post_v.x);
+
+  join.m_p = raw_join.m_p;
+
+  /* computing lambda. We have two curves a(t) and b(t)
+   * with a(t) representing entering the join and b(t)
+   * representing leaving the join. From these two curves
+   * we get the four curves representing the stroke
+   * boundary:
+   *
+   *  a0(t) = a(t) + R * prev_n
+   *  a1(t) = a(t) - R * prev_n
+   *  b0(t) = b(t) + R * post_n
+   *  b1(t) = b(t) - R * post_n
+   *
+   * where R is the stroking radius. Locally the curves
+   * are given by
+   *
+   * a(t) = p - t * prev_v for t >= 0
+   * b(t) = p + t * post_v for t >= 0
+   *
+   * Note that
+   *
+   *  prev_n = J(prev_v)
+   *  post_n = J(post_v)
+   *
+   * where J(x, y) = (-y, x)
+   *
+   * We need to figure out which of a0/a1 and b0/b1
+   * we take to realize the boudnary of the join.
+   *
+   * let s > 0  and t > 0 be small, set
+   *
+   *  qA(s) = p - 2 * s * prev_v
+   *  qB(t) = p + 2 * t * post_v
+   *
+   *  q(s, t) = (qA(s) + qB(t)) / 2
+   *
+   * Then the point q is on the inside of the stroke
+   * since it connects two points on the edges of
+   * the join very close to the join. Now,
+   *
+   * <q - p, prev_n> = <-s * prev_v + t * post_v, prev_n>
+   *                 = t * <post_v, prev_n>
+   *
+   * and,
+   *
+   * <q - p, post_n> = <-s * prev_v + t * post_v, post_n>
+   *                 = -s * <prev_v, post_n>
+   *                 = -s * <prev_v, J(post_v) >
+   *                 = +s * <J(prev_v), post_v>
+   *                 = +s * <prev_n, post_v>
+   *
+   * thus regardless of the magnitude of s > 0 and t > 0,
+   *
+   *  sign(<q(s, t) - p, prev_n>) = sign(<q(s, t) - p, post_n>)
+   *                              = sign(<post_v, prev_n>)
+   *
+   * that sign is in the -opposite- direction than we want.
+   */
+  join.m_det = -dot(join.m_post_v, join.m_prev_n);
+}
+
+/*!
+ * Sets the values of an astral_join_point from the vertex data, sub-shaer
+ * and item-data location
+ * \param sub_shader as passed to astral_pre_vert_shader(), used to identify
+ *                   if performing path animation or not.
+ * \param item_data_location as passed to astral_pre_vert_shader(), holds the
+ *                           location of the item data of the stroke (i.e.
+ *                           miter-limit, stroking radius, etc)
+ * \param a0 as passed to astral_pre_vert_shader()
+ * \param tr as passed to astral_pre_vert_shader()
+ * \param render_scale value of astral_render_scale()
+ * \param J location to which to write the loaded values
+ */
+void
+astral_stroke_join_common(in uint sub_shader, in uint item_data_location,
+                          in vec4 a0, in AstralTransformation tr,
+                          in vec2 render_scale,
+                          out astral_join_point J)
+{
+  astral_raw_join raw_join;
+  uint static_data_offset, role, path_transformation_location;
+  vec4 static_data, item_data;
+  float D;
+
+  static_data_offset = floatBitsToUint(a0.x);
+  role = astral_vertex_role(floatBitsToUint(a0.y));
+
+  item_data = astral_read_item_dataf(item_data_location).xyzw;
+  J.m_stroke_radius = astral_stroke_radius_info_as_ratio(item_data.x, tr.m_matrix, render_scale);
+  J.m_max_length_along_tangent_for_miter_limit = item_data.w;
+  path_transformation_location = floatBitsToUint(item_data.z);
+
+  static_data = astral_read_static_data32f(static_data_offset + 0u);
+  raw_join.m_p = static_data.xy;
+  raw_join.m_prev_p = static_data.zw;
+
+  static_data = astral_read_static_data32f(static_data_offset + 1u);
+  raw_join.m_post_p = static_data.xy;
+
+  if (astral_stroking_is_animated(sub_shader))
+    {
+      vec2 p1, prev_p1, post_p1;
+
+      p1 = static_data.zw;
+
+      static_data = astral_read_static_data32f(static_data_offset + 2u);
+      prev_p1 = static_data.xy;
+      post_p1 = static_data.zw;
+
+      J.m_t = item_data.y;
+      raw_join.m_p = mix(raw_join.m_p, p1, J.m_t);
+      raw_join.m_prev_p = mix(raw_join.m_prev_p, prev_p1, J.m_t);
+      raw_join.m_post_p = mix(raw_join.m_post_p, post_p1, J.m_t);
+    }
+  else
+    {
+      J.m_t = 0.0;
+    }
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+
+      astral_load(path_transformation_location, P);
+      raw_join.m_p = astral_apply_transformation(P, raw_join.m_p);
+      raw_join.m_prev_p = astral_apply_transformation(P, raw_join.m_prev_p);
+      raw_join.m_post_p = astral_apply_transformation(P, raw_join.m_post_p);
+
+      J.m_distance_multiplier = sqrt(abs(astral_det_matrix(P.m_matrix)));
+    }
+  else
+    {
+      J.m_distance_multiplier = 1.0;
+    }
+
+  astral_compute_join(raw_join, J.m_join);
+
+  J.m_offset_type = ASTRAL_STROKE_SHADER_JOIN_OFFSET_TYPE_MASK & role;
+  J.m_is_leaving_pt = (ASTRAL_STROKE_SHADER_JOIN_END_POINT_MASK & role) != 0u;
+}
+
+/*!
+ * Sets the values of an astral_join_distances from the vertex data, sub-shaer
+ * and item-data location
+ * \param sub_shader as passed to astral_pre_vert_shader(), used to identify
+ *                   if performing path animation or not.
+ * \param a0 as passed to astral_pre_vert_shader()
+ * \param t time interpolate of animation
+ * \param multiplier value by which to multiply the distance values
+ * \param J location to which to write the loaded values
+ */
+void
+astral_load_stroke_join_distance(in uint sub_shader, in vec4 a0, in float t,
+                                 in float multiplier, out astral_join_distances J)
+{
+  vec4 static_data;
+  uint static_data_offset;
+
+  static_data_offset = floatBitsToUint(a0.x);
+  if (astral_stroking_is_animated(sub_shader))
+    {
+      static_data = astral_read_static_data32f(static_data_offset + 3u);
+      J.m_distance_from_contour_start = mix(static_data.x, static_data.y, t);
+      J.m_contour_length = mix(static_data.z, static_data.w, t);
+
+      static_data = astral_read_static_data32f(static_data_offset + 4u);
+      J.m_edge_into_join_length = mix(static_data.x, static_data.y, t);
+      J.m_edge_leaving_join_length = mix(static_data.z, static_data.w, t);
+      J.m_distance_from_edge_start = mix(a0.z, a0.w, t);
+    }
+  else
+    {
+      static_data = astral_read_static_data32f(static_data_offset + 2u);
+      J.m_distance_from_contour_start = static_data.x;
+      J.m_edge_into_join_length = static_data.y;
+      J.m_edge_leaving_join_length = static_data.z;
+      J.m_contour_length = static_data.w;
+      J.m_distance_from_edge_start = a0.z;
+    }
+
+  /* note that J.m_distance_from_edge_start has double meanings.
+   *   - For inner joins, it is a real distance
+   *   - For all other kinds of joins, it is 0, -1 or -2.
+   * So, we can check against 0 and multiply if positive
+   */
+  if (J.m_distance_from_edge_start > 0.0)
+    {
+      J.m_distance_from_edge_start *= multiplier;
+    }
+
+  J.m_distance_from_contour_start *= multiplier;
+  J.m_edge_into_join_length *= multiplier;
+  J.m_edge_leaving_join_length *= multiplier;
+  J.m_contour_length *= multiplier;
+}
+
+/* Let Q be the point where the lines
+ *
+ *  L1 = { astral_join::m_prev_n + A * astral_join::m_prev_v | A > 0 } and
+ *  L2 = { astral_join::m_post_n + B * astral_join::m_post_v | B < 0 } instersect.
+ *
+ * Algebra yeilds that if L1 an L2 intersect, then A = -B.
+ * This function returns the value of A if the L1 and L2 intersect
+ * and 0 otherwise.
+ */
+float
+astral_join_compute_miter_along_tangent(in astral_join join)
+{
+  /* We need to solve where the stroke boundary on the outside of
+   * the join coming from the edges intersects. That means find
+   * the value Q where
+   *
+   *  Q = prev_n + A * prev_v
+   *    = post_n - B * post_v
+   *
+   * for some values A, B. Let
+   *
+   *     |   /\     /\    |
+   *     |   ||     ||    |   | A |   |                 |
+   * M = | prev_v -post_v | * |   | = | post_n - prev_n |
+   *     |   ||     ||    |   | B | = |                 |
+   *     |   \/     \/    |
+   *
+   * then we are to solve the linear system
+   *
+   *     | A |   |                 |
+   * M * |   | = | post_n - prev_n |
+   *     | B | = |                 |
+   *
+   * note that:
+   *                 1      | -post_v.y post_v.x |
+   * inverse(M) = ------- * |                    |
+   *               det(M)   | -prev_v.y prev_v.x |
+   *
+   *
+   * and so,
+   *
+   *  | A |                |                 |
+   *  |   | = inverse(M) * | post_n - prev_n |
+   *  | B |                |                 |
+   *
+   *
+   *             1      | dot(-post_v.y post_v.x, post_n - prev_n) |
+   *        = ------- * |                                          |
+   *           det(M)   | dot(-prev_v.y prev_v.x, post_n - prev_n) |
+   *
+   *
+   * We have from the properties of astral_join that:
+   *
+   *  vec2(-post_v.y post_v.x) = post_n
+   *  vec2(-prev_v.y prev_v.x) = prev_n
+   *
+   *
+   * Thus
+   *
+   *
+   *
+   *  | A |      1      | dot(post_n, post_n - prev_n) |
+   *  |   | = ------- * |                              |
+   *  | B |    det(M)   | dot(prev_n, post_n - prev_n) |
+   *
+   *
+   *             1      | 1 - dot(post_n, prev_n) |
+   *        = ------- * |                         |
+   *           det(M)   | dot(prev_n, post_n) - 1 |
+   */
+
+
+  float detM, r;
+
+  detM = -join.m_prev_v.x * join.m_post_v.y + join.m_post_v.x * join.m_prev_v.y;
+  r = 1.0 - dot(join.m_post_n, join.m_prev_n);
+
+  return (detM != 0.0) ? r / detM : 0.0;
+}
+
+/*!
+ * Given the value from astral_join_distances::m_distance_from_edge_start,
+ * returns true if and only if the join is a glue join.
+ *
+ * This is encoded as follows:
+ *   - is a glue join                   <===> astral_join_distances::m_distance_from_edge_start >= 0.0
+ *   - is a real join, not closing join <===> astral_join_distances::m_distance_from_edge_start = -1.0
+ *   - is a closing join                <===> astral_join_distances::m_distance_from_edge_start = -2.0
+ */
+bool
+astral_is_glue_join(float stroke_distance_from_start_edge)
+{
+  return stroke_distance_from_start_edge >= 0.0;
+}
+
+/*!
+ * Given the value from astral_join_distances::m_distance_from_edge_start,
+ * returns true if and only if the join is a closing join
+ *
+ * This is encoded as follows:
+ *   - is a glue join                   <===> astral_join_distances::m_distance_from_edge_start >= 0.0
+ *   - is a real join, not closing join <===> astral_join_distances::m_distance_from_edge_start = -1.0
+ *   - is a closing join                <===> astral_join_distances::m_distance_from_edge_start = -2.0
+ */
+bool
+astral_is_closing_join(float stroke_distance_from_start_edge)
+{
+  return stroke_distance_from_start_edge < -1.5;
+}
+
+/*!
+ * input value to astral_apply_dash_pattern_to_join
+ */
+struct astral_apply_dash_pattern_to_join_t
+{
+  /*!
+   * Value of astral_join_distances::m_edge_into_join_length
+   */
+  float m_edge_into_join_length;
+
+  /*!
+   * Value of astral_join_distances::m_contour_length
+   */
+  float m_contour_length;
+
+  /*!
+   * Location of dash pattern
+   */
+  uint m_item_data_location;
+
+  /*!
+   * Value of astral_join_distances::m_distance_from_edge_start
+   */
+  float m_distance_from_edge_start;
+
+  /*!
+   * Value of astral_join_distances::m_distance_from_contour_start
+   */
+  float m_distance_from_contour_start;
+};
+
+/*!
+ * Applies a dash pattern to a join; returns -1 if the join should not
+ * be drawn and +1 if it should be drawn.
+ */
+float
+astral_apply_dash_pattern_to_join(in astral_apply_dash_pattern_to_join_t J)
+{
+  astral_dash_pattern dash;
+  float D;
+  bool dash_pattern_restarts_on_each_edge;
+
+  dash_pattern_restarts_on_each_edge = astral_load_dash_pattern(J.m_edge_into_join_length,
+                                                                J.m_contour_length,
+                                                                J.m_item_data_location, dash);
+
+  if (astral_is_glue_join(J.m_distance_from_edge_start))
+    {
+      /* We have a glue join, so we need to apply the dash pattern
+       * to it. If the dash pattern restarts at each edge take the
+       * length from the start of the edge, othewise take it from
+       * the start of the contour.
+       */
+      D = (dash_pattern_restarts_on_each_edge) ?
+        J.m_distance_from_edge_start :
+        J.m_distance_from_contour_start;
+    }
+  else
+    {
+      /* We have either a real join or a closing join; we will need
+       * to perform the dash pattern computation if the dash pattern
+       * does NOT start at each edge, so we take D as the distance along
+       * the contour
+       */
+      D = J.m_distance_from_contour_start;
+
+      if (dash_pattern_restarts_on_each_edge)
+        {
+          /* dash patterns starts at each edge, so the join is drawn
+           * if and only if the dash-corner distance is positive.
+           */
+          return (dash.m_header.m_dash_corner > 0.0) ? 1.0 : -1.0;
+        }
+      else if (astral_is_closing_join(J.m_distance_from_edge_start))
+        {
+          if (dash.m_header.m_dash_corner > 0.0)
+            {
+              /* dash corner is positive which forces closing joins to always be drawn */
+              return 1.0;
+            }
+          else if (dash.m_first_interval <= 0.0)
+            {
+              /* no dash corner and the edge pattern does not cover the
+               * start of the contour, so the join is not drawn.
+               */
+              return -1.0;
+            }
+          else
+            {
+              /* Getting hear means that there is not dash-corner and the
+               * start is covered by the dash pattern; we then need to check
+               * if the end is covered by the pattern.
+               */
+              D = J.m_contour_length;
+            }
+        }
+    }
+
+  float ignored0, ingored1;
+  bool ignored2;
+
+  return astral_compute_interval(D, dash, ignored0, ingored1, ignored2);
+}
+
+
+/*! @} */

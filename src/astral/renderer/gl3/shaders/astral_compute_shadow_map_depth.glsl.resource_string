@@ -1,0 +1,29 @@
+// -*- C++ -*-
+/*!
+ * \file astral_compute_shadow_map_depth.glsl.resource_string
+ * \brief astral_compute_shadow_map_depth.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+float
+astral_compute_shadow_map_depth(in float D)
+{
+  return clamp(D * ASTRAL_SHADOW_MAP_RECIRPOCAL_MAX_DEPTH_VALUE, 0.0, 1.0);
+}
+
+/*! @} */

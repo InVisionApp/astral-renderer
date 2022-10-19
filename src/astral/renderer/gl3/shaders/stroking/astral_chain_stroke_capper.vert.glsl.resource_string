@@ -1,0 +1,234 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_capper.vert.glsl.resource_string
+ * \brief astral_chain_stroke_capper.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  uint role, offset_type, mask, rmask, flags;
+  uint start_mask, end_mask, open_contour_mask;
+  float ignored, end_point_length, R;
+  float remainder, dd, y_sign;
+  vec2 normal, v, p;
+  astral_dash_interval_result dash_result;
+  bool requires_full_cap_from_length_boundary;
+  astral_stroke_compute_stroke_location_query query;
+  astral_stroke_radius_info_t info;
+  vec3 item_data;
+  bool edge_starter;
+  astral_dash_pattern dash_pattern;
+  astral_stroke_compute_stroke_location_result capper_result;
+
+  flags = astral_vertex_flags(floatBitsToUint(a0.y));
+  role = astral_vertex_role(floatBitsToUint(a0.y));
+  offset_type = ASTRAL_STROKE_SHADER_CAP_OFFSET_TYPE_MASK & role;
+
+  item_data.xyz = astral_read_item_dataf(item_data_location).xyz;
+  query.m_sub_shader = sub_shader;
+  query.m_t = item_data.y;
+
+  #ifdef ASTRAL_STROKE_CAPPER_LINE_SEGMENT
+    {
+      astral_stroke_compute_stroke_location_line_segment(a0, query,
+                                                         floatBitsToUint(item_data.z),
+                                                         capper_result);
+    }
+  #else
+    {
+      astral_stroke_compute_stroke_location_quadratic(a0, query,
+                                                      floatBitsToUint(item_data.z),
+                                                      capper_result);
+    }
+  #endif
+
+  edge_starter = astral_load_dash_pattern(capper_result.m_edge_length,
+                                          capper_result.m_contour_length,
+                                          item_data_location, dash_pattern);
+
+  astral_chain_stroke_distance_along_contour = capper_result.m_distance_along_contour;
+  if (edge_starter)
+    {
+      capper_result.m_distance_along_contour -= capper_result.m_distance_from_start_contour_minus_from_start_edge;
+    }
+
+  info = astral_stroke_radius_info(item_data.x, tr.m_matrix, astral_render_scale());
+  astral_chain_stroke_radius = info.m_fragment_radius;
+  astral_chain_stroke_coverage_multiplier = info.m_coverage_multiplier;
+
+  R = info.m_vertex_radius;
+  ignored = astral_compute_dash_distance(capper_result.m_distance_along_contour,
+                                         dash_pattern, dash_result);
+
+  if (astral_dash_pattern_is_applied_per_edge(dash_pattern.m_header))
+    {
+      start_mask = ASTRAL_STROKE_START_EDGE_MASK;
+      end_mask = ASTRAL_STROKE_END_EDGE_MASK;
+    }
+  else
+    {
+      start_mask = ASTRAL_STROKE_START_CONTOUR_MASK;
+      end_mask = ASTRAL_STROKE_END_CONTOUR_MASK;
+    }
+
+  if (astral_stroke_subshader(sub_shader) == ASTRAL_STROKE_CAPPER_START)
+    {
+      /* we are handling the cap at the start of the edge,
+       * thus we want the distance to interval_begin
+       */
+      dd = dash_result.m_interval_end - capper_result.m_distance_along_contour;
+      mask = start_mask;
+      open_contour_mask = ASTRAL_STROKE_START_CONTOUR_MASK;
+      end_point_length = 0.0;
+
+      /* if the dash pattern starts with zero and we are at the
+       * start of the contour, then the capper must be fully added
+       */
+      requires_full_cap_from_length_boundary = (dash_pattern.m_first_interval == 0.0 && ((flags & start_mask) != 0u));
+
+      rmask = ASTRAL_STROKE_START_CONTOUR_MASK | ASTRAL_STROKE_CLOSED_CONTOUR_MASK;
+    }
+  else
+    {
+      mask = end_mask;
+      open_contour_mask = ASTRAL_STROKE_END_CONTOUR_MASK;
+      dd = capper_result.m_distance_along_contour - dash_result.m_interval_begin;
+      end_point_length = abs(dash_pattern.m_header.m_end_length);
+      requires_full_cap_from_length_boundary = false;
+
+      rmask = ASTRAL_STROKE_END_CONTOUR_MASK | ASTRAL_STROKE_CLOSED_CONTOUR_MASK;
+    }
+
+  /* If we are on a closed contour and stroking without a dashed corner,
+   * we need to have a full cap if there is a mismatch between if the
+   * start and end of the contour are covered.
+   */
+  if (rmask == (rmask & flags)
+      && !requires_full_cap_from_length_boundary
+      && dash_pattern.m_header.m_dash_corner < 0.0
+      && dash_result.m_covered >= 0.0)
+    {
+      astral_dash_interval_result dash_result2;
+      float D;
+
+      D = (astral_stroke_subshader(sub_shader) == ASTRAL_STROKE_CAPPER_START) ?
+        capper_result.m_contour_length :
+        0.0;
+
+      ignored = astral_compute_dash_distance(D, dash_pattern, dash_result2);
+      requires_full_cap_from_length_boundary = dash_result2.m_covered < 0.0;
+    }
+
+  if (astral_dash_pattern_is_applied_per_edge(dash_pattern.m_header)
+      && dash_pattern.m_header.m_dash_corner <= 0.0)
+    {
+      rmask = mask;
+    }
+  else
+    {
+      rmask = mask | ASTRAL_STROKE_CLOSED_CONTOUR_MASK;
+    }
+
+  if (mask == (rmask & flags) && !requires_full_cap_from_length_boundary)
+    {
+      /* the capper starts (or ends) on the edge (or contour)
+       * length. If the dash corner radius is negative, then
+       * the capper is only needed if the location of the start
+       * of the capper IS covered. If the dash corner radius
+       * is positive, the capper is only needed if the dash
+       * pattern is applied per contour or if the contour is
+       * open and the point is covered
+       */
+      if (dash_pattern.m_header.m_dash_corner <= 0.0)
+        {
+          /* The dash corner is negative, thus the capper is needed exactly
+           * when the point of the capper -is- coverred.
+           */
+          requires_full_cap_from_length_boundary = (dash_result.m_covered >= 0.0);
+        }
+      else
+        {
+          /* the dash corner is positive. We have two cases:
+           *  - Applied per edge, then a capper is only needed on an open contour
+           *    at the start and end of the contour if the point is covered by the
+           *    dash pattern
+           *  - Applied per contour, then capper is needed
+           */
+          requires_full_cap_from_length_boundary =
+            !astral_dash_pattern_is_applied_per_edge(dash_pattern.m_header)
+            || (dash_result.m_covered >= 0.0 && (flags & open_contour_mask) == open_contour_mask);
+        }
+    }
+
+  if (requires_full_cap_from_length_boundary)
+    {
+      /* if we are at the start or end of an open contour,
+       * or at the start or end of an edge with per-edge
+       * stroking without a dash corner or the first
+       * interval is a draw interval, then capper must always
+       * be drawn as a full cap.
+       */
+      remainder = R;
+      dd = 0.0;
+    }
+  else if (dash_result.m_covered < 0.0 && dd <= capper_result.m_primitive_length)
+    {
+      /* there is cap we need to finish */
+      remainder = max(0.0, R - dd);
+    }
+  else
+    {
+      /* no cap to finish, collapse to a point */
+      remainder = 0.0;
+      R = 0.0;
+      dd = 0.0;
+    }
+
+  /* draw a quad that is length remainder */
+  normal = vec2(-capper_result.m_cap_direction.y, capper_result.m_cap_direction.x);
+  y_sign = ((ASTRAL_STROKE_SHADER_CAP_SIDE_MASK & role) != 0u) ? -1.0 : 1.0;
+
+  /* ASTRAL_STROKE_SHADER_CAP_POINT_ON_PATH = 0
+   * ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY = 1
+   * ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY = 2
+   */
+  v = vec2(0.0, 0.0);
+  if (offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY && remainder > 0.0)
+    {
+      v += (R * y_sign) * normal;
+    }
+
+  if (offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY && remainder > 0.0)
+    {
+      v += remainder * capper_result.m_cap_direction;
+    }
+
+  p = capper_result.m_p + v;
+
+  astral_chain_stroke_pt_x = (offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY) ?  R : dd;
+  astral_chain_stroke_pt_y = (offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY) ? R * y_sign : 0.0;
+
+  /* p is in local coordinate, put into pixel coordinates */
+  return astral_apply_transformation(tr, p);
+}

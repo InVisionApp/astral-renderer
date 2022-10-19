@@ -1,0 +1,95 @@
+// -*- C++ -*-
+/*!
+ * \file astral_unpack.glsl.resource_string
+ * \brief astral_unpack.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+uint
+astral_mask(uint bit0, uint num_bits)
+{
+  uint r;
+
+  r = (1u << num_bits);
+  r -= 1u;
+
+  return r << bit0;
+}
+
+/* MUST MATCH astral::pack_pair() of astral/util/util.cpp */
+uvec2
+astral_unpack_pair(uint v)
+{
+  uvec2 return_value;
+
+  return_value.x = v & 0xFFFFu;
+  return_value.y = v >> 16u;
+
+  return return_value;
+}
+
+uint
+astral_pack_pair(uvec2 v)
+{
+  uint return_value;
+
+  return_value = (v.x) | (v.y << 16u);
+  return return_value;
+}
+
+uint
+astral_unpack_bits(uint bit0, uint num_bits, uint v)
+{
+  return (v << (32u - bit0 - num_bits)) >> (32u - num_bits);
+}
+
+uint
+astral_pack_bits(uint bit0, uint v)
+{
+  return v << bit0;
+}
+
+/* MUST MATCH astral::pack_u8vec4() of astral/util/vecN.cpp */
+uvec4
+astral_unpack_u8vec4(in uint v)
+{
+  uvec4 return_value;
+
+  return_value.x = astral_unpack_bits(0u, 8u, v);
+  return_value.y = astral_unpack_bits(8u, 8u, v);
+  return_value.z = astral_unpack_bits(16u, 8u, v);
+  return_value.w = astral_unpack_bits(24u, 8u, v);
+
+  return return_value;
+}
+
+/* convert u8vec4 value to normalized vec4 value */
+vec4
+astral_normalize_u8vec4(in uvec4 v)
+{
+  const float recip255 = 1.0 / 255.0;
+  return vec4(v) * recip255;
+}
+
+vec4
+astral_normalize_unpack_u8vec4(in uint packed_v)
+{
+  return astral_normalize_u8vec4(astral_unpack_u8vec4(packed_v));
+}
+
+/*! @} */

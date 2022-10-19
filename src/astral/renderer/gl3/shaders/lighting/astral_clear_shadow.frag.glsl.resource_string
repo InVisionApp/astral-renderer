@@ -1,0 +1,28 @@
+// -*- C++ -*-
+/*!
+ * \file astral_clear_shadow.frag.glsl.resource_string
+ * \brief astral_clear_shadow.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out float depth_value)
+{
+  depth_value = ASTRAL_SHADOW_MAP_MAX_DEPTH_VALUE;
+}

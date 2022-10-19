@@ -1,0 +1,101 @@
+// -*- C++ -*-
+/*!
+ * \file astral_blit_mask_tile.vert.glsl.resource_string
+ * \brief astral_blit_mask_tile.vert.glsl.resource_string
+ *
+ * Copyright 2021 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_vert_shader(in uint sub_shader, in uint shader_data,
+                                in uint brush_idx, in vec2 material_p,
+                                in AstralTransformation tr)
+{
+}
+
+void
+astral_material_vert_shader(in uint sub_shader, in uint shader_data,
+                            in uint brush_idx, in vec2 material_p,
+                            in AstralTransformation tr)
+{
+  uvec4 item_data;
+  uvec3 tile_index_atlas_location, tile_atlas_location;
+  uvec2 tile_location;
+  vec2 tmp;
+  uint index_texel, tile_padding, mask_filter, mask_channel, mask_type, optional_mask;
+  AstralScaleTranslate clip_in_sc, clip_out_sc;
+
+
+  item_data = astral_read_item_datau(shader_data);
+
+  tile_location = item_data.xy;
+  tile_index_atlas_location.xy = astral_unpack_pair(item_data.z);
+  tile_index_atlas_location.z = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_LAYER_BIT0,
+                                                   ASTRAL_BLIT_MASK_TILE_LAYER_NUM_BITS,
+                                                   item_data.w);
+  tile_padding = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_PADDING_BIT0,
+                                    ASTRAL_BLIT_MASK_TILE_PADDING_NUM_BITS,
+                                    item_data.w);
+
+  mask_filter = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_FILTER_BIT0,
+                                   ASTRAL_FILTER_NUM_BITS,
+                                   item_data.w);
+
+  mask_channel = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_MASK_CHANNEL_BIT0,
+                                    ASTRAL_MASK_CHANNEL_NUM_BITS,
+                                    item_data.w);
+
+  optional_mask = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_OPTIONAL_MASK_CHANNEL_BIT0,
+                                     ASTRAL_MASK_CHANNEL_NUM_BITS + 1u,
+                                     item_data.w);
+
+  mask_type = astral_unpack_bits(ASTRAL_BLIT_MASK_TILE_MASK_VALUE_TYPE_BIT0,
+                                 ASTRAL_MASK_TYPE_NUM_BITS,
+                                 item_data.w);
+
+  item_data = astral_read_item_datau(shader_data + 1u);
+  astral_clip_in_image_x = item_data.x;
+  astral_clip_in_image_y = item_data.y;
+  astral_clip_in_image_z = item_data.z;
+  astral_clip_in_image_w = item_data.w;
+
+  item_data = astral_read_item_datau(shader_data + 2u);
+  astral_clip_out_image_x = item_data.x;
+  astral_clip_out_image_y = item_data.y;
+  astral_clip_out_image_z = item_data.z;
+  astral_clip_out_image_w = item_data.w;
+
+  item_data = astral_read_item_datau(shader_data + 3u);
+  astral_load(item_data.x, clip_in_sc);
+  astral_load(item_data.y, clip_out_sc);
+
+  index_texel = texelFetch(astral_image_index_atlas, ivec3(tile_index_atlas_location), 0).r;
+  tile_atlas_location = astral_unpack_index_texel(index_texel);
+
+  astral_mask_texel_x = float(tile_atlas_location.x + tile_padding) - float(tile_location.x) + material_p.x;
+  astral_mask_texel_y = float(tile_atlas_location.y + tile_padding) - float(tile_location.y) + material_p.y;
+
+  tmp = astral_apply_scale_translate(clip_in_sc, material_p);
+  astral_clip_in_texel_x = tmp.x;
+  astral_clip_in_texel_y = tmp.y;
+
+  tmp = astral_apply_scale_translate(clip_out_sc, material_p);
+  astral_clip_out_texel_x = tmp.x;
+  astral_clip_out_texel_y = tmp.y;
+
+  astral_mask_texel_z_xfer_filter =
+    astral_pack_bits(ASTRAL_BLIT_MASK_TILE_PACK_ATLAS_Z_BIT0, tile_atlas_location.z)
+    | astral_pack_bits(ASTRAL_BLIT_MASK_TILE_PACK_MASK_VALUE_TYPE_BIT0, mask_type)
+    | astral_pack_bits(ASTRAL_BLIT_MASK_TILE_PACK_MASK_CHANNEL_BIT0, mask_channel)
+    | astral_pack_bits(ASTRAL_BLIT_MASK_TILE_PACK_OPTIONAL_MASK_CHANNEL_BIT0, optional_mask)
+    | astral_pack_bits(ASTRAL_BLIT_MASK_TILE_PACK_FILTER_BIT0, mask_filter);
+}

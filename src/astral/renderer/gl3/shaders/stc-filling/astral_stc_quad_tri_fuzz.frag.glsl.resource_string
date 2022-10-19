@@ -1,0 +1,52 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_quad_tri_fuzz.frag.glsl.resource_string
+ * \brief astral_stc_quad_tri_fuzz.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  float f, s, dx, dy, complement_s;
+  vec4 cc;
+
+  dx = 2.0 * astral_stc_quad_tri_fuzz_tex_x * dFdx(astral_stc_quad_tri_fuzz_tex_x) - dFdx(astral_stc_quad_tri_fuzz_tex_y);
+  dy = 2.0 * astral_stc_quad_tri_fuzz_tex_x * dFdy(astral_stc_quad_tri_fuzz_tex_x) - dFdy(astral_stc_quad_tri_fuzz_tex_y);
+
+  if (astral_stc_quad_tri_fuzz_type == ASTRAL_STC_QUAD)
+    {
+      f = astral_stc_quad_tri_fuzz_tex_x * astral_stc_quad_tri_fuzz_tex_x - astral_stc_quad_tri_fuzz_tex_y;
+      s = abs(f) * inversesqrt(dx * dx + dy * dy);
+    }
+  else
+    {
+      s = abs(astral_stc_quad_tri_fuzz_tex_x);
+    }
+
+  s = clamp(s, 0.0, 1.0);
+
+  complement_s = 1.0 - s;
+
+  /*
+   * (inside/outside, inverse_distance, inverse_coverage_of_combine_mask, inverse_distance_of_combine_mask)
+   */
+  base_color = vec4(0.0, complement_s, 0.0, 0.0);
+}

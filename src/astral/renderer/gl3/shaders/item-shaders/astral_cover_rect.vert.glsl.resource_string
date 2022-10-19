@@ -1,0 +1,38 @@
+// -*- C++ -*-
+/*!
+ * \file astral_dynamic_rect_bo.vert.glsl.resource_string
+ * \brief astral_dynamic_rect_bo.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  vec2 p, rel;
+  vec4 min_max_p;
+
+  rel = a0.xy;
+  min_max_p = astral_read_item_dataf(item_data_location);
+  p = mix(min_max_p.xy, min_max_p.zw, rel);
+
+  return astral_apply_transformation(tr, p);
+}

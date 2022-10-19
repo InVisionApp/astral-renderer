@@ -1,0 +1,60 @@
+// -*- C++ -*-
+/*!
+ * \file astral_gpu_vertex_streaming_blitter.vert.glsl.resource_string
+ * \brief astral_gpu_vertex_streaming_blitter.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/* data fields
+ *  - .x = pixel location, packed into 16-bit pair.
+ *  - .y = source start
+ *  - .z = offset from source start
+ *  - .w = header index/location (uint)
+ *
+ * We do NOT interpolate the raw vertex source value,
+ * and instead interpolate the offset from the source
+ * value. The reason being that tests have shown that
+ * the interpolation of a large float does not go well
+ * when we have a large number of vertices. By interpolating
+ * the addition of the source, the interpolate value is
+ * never more than the width of the texture.
+ */
+in uvec4 in_data;
+
+flat out uint out_header_id;
+flat out uint out_vertex_src_start;
+out float out_vertex_src_offset;
+
+uniform vec2 recip_half_viewport_width_height;
+
+void
+main(void)
+{
+  uint x, y;
+
+  x = in_data.x & 0xFFFFu;
+  y = in_data.x >> 16u;
+
+  out_vertex_src_start = in_data.y;
+  out_vertex_src_offset = float(in_data.z);
+
+  out_header_id = in_data.w;
+
+  /* GL conventions when rendering to texture:
+   *   normalized_y = -1 --> texel_y = 0
+   *   normalized_y = +1 --> texel_y = texture_height
+   */
+  gl_Position = vec4(recip_half_viewport_width_height.x * float(x) - 1.0,
+                     recip_half_viewport_width_height.y * float(y) - 1.0,
+                     0.0, 1.0);
+}

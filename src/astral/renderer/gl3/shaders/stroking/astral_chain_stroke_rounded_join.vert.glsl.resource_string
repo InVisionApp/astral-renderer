@@ -1,0 +1,187 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_rounded_join.vert.glsl.resource_string
+ * \brief astral_chain_stroke_rounded_join.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+  astral_join_point join;
+  vec2 v, n;
+
+  astral_stroke_join_common(sub_shader, item_data_location, a0, tr, astral_render_scale(), join);
+
+  n = (join.m_is_leaving_pt) ? join.m_join.m_post_n : join.m_join.m_prev_n;
+  n *= astral_join_lambda(join.m_join);
+  if (astral_stroke_subshader(sub_shader) == ASTRAL_STROKE_SUB_SHADER_INNER_JOIN)
+    {
+      n = -n;
+    }
+
+  /*
+   * ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH = 0
+   * ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY = 1
+   * ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY = 2
+   *
+   *   - for ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY, we just
+   *     add n * join.m_stroke_radius to join.m_p
+   *   - for ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY, we
+   *     find the point on the circle centered at join.m_p with
+   *     radius one that rises above the line segment connecting the
+   *     ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY points.
+   *     The value of ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY
+   *     is then where the line parallel at that height meets the tangent
+   *     points. In the case that the difference of the normal vectors is
+   *     small, we just make ASTRAL_STROKE_SHADER_JOIN_POINT_BEYOND_EDGE_BOUNDARY
+   *     the same as ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY, i.e.
+   *     a bevel join essentially.
+   */
+  #ifndef ASTRAL_INFLATE_DEGENERATE_GLUE_JOINS
+    {
+      if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH)
+        {
+          v = vec2(0.0, 0.0);
+        }
+      else if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY)
+        {
+          v = n;
+        }
+      else
+        {
+          vec2 major, minor;
+          float m;
+
+          /* Basic idea: the major axis is the line conneting
+           *             the shared points of the join with
+           *             the neighboring edge. From there we
+           *             compute the vector perpindicular to
+           *             go up to cover the entire rounded join.
+           */
+          major = join.m_join.m_post_n - join.m_join.m_prev_n;
+          m = dot(major, major);
+
+          if (m > 1e-8)
+            {
+              minor = normalize(vec2(-major.y, major.x));
+
+              /* Note the max against zero. In exact arithmatic,
+               * m is no more than 4.0, but floating point error
+               * can push it over.
+               */
+              minor *= m / (4.0 + 2.0 * sqrt(max(0.0, 4.0 - m)));
+            }
+          else
+            {
+              minor = vec2(0.0, 0.0);
+            }
+
+          v = n + minor;
+        }
+    }
+  #else
+    {
+      if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_ON_PATH)
+        {
+          v = vec2(0.0, 0.0);
+        }
+      else
+        {
+          vec2 major, minor;
+          float m;
+
+          /* Basic idea: the major axis is the line conneting
+           *             the shared points of the join with
+           *             the neighboring edge. From there we
+           *             compute the vector perpindicular to
+           *             go up to cover the entire rounded join.
+           */
+          major = join.m_join.m_post_n - join.m_join.m_prev_n;
+          m = dot(major, major);
+
+          if (m > 1e-6)
+            {
+              /* Note the max against zero. In exact arithmatic,
+               * m is no more than 4.0, but floating point error
+               * can push it over.
+               */
+              if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY)
+                {
+                  minor = vec2(0.0, 0.0);
+                }
+              else
+                {
+                  minor = normalize(vec2(-major.y, major.x));
+                  minor *= m / (4.0 + 2.0 * sqrt(max(0.0, 4.0 - m)));
+                }
+            }
+          else
+            {
+              /* Note that the role of what point inflates the join
+               * is reverse in this case. This is so that we do not
+               * get triangle flip-inversion which induces extra
+               * overdraw.
+               */
+              if (join.m_offset_type == ASTRAL_STROKE_SHADER_JOIN_POINT_EDGE_BOUNDARY)
+                {
+                  vec4 vv;
+                  float dd, ff;
+
+                  /* join is a glue join with the normal vector nearly parallel;
+                   * test on some hardware have given rendering cracks with
+                   * very specific paths at very specific stroking resolutions
+                   * with very specific mask generation (where a tile is generated
+                   * in one place or another). To avoid this, we will nudge in the
+                   * velocity vector a pixel or two.
+                   */
+                  vv = abs(tr.m_matrix.m_value);
+                  dd = max(vv.x, max(vv.y, max(vv.z, vv.w)));
+                  ff = 1.0 / (dd * join.m_stroke_radius.m_radius);
+                  minor = (join.m_is_leaving_pt) ? -join.m_join.m_prev_v : join.m_join.m_post_v;
+                  minor *= ff;
+                }
+              else
+                {
+                  minor = vec2(0.0, 0.0);
+                }
+            }
+
+          v = n + minor;
+        }
+    }
+  #endif
+
+  astral_chain_stroke_position_x = join.m_join.m_p.x;
+  astral_chain_stroke_position_y = join.m_join.m_p.y;
+  astral_chain_stroke_offset_vector_x = v.x;
+  astral_chain_stroke_offset_vector_y = v.y;
+  astral_chain_stroke_radius = join.m_stroke_radius.m_radius;
+  astral_chain_stroke_vertex_to_fragment_radius_ratio = join.m_stroke_radius.m_vertex_to_fragment_radius_ratio;
+  astral_chain_stroke_coverage_multiplier = join.m_stroke_radius.m_coverage_multiplier;
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      astral_join_distances DJ;
+
+      astral_load_stroke_join_distance(sub_shader, a0, join.m_t, join.m_distance_multiplier, DJ);
+      astral_chain_stroke_distance_along_contour = DJ.m_distance_from_contour_start;
+      astral_chain_stroke_contour_length = DJ.m_contour_length;
+      astral_chain_stroke_edge_into_join_length = DJ.m_edge_into_join_length;
+      astral_chain_stroke_edge_leaving_join_length = DJ.m_edge_leaving_join_length;
+      astral_chain_stroke_distance_from_start_edge = DJ.m_distance_from_edge_start;
+    }
+  #endif
+}

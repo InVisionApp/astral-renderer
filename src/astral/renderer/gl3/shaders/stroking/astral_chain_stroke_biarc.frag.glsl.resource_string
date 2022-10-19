@@ -1,0 +1,115 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_biarc.frag.glsl.resource_string
+ * \brief astral_chain_stroke_biarc.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  vec2 v, dvdx, dvdy;
+
+  v = vec2(astral_chain_stroke_pt_x, astral_chain_stroke_pt_y);
+  dvdx = dFdx(v);
+  dvdy = dFdy(v);
+
+  if (astral_chain_stroke_arc_radius < 0.0)
+    {
+      float r;
+
+      r = abs(v.x);
+      astral_chain_stroke_perp_distance_to_curve = r;
+      astral_chain_stroke_perp_distance_to_curve_gradient_x = dvdx.x;
+      astral_chain_stroke_perp_distance_to_curve_gradient_y = dvdy.x;
+    }
+  else
+    {
+      float f, inv_r, r;
+
+      r = length(v);
+
+      /* Case 1. There is no inversion, then the arc represents the curve and the
+       *         distance to the curve is the same as the distance to the arc which
+       *         is given by abs(r - astral_chain_stroke_arc_radius)
+       *
+       * Case 2. We are at an inversion arc; in this case the origin of the vector
+       *         v is at the center of the arc that is the boundary of the stroke
+       *         (instead of the original curve). In this case the distance to curve
+       *         is then r + astral_chain_stroke_arc_radius
+       *
+       */
+      f = (0u == (astral_chain_stroke_boundary_flags & ASTRAL_STROKING_ARC_INVERTED_PORTION_MASK)) ?
+        astral_chain_stroke_arc_radius :
+        -astral_chain_stroke_arc_radius;
+
+      inv_r = 1.0 / r;
+      astral_chain_stroke_perp_distance_to_curve = abs(r - f);
+      astral_chain_stroke_perp_distance_to_curve_gradient_x = dot(v, dvdx) * inv_r;
+      astral_chain_stroke_perp_distance_to_curve_gradient_y = dot(v, dvdy) * inv_r;
+    }
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      float dist, theta, theta_dx, theta_dy;
+      vec2 dist_grad;
+
+      /* It is quite debatable to use dFdx(theta)
+       * and dFdy(theta) directly instead of computing
+       * the derivative using the chain rule acting
+       * and using dvdx and dvdy; note that we are
+       * taking the absolut value of the atan(); this
+       * is because an angle of zero is always the
+       * start and it always travel a positive
+       * distance along the curve.
+       */
+      theta = abs(atan(v.y, v.x));
+      theta_dx = dFdx(theta);
+      theta_dy = dFdy(theta);
+
+      if (0u != (astral_chain_stroke_boundary_flags & ASTRAL_STROKING_ARC_INVERTED_PORTION_MASK))
+        {
+          /* We actually want the magnitude of the angle from (-1, 0)
+           * instead of (1, 0) when we are stroking the inverted portion.
+           * Thankfully, that value is easy to compute as below.
+           */
+          theta = ASTRAL_PI - theta;
+        }
+
+      if (astral_chain_stroke_arc_radius < 0.0)
+        {
+          /* the arc collapsed to a line segment */
+          dist = v.y;
+          dist_grad = vec2(dvdx.y, dvdy.y);
+        }
+      else
+        {
+          dist = astral_chain_stroke_arc_radius * theta;
+          dist_grad = astral_chain_stroke_arc_radius * vec2(theta_dx, theta_dy);
+        }
+
+      dist += astral_chain_stroke_distance_along_contour_pre_offset;
+      astral_chain_stroke_distance_along_contour = astral_chain_stroke_distance_along_contour_start + dist * astral_chain_stroke_distance_along_contour_multiplier;
+
+      astral_chain_stroke_distance_along_contour_gradient_x = astral_chain_stroke_distance_along_contour_multiplier * dist_grad.x;
+      astral_chain_stroke_distance_along_contour_gradient_y = astral_chain_stroke_distance_along_contour_multiplier * dist_grad.y;
+    }
+  #endif
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  astral_line_biarc_frag_shader(sub_shader, item_data_location, base_color);
+}

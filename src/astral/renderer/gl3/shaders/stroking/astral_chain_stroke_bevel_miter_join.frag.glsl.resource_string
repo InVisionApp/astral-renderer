@@ -1,0 +1,61 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_bevel_miter_join.frag.glsl.resource_string
+ * \brief astral_chain_stroke_bevel_miter_join.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  float signed_distance, dx, dy, ff1, ff2;
+
+  /* the vertex shading is setup so that that stroke radius
+   * in the coordinate system that astral_chain_stroke_normalized_distance_to_path
+   * lies in is 1.0.
+   */
+  ff1 = 1.0 - astral_chain_stroke_normalized_distance_to_path;
+  ff1 = clamp(ff1, -1.0, 1.0);
+
+  /* convert to distance in pixels */
+  dx = dFdx(astral_chain_stroke_normalized_distance_to_path);
+  dy = dFdy(astral_chain_stroke_normalized_distance_to_path);
+  ff1 *= inversesqrt(dx * dx + dy * dy);
+
+  /* take into account the secondary distance, this
+   * is only active if the value is greater than a magical
+   * value of -1000.0
+   */
+  if (astral_chain_stroke_secondary_aa > ASTRAL_STROKING_SECONDARY_AA_ACTIVE_THRESH)
+    {
+      ff2 = astral_chain_stroke_secondary_aa;
+      dx = dFdx(astral_chain_stroke_secondary_aa);
+      dy = dFdy(astral_chain_stroke_secondary_aa);
+      ff2 *= inversesqrt(dx * dx + dy * dy);
+    }
+  else
+    {
+      ff2 = 1.0;
+    }
+
+  /* represents intersection */
+  signed_distance = min(ff1, ff2);
+
+  base_color = astral_compute_mask_emit_value(signed_distance, astral_chain_stroke_coverage_multiplier);
+}

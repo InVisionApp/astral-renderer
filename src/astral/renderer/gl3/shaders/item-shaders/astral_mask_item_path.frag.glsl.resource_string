@@ -1,0 +1,48 @@
+// -*- C++ -*-
+/*!
+ * \file astral_mask_item_path.frag.glsl.resource_string
+ * \brief astral_mask_item_path.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader,
+                   in uint item_data_location,
+                   out vec4 base_color)
+{
+  /* ItemData at item_data_location + 1u holds
+   * the layers of the shader-path to process.
+   */
+  bool more_to_go;
+  astral_banded_rays_layer layer;
+  vec2 astral_path_coord, astral_path_coord_fwidth;
+  float d;
+
+  astral_path_coord.x = astral_path_coord_x;
+  astral_path_coord.y = astral_path_coord_y;
+
+  astral_path_coord_fwidth.x = fwidth(astral_path_coord_x);
+  astral_path_coord_fwidth.y = fwidth(astral_path_coord_y);
+
+  item_data_location += 1u;
+  astral_banded_rays_load_layer_from_item_data(item_data_location, layer);
+  d = astral_banded_rays_process_layer_nearest_curve_distance(astral_path_coord, astral_path_coord_fwidth, layer, 0.0);
+
+  base_color = astral_compute_mask_emit_value(d, 1.0);
+}

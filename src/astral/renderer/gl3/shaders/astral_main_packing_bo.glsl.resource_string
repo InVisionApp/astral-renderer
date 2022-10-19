@@ -1,0 +1,540 @@
+// -*- C++ -*-
+/*!
+ * \file atral_main_packing_ubo.vert.glsl.resource_string
+ * \brief atral_main_packing_ubo.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+const uint ASTRAL_CLIP_MASK_ACTIVE_BIT = 31u;
+const uint ASTRAL_CLIP_MASK_ACTIVE = (1u << ASTRAL_CLIP_MASK_ACTIVE_BIT);
+
+const uint ASTRAL_HAS_FRAMEBUFFER_DST_BIT = 30u;
+const uint ASTRAL_HAS_FRAMEBUFFER_DST = (1u << ASTRAL_HAS_FRAMEBUFFER_DST_BIT);
+
+flat astral_varying uvec2 astral_main_flags;
+
+#ifdef ASTRAL_COLOR_ITEM_SHADER
+  flat astral_varying uint astral_main_material_shader_value;
+#endif
+
+#ifndef ASTRAL_SHADOW_GENERATOR_SHADER
+  astral_varying vec2 astral_clip_mask_p;
+  flat astral_varying uint astral_clip_mask_bits;
+  flat astral_varying vec4 astral_clip_mask_window;
+#endif
+
+#ifdef ASTRAL_EMULATE_FRAMEBUFFER_FETCH
+  flat astral_varying uvec4 astral_main_emulate_framebuffer_surface;
+  astral_varying vec2 astral_main_emulate_framebuffer_p;
+
+  #if !defined(ASTRAL_COLOR_ITEM_SHADER)
+    #error ASTRAL_EMULATE_FRAMEBUFFER_FETCH is only for ASTRAL_COLOR_ITEM_SHADER
+  #endif
+
+#endif
+
+#ifdef ASTRAL_VERTEX_SHADER
+
+#ifndef ASTRAL_SHADOW_GENERATOR_SHADER
+
+/* set by main() if astral_main_bo.vert.glsl */
+vec2 astral_render_scale_value;
+
+/*!
+ * Returns the rendering scale factor of rendering.
+ */
+vec2
+astral_render_scale(void)
+{
+  return astral_render_scale_value;
+}
+
+#endif
+
+void
+astral_pack_main_varyings(in AstralUnpackedHeader header, in vec2 pixel_p)
+{
+  uint flags = 0u;
+
+  #ifdef ASTRAL_EMULATE_FRAMEBUFFER_FETCH
+    {
+      if (header.m_framebuffer_copy != ASTRAL_INVALID_INDEX)
+        {
+          AstralEmulateFramebufferFetch dst;
+          AstralPackedImage dst_image;
+
+          astral_load(header.m_framebuffer_copy, dst);
+          astral_load(dst.m_image, dst_image);
+          astral_pack_image(dst_image.m_base, astral_main_emulate_framebuffer_surface);
+          astral_main_emulate_framebuffer_p = astral_apply_transformation(dst, pixel_p);
+
+          flags |= ASTRAL_HAS_FRAMEBUFFER_DST;
+        }
+    }
+  #endif
+
+  #ifdef ASTRAL_COLOR_ITEM_SHADER
+    {
+      astral_main_material_shader_value = header.m_material_shader;
+    }
+  #endif
+
+  #ifndef ASTRAL_SHADOW_GENERATOR_SHADER
+    {
+      uvec2 tmp;
+
+      /* ClipMask
+       *  .x gives what AstralClipElement to read
+       *  .y gives the additional bits for the AstralClipElement
+       */
+      tmp = astral_unpack_pair(header.m_clip_mask);
+      astral_clip_mask_bits = tmp.y;
+      if (tmp.x != ASTRAL_INVALID_INDEX)
+        {
+          AstralClipElement clip_element;
+          vec2 window_min_corner, window_max_corner;
+
+          astral_load(tmp.x, clip_element);
+
+          if ((astral_clip_mask_bits & ASTRAL_CLIP_MASK_CLIP_OUT_MASK) == 0u)
+            {
+	      /* NOTE! If the shader is made with no clipping, i.e. ASTRAL_CLIP_DISTANCE_NOT_DEFINED
+	       *       is defined, then this has no effect; ASTRAL_CLIP_DISTANCE_NOT_DEFINED is defined
+	       *       when there are no hardware clip planes AND the backend draw call was not given
+	       *       a valid RenderValue<ClipWindow>.
+	       */
+              astral_intersect_clipping(pixel_p, clip_element.m_pixel_clip_window);
+            }
+
+          window_min_corner = vec2(clip_element.m_pixel_clip_window.m_min_x,
+                                   clip_element.m_pixel_clip_window.m_min_y);
+
+          window_max_corner = vec2(clip_element.m_pixel_clip_window.m_max_x,
+                                   clip_element.m_pixel_clip_window.m_max_y);
+
+          window_min_corner = astral_apply_scale_translate(clip_element.m_image_atlas_transformation_pixel, window_min_corner);
+          window_max_corner = astral_apply_scale_translate(clip_element.m_image_atlas_transformation_pixel, window_max_corner);
+
+          astral_clip_mask_window.x = window_min_corner.x;
+          astral_clip_mask_window.y = window_min_corner.y;
+          astral_clip_mask_window.z = window_max_corner.x;
+          astral_clip_mask_window.w = window_max_corner.y;
+
+          astral_clip_mask_p = astral_apply_scale_translate(clip_element.m_image_atlas_transformation_pixel, pixel_p);
+
+          flags |= ASTRAL_CLIP_MASK_ACTIVE;
+        }
+      else
+        {
+          astral_clip_mask_p = vec2(0.0, 0.0);
+        }
+
+    }
+  #endif
+
+  astral_main_flags.x = header.m_item_shader;
+
+  /* Notes:
+   *  - flags uses bits [30, 32)
+   *  - m_emit_color_space is 6-bits wide using bits [24, 30)
+   *  - m_blend_shader_id is 8-bits wide using bits [16, 24)
+   *  - m_item_data is 16-bits wide using bits [0, 16)
+   *
+   * Additional notes:
+   *  - under mask shading, m_blend_shader_id gives how clipping
+   *    is combined with the fragment shader result
+   */
+  astral_main_flags.y = flags
+    | (header.m_emit_color_space << 24u)
+    | (header.m_blend_shader_id << 16u)
+    | header.m_item_data;
+}
+
+#else
+
+uint
+astral_main_item_shader(void)
+{
+  return astral_main_flags.x;
+}
+
+uint
+astral_main_item_data(void)
+{
+  /* item data only is 16-bits wide using bits [0, 16) */
+  return astral_main_flags.y & 0xFFFFu;
+}
+
+#ifdef ASTRAL_COLOR_ITEM_SHADER
+
+bool astral_material_alpha_only;
+
+uint
+astral_main_blend_shader(void)
+{
+  /* blend shader is 8-bits wide at bits [16, 24) */
+  return (astral_main_flags.y >> 16u) & 0xFFu;
+}
+
+uint
+astral_main_emit_color_space(void)
+{
+  /* emit color spaces is 6 bits wide at [24, 30) */
+  return (astral_main_flags.y >> 24u) & 63u;
+}
+
+uint
+astral_main_material_shader(void)
+{
+  return astral_main_material_shader_value;
+}
+
+float
+astral_main_sample_mask(void)
+{
+  vec2 p, p_dx, p_dy;
+  float return_value;
+
+  p = astral_clip_mask_p;
+  p_dx = dFdx(astral_clip_mask_p);
+  p_dy = dFdy(astral_clip_mask_p);
+  if ((astral_main_flags.y & ASTRAL_CLIP_MASK_ACTIVE) == 0u)
+    {
+      return 1.0;
+    }
+
+  if (astral_clip_mask_p.x < astral_clip_mask_window.x
+      || astral_clip_mask_p.y < astral_clip_mask_window.y
+      || astral_clip_mask_p.x > astral_clip_mask_window.z
+      || astral_clip_mask_p.y > astral_clip_mask_window.w)
+    {
+      return_value = 0.0;
+    }
+  else
+    {
+      /* unpack from astral_clip_mask_bits */
+      uint layer, num_levels, parent_index_texel;
+      vec4 texel;
+      vec3 texel_coord;
+      vec2 dst_to_tile_start, dst_to_tile_end;
+      float texel_channel;
+
+      layer = astral_unpack_bits(ASTRAL_CLIP_MASK_LAYER_BIT0,
+                                 ASTRAL_CLIP_MASK_LAYER_NUM_BITS,
+                                 astral_clip_mask_bits);
+
+      num_levels = astral_unpack_bits(ASTRAL_CLIP_MASK_NUM_LEVELS_BIT0,
+                                      ASTRAL_CLIP_MASK_NUM_LEVELS_NUM_BITS,
+                                      astral_clip_mask_bits);
+
+      texel_coord = astral_image_texel_coordinate_from_root_index_tex_coordinate(astral_clip_mask_p,
+                                                                                 layer, num_levels,
+                                                                                 dst_to_tile_start,
+                                                                                 dst_to_tile_end,
+                                                                                 parent_index_texel);
+
+      if (parent_index_texel == astral_white_tile_id)
+        {
+          return_value = 1.0;
+        }
+      else if (parent_index_texel == astral_empty_tile_id)
+        {
+          return_value = 0.0;
+        }
+      else
+        {
+          uint mask_channel, mask_type, mask_filter;
+
+          mask_channel = astral_unpack_bits(ASTRAL_CLIP_MASK_CHANNEL_BIT0,
+                                            ASTRAL_CLIP_MASK_CHANNEL_NUM_BITS,
+                                            astral_clip_mask_bits);
+
+          mask_type = astral_unpack_bits(ASTRAL_CLIP_MASK_TYPE_BIT0,
+                                         ASTRAL_CLIP_MASK_TYPE_NUM_BITS,
+                                         astral_clip_mask_bits);
+
+          mask_filter = astral_unpack_bits(ASTRAL_CLIP_MASK_FILTER_BIT0,
+                                           ASTRAL_CLIP_MASK_FILTER_NUM_BITS,
+                                           astral_clip_mask_bits);
+
+          /* TODO: obey CUBIC filtering request */
+          if (mask_filter == ASTRAL_FILTER_LINEAR)
+            {
+              texel_coord.xy *= astral_image_color_atlas_inverse_size;
+              texel = textureLod(astral_image_color_atlas, texel_coord, 0.0);
+            }
+          else
+            {
+              texel = texelFetch(astral_image_color_atlas, ivec3(texel_coord), 0);
+            }
+
+          /* the vertex shader feeds the texel coordinate of the
+           * root tile directly. Thus, to get the derivatives
+           * correct requires that we mutiply p_dx and p_dy by
+           * the number of texels moved in the color tile when
+           * moving one texel in the root tile.
+           */
+          if (num_levels >= 1u)
+            {
+              uint ratio_u;
+              float ratio_f;
+
+              ratio_u = 1u << (ASTRAL_LOG2_TILE_SIZE * (num_levels - 1u));
+              ratio_u *= (ASTRAL_TILE_SIZE - 2u * ASTRAL_TILE_PADDING);
+              ratio_f = float(ratio_u);
+
+              p_dx *= ratio_f;
+              p_dy *= ratio_f;
+            }
+
+          return_value = astral_apply_mask_parameters(texel,
+                                                      p_dx, p_dy,
+                                                      ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT,
+                                                      mask_type,
+                                                      mask_channel);
+        }
+    }
+
+  if ((astral_clip_mask_bits & ASTRAL_CLIP_MASK_CLIP_OUT_MASK) != 0u)
+    {
+      return_value = 1.0 - return_value;
+    }
+
+  return return_value;
+}
+#endif //of #if ASTRAL_COLOR_ITEM_SHADER
+
+#ifdef ASTRAL_MASK_ITEM_SHADER
+
+uint
+astral_main_clip_combine_mode(void)
+{
+  /* blend shader is 8-bits wide at bits [16, 24) */
+  return (astral_main_flags.y >> 16u) & 0xFFu;
+}
+
+/* Only used in non-STC mask rendering, the input and output
+ * format channels are:
+ *   (coverage, signed distance value)
+ */
+vec2
+astral_main_combine_with_sample_mask(in vec2 in_value)
+{
+  vec2 p, p_dx, p_dy, clip_coverage_distance;
+
+  p = astral_clip_mask_p;
+  p_dx = dFdx(astral_clip_mask_p);
+  p_dy = dFdy(astral_clip_mask_p);
+
+  if ((astral_main_flags.y & ASTRAL_CLIP_MASK_ACTIVE) == 0u)
+    {
+      return in_value;
+    }
+
+  if (astral_clip_mask_p.x < astral_clip_mask_window.x
+      || astral_clip_mask_p.y < astral_clip_mask_window.y
+      || astral_clip_mask_p.x > astral_clip_mask_window.z
+      || astral_clip_mask_p.y > astral_clip_mask_window.w)
+    {
+      clip_coverage_distance = vec2(0.0, 0.0);
+    }
+  else
+    {
+      /* unpack from astral_clip_mask_bits */
+      uint layer, num_levels, parent_index_texel;
+      vec4 texel;
+      vec3 texel_coord;
+      vec2 dst_to_tile_start, dst_to_tile_end;
+      float texel_channel;
+
+      layer = astral_unpack_bits(ASTRAL_CLIP_MASK_LAYER_BIT0,
+                                 ASTRAL_CLIP_MASK_LAYER_NUM_BITS,
+                                 astral_clip_mask_bits);
+
+      num_levels = astral_unpack_bits(ASTRAL_CLIP_MASK_NUM_LEVELS_BIT0,
+                                      ASTRAL_CLIP_MASK_NUM_LEVELS_NUM_BITS,
+                                      astral_clip_mask_bits);
+
+      texel_coord = astral_image_texel_coordinate_from_root_index_tex_coordinate(astral_clip_mask_p,
+                                                                                 layer, num_levels,
+                                                                                 dst_to_tile_start,
+                                                                                 dst_to_tile_end,
+                                                                                 parent_index_texel);
+
+      if (parent_index_texel == astral_white_tile_id)
+        {
+          clip_coverage_distance = vec2(1.0);
+        }
+      else if (parent_index_texel == astral_empty_tile_id)
+        {
+          clip_coverage_distance = vec2(0.0);
+        }
+      else
+        {
+          uint mask_channel, mask_type, mask_filter;
+          float computed_coverage, raw_texel;
+
+          mask_channel = astral_unpack_bits(ASTRAL_CLIP_MASK_CHANNEL_BIT0,
+                                            ASTRAL_CLIP_MASK_CHANNEL_NUM_BITS,
+                                            astral_clip_mask_bits);
+
+          mask_type = astral_unpack_bits(ASTRAL_CLIP_MASK_TYPE_BIT0,
+                                         ASTRAL_CLIP_MASK_TYPE_NUM_BITS,
+                                         astral_clip_mask_bits);
+
+          mask_filter = astral_unpack_bits(ASTRAL_CLIP_MASK_FILTER_BIT0,
+                                           ASTRAL_CLIP_MASK_FILTER_NUM_BITS,
+                                           astral_clip_mask_bits);
+
+          /* TODO: obey CUBIC filtering request */
+          if (mask_filter == ASTRAL_FILTER_LINEAR)
+            {
+              texel_coord.xy *= astral_image_color_atlas_inverse_size;
+              texel = textureLod(astral_image_color_atlas, texel_coord, 0.0);
+            }
+          else
+            {
+              texel = texelFetch(astral_image_color_atlas, ivec3(texel_coord), 0);
+            }
+
+          computed_coverage = astral_apply_mask_parameters(texel,
+                                                           p_dx, p_dy,
+                                                           ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT,
+                                                           mask_type,
+                                                           mask_channel,
+                                                           raw_texel);
+          clip_coverage_distance.x = computed_coverage;
+
+          /* WARNING: if mask_type is not ASTRAL_DISTANCE_FIELD_MASK,
+           *          this is a fake distance value derived
+           *          from a coverage value. It has all sorts
+           *          of issues and is not very trust worthy.
+           */
+          clip_coverage_distance.y = raw_texel;
+        }
+    }
+
+  if ((astral_clip_mask_bits & ASTRAL_CLIP_MASK_CLIP_OUT_MASK) != 0u)
+    {
+      clip_coverage_distance = vec2(1.0) - clip_coverage_distance;
+    }
+
+  if (astral_main_clip_combine_mode() == ASTRAL_MASK_ITEM_SHADER_CLIP_CUTOFF)
+    {
+      return (clip_coverage_distance.x < 0.5) ? vec2(0.0) : in_value;
+    }
+
+  return min(in_value.xy, clip_coverage_distance.xy);
+}
+
+#endif
+
+
+#ifdef ASTRAL_EMULATE_FRAMEBUFFER_FETCH
+
+vec4 astral_framebuffer_fetch_value;
+AstralImageLOD astral_framebuffer_fetch_lod;
+
+void
+astral_prepare_framebuffer_fetch_value(void)
+{
+  if ((astral_main_flags.y & ASTRAL_HAS_FRAMEBUFFER_DST) != 0u)
+    {
+      AstralUnpackedImageWithoutMipmaps im;
+
+      astral_unpack_image(astral_main_emulate_framebuffer_surface, im);
+      astral_compute_lod(im, astral_framebuffer_fetch_lod);
+
+      /* we want the RAW value, not the value with the color xfer-mode
+       * or interpretation to a linear values. This is because the
+       * blending code expects a raw value so it will blend in the
+       * same color space as the one emitted.
+       */
+      astral_framebuffer_fetch_value = astral_sample_image_raw(astral_framebuffer_fetch_lod, astral_main_emulate_framebuffer_p);
+    }
+  else
+    {
+      astral_framebuffer_fetch_value = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+}
+
+vec4
+astral_framebuffer_fetch_pre_multiplied_alpha(void)
+{
+  return astral_framebuffer_fetch_value;
+}
+
+vec4
+astral_framebuffer_fetch(void)
+{
+  vec4 v;
+
+  v = astral_framebuffer_fetch_value;
+  if (v.a != 0.0 && v.a != 1.0)
+    {
+      float recip = 1.0 / v.a;
+      v.rgb *= recip;
+    }
+
+  return v;
+}
+
+vec4
+astral_framebuffer_fetch_pre_multiplied_alpha(in vec2 offset)
+{
+  vec4 return_value;
+
+  if ((astral_main_flags.y & ASTRAL_HAS_FRAMEBUFFER_DST) != 0u)
+    {
+      return_value = astral_sample_image_raw(astral_framebuffer_fetch_lod, astral_main_emulate_framebuffer_p + offset);
+    }
+  else
+    {
+      return_value = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+
+  return return_value;
+}
+
+vec4
+astral_framebuffer_fetch(in vec2 offset)
+{
+  vec4 return_value;
+
+  if ((astral_main_flags.y & ASTRAL_HAS_FRAMEBUFFER_DST) != 0u)
+    {
+      return_value = astral_sample_image_raw(astral_framebuffer_fetch_lod, astral_main_emulate_framebuffer_p + offset);
+      if (return_value.a != 0.0 && return_value.a != 1.0)
+        {
+          float recip = 1.0 / return_value.a;
+          return_value.rgb *= recip;
+        }
+    }
+  else
+    {
+      return_value = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+
+  return return_value;
+}
+
+
+#else
+
+void
+astral_prepare_framebuffer_fetch_value(void)
+{}
+
+#endif // of #if ASTRAL_EMULATE_FRAMEBUFFER_FETCH
+
+#endif // of #else

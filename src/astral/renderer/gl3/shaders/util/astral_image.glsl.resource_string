@@ -1,0 +1,835 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image.glsl.resource_string
+ * \brief astral_image.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/* required Macros:
+ *   ASTRAL_TILED_IMAGE_X_BIT0, ASTRAL_TILED_IMAGE_X_NUMBITS
+ *   ASTRAL_TILED_IMAGE_Y_BIT0, ASTRAL_TILED_IMAGE_Y_NUMBITS
+ *   ASTRAL_TILED_IMAGE_LAYER_BIT0, ASTRAL_TILED_IMAGE_LAYER_NUMBITS,
+ *   ASTRAL_TILED_IMAGE_NUM_LEVELS_BIT0, ASTRAL_TILED_IMAGE_NUM_LEVELS_NUMBITS,
+ *   ASTRAL_LOG2_TILE_SIZE
+ *   ASTRAL_TILE_SIZE
+ *   ASTRAL_TILE_PADDING
+ *   astral_image_color_atlas_inverse_size
+ */
+
+/*!\addtogroup GLSLImage
+ * @{
+ */
+
+/*!
+ * \brief
+ * Class to represent an image with a level-of-detail in GLSL.
+ *
+ * An image in Astral is broken into tiles for every LOD. This is the
+ * class to represent internal data used for sampling a tiled image at
+ * a desired level-of-detail.
+ *
+ * Related functions:
+ *
+ * astral_compute_lod()
+ *
+ * astral_compute_image_lod_from_packed_image_mip_element()
+ *
+ * astral_sample_image()
+ *
+ * astral_sample_image_raw()
+ *
+ * astral_sample_mask()
+ *
+ * astral_image_texel_coordinate()
+ *
+ */
+struct AstralImageLOD
+{
+  ///@cond
+  /* LOD choice relative to root LOD */
+  uint m_absolute_lod;
+
+  /* LOD choice relative to the mip used*/
+  uint m_relative_lod;
+
+  /* min-min corner of the sub-image
+   * in the root index tile
+   */
+  vec2 m_root_min_corner;
+
+  /* layer of the root index tile */
+  uint m_root_layer;
+
+  /* size of sub-image relative to the mip-chain*/
+  vec2 m_rel_size;
+
+  /* number of index levels */
+  uint m_number_levels;
+
+  /* how to sample the image */
+  AstralImageSampler m_sampler;
+
+  /* size in image coordinates of a half a texel at the LOD */
+  float m_half_texel;
+
+  /* amount by which to multiply image coordinate to get texels in color tile texels */
+  float m_image_coordinate_to_color_texel_multipler;
+
+  /* number of texels moved in root index tile by moving one texel in color tile */
+  float m_color_texel_size_in_root_tile;
+
+  ///@endcond
+};
+
+float
+astral_compute_color_texel_size_in_root_tile(in uint number_levels)
+{
+  const uvec4 all_values = uvec4(ASTRAL_COLOR_TEXEL_SIZE_IN_ROOT_TILE0_RAW_BITS,
+                                 ASTRAL_COLOR_TEXEL_SIZE_IN_ROOT_TILE1_RAW_BITS,
+                                 ASTRAL_COLOR_TEXEL_SIZE_IN_ROOT_TILE2_RAW_BITS,
+                                 ASTRAL_COLOR_TEXEL_SIZE_IN_ROOT_TILE3_RAW_BITS);
+  uvec2 tmp;
+  uint return_value;
+
+  tmp = ((number_levels & 2u) == 0u) ?
+    all_values.xy :
+    all_values.zw;
+
+  return_value = ((number_levels & 1u) == 0u) ? tmp.x : tmp.y;
+
+  return uintBitsToFloat(return_value);
+
+  /***************
+  if (number_levels == 0u)
+    {
+      return ASTRAL_TILE_SIZE;
+    }
+  else
+    {
+      uint ratio;
+      float rf;
+
+      ratio = 1u << (ASTRAL_LOG2_TILE_SIZE * (number_levels - 1u));
+      ratio *= (ASTRAL_TILE_SIZE - 2u * ASTRAL_TILE_PADDING);
+      rf = float(ratio);
+
+      return 1.0 / rf;
+    }
+  **************/
+}
+
+/*!
+ * Pack an \ref AstralImageLOD into a (uvec4, uvec2) pair
+ */
+void
+astral_pack_image_lod(in AstralImageLOD image,
+                      out uvec4 packed_value0,
+                      out uvec2 packed_value1)
+{
+  packed_value0.xy = floatBitsToUint(image.m_root_min_corner);
+  packed_value0.zw = floatBitsToUint(image.m_rel_size);
+  packed_value1.x = image.m_sampler.m_bits;
+  packed_value1.y = astral_pack_bits(ASTRAL_IMAGE_LOD_PACKING_ABSOLUTE_LOD_BIT0, image.m_absolute_lod)
+    | astral_pack_bits(ASTRAL_IMAGE_LOD_PACKING_NUMBER_LEVELS_BIT0, image.m_number_levels)
+    | astral_pack_bits(ASTRAL_IMAGE_LOD_PACKING_ROOT_TILE_Z_BIT0, image.m_root_layer);
+}
+
+/*!
+ * Unack an \ref AstralImageLOD from a (uvec4, uvec2) pair
+ */
+void
+astral_unpack_image_lod(in uvec4 packed_value0,
+                        in uvec2 packed_value1,
+                        out AstralImageLOD image)
+{
+  image.m_root_min_corner = uintBitsToFloat(packed_value0.xy);
+  image.m_rel_size = uintBitsToFloat(packed_value0.zw);
+  image.m_sampler.m_bits = packed_value1.x;
+
+  image.m_absolute_lod = astral_unpack_bits(ASTRAL_IMAGE_LOD_PACKING_ABSOLUTE_LOD_BIT0,
+                                            ASTRAL_IMAGE_LOD_PACKING_ABSOLUTE_LOD_NUMBITS,
+                                            packed_value1.y);
+
+  image.m_number_levels = astral_unpack_bits(ASTRAL_IMAGE_LOD_PACKING_NUMBER_LEVELS_BIT0,
+                                             ASTRAL_IMAGE_LOD_PACKING_NUMBER_LEVELS_NUMBITS,
+                                             packed_value1.y);
+
+  image.m_root_layer = astral_unpack_bits(ASTRAL_IMAGE_LOD_PACKING_ROOT_TILE_Z_BIT0,
+                                          ASTRAL_IMAGE_LOD_PACKING_ROOT_TILE_Z_NUMBITS,
+                                          packed_value1.y);
+
+  image.m_relative_lod = image.m_absolute_lod & 1u;
+  image.m_half_texel = (image.m_relative_lod == 0u) ? 0.5 : 1.0;
+
+  /* Should we pack/unpack these values instead because of the
+   * floating point divide?
+   */
+  image.m_image_coordinate_to_color_texel_multipler = astral_pow2(-int(image.m_absolute_lod & ~1u));
+  image.m_color_texel_size_in_root_tile = astral_compute_color_texel_size_in_root_tile(image.m_number_levels);
+}
+
+/*!
+ * Unpacks an astral::PackedImageMipElement (C++) into an
+ * AstralImageLOD (GLSL).
+ */
+void
+astral_compute_image_lod_from_packed_image_mip_element(in uvec4 packed_image_mip_element,
+                                                       out AstralImageLOD out_lod)
+{
+  uvec2 min_corner;
+
+  /* Packing of the uvec4:
+   *   - .x --> root_tile .xy packed as pair
+   *   - .y --> min-corner .xy packed as pair
+   *   - .z --> relative size .xy packed as pair
+   *   - .w --> bits, root_tile .z and number index levels
+   */
+  out_lod.m_root_min_corner.xy = vec2(astral_unpack_pair(packed_image_mip_element.x));
+  min_corner = astral_unpack_pair(packed_image_mip_element.y);
+  out_lod.m_rel_size = vec2(astral_unpack_pair(packed_image_mip_element.z));
+
+  out_lod.m_root_layer = astral_unpack_bits(ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_BIT0,
+                                            ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_Z_NUMBITS,
+                                            packed_image_mip_element.w);
+
+  out_lod.m_number_levels = astral_unpack_bits(ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_BIT0,
+                                               ASTRAL_PACKED_TILED_IMAGE_MIP_ROOT_TILE_NUM_LEVELS_NUMBITS,
+                                               packed_image_mip_element.w);
+
+  /* the methods of AstralImageSampler ignore the higher bits, so a simple copy is good enough */
+  out_lod.m_sampler.m_bits = packed_image_mip_element.w;
+
+  /* TODO: should we support choosing LOD = 0 or LOD = 1 ? */
+  out_lod.m_absolute_lod = 0u;
+  out_lod.m_relative_lod = 0u;
+  out_lod.m_half_texel = 0.5;
+  out_lod.m_image_coordinate_to_color_texel_multipler = 1.0;
+  out_lod.m_color_texel_size_in_root_tile = astral_compute_color_texel_size_in_root_tile(out_lod.m_number_levels);
+
+  out_lod.m_root_min_corner.xy += vec2(min_corner) * out_lod.m_color_texel_size_in_root_tile;
+}
+
+/*!
+ * Given an AstralUnpackedImageWithoutMipmaps,
+ * construct an AstralImageLOD using the unpacked
+ * image data and computed LOD data.
+ */
+void
+astral_compute_lod(in AstralUnpackedImageWithoutMipmaps image,
+                   out AstralImageLOD out_lod)
+{
+  uint pow2lod;
+  float r;
+
+  out_lod.m_absolute_lod = 0u;
+  out_lod.m_relative_lod = 0u;
+
+  out_lod.m_sampler = image.m_sampler;
+
+  out_lod.m_root_min_corner = vec2(image.m_root_min_corner);
+  out_lod.m_root_layer = image.m_root_layer;
+  out_lod.m_number_levels = image.m_number_levels;
+  out_lod.m_image_coordinate_to_color_texel_multipler = 1.0;
+  out_lod.m_color_texel_size_in_root_tile = astral_compute_color_texel_size_in_root_tile(out_lod.m_number_levels);
+
+  out_lod.m_half_texel = 0.5;
+  out_lod.m_rel_size = vec2(image.m_size);
+  out_lod.m_root_min_corner.xy += vec2(image.m_sub_image_min_corner) * out_lod.m_color_texel_size_in_root_tile;
+}
+
+/*!
+ * Given an AstralUnpackedImage and a LOD index,
+ * construct an AstralImageLOD using the unpacked
+ * image data and computed LOD data.
+ * \param AstralUnpackedImage image
+ * \param ulod what LOD
+ * \param out_lod location to which to write the \ref
+ *                AstralImageLOD value
+ * \returns the scaling factor to apply to the image coordinate
+ *          that compensates for when the image dimensions are
+ *          not a power of 2
+ */
+vec2
+astral_compute_lod(in AstralUnpackedImage image, in uint ulod,
+                   out AstralImageLOD out_lod)
+{
+  float r;
+
+  out_lod.m_absolute_lod = min(ulod, astral_image_sampler_max_lod(image.m_base.m_sampler));
+  out_lod.m_relative_lod = out_lod.m_absolute_lod;
+
+  out_lod.m_sampler = image.m_base.m_sampler;
+
+  if (out_lod.m_absolute_lod < 2u)
+    {
+      out_lod.m_root_min_corner = vec2(image.m_base.m_root_min_corner);
+      out_lod.m_root_layer = image.m_base.m_root_layer;
+      out_lod.m_number_levels = image.m_base.m_number_levels;
+      out_lod.m_image_coordinate_to_color_texel_multipler = 1.0;
+    }
+  else
+    {
+      uint M, B, L;
+      uvec2 R, high_xy;
+      uvec4 T;
+
+      /* M gives which mipmap chain to use, each mipmap
+       * chain M has LOD's {2 * M, 2 * M + 1, 2 * M + 2}.
+       * Dividing by LOD by 2, i.e. bit shifting by one,
+       * gives M.
+       *
+       * The packing is:
+       *   M = 0          --> root tile encoded in m_root_min_corner, m_root_layer
+       *   M = 1, 2, 3, 4 --> root tile encoded across m_mips_*
+       */
+      M = (out_lod.m_absolute_lod >> 1u);
+
+      /* we want the LOD within the mipmap chain; which
+       * basically means subtracting off twice M.
+       */
+      out_lod.m_relative_lod -= 2u * M;
+
+      out_lod.m_image_coordinate_to_color_texel_multipler = astral_pow2(-int(2u * M));
+
+      /* the higher LOD's are M = 1, 2, 3, 4, so bias one smaller */
+      B = 8u * (M - 1u);
+
+      /* grab the correct 8-bit chunk for the mipmap element */
+      T.x = (image.m_mips_x_low_bits >> B) & 0xFFu;
+      T.y = (image.m_mips_y_low_bits >> B) & 0xFFu;
+      T.z = (image.m_mips_layers >> B) & 0xFFu;
+      T.w = (image.m_mips_xy_high_and_num_index_levels >> B) & 0xFFu;
+
+      /* assemble the values */
+      high_xy.x = astral_unpack_bits(ASTRAL_TILED_IMAGE_MIP_X_HIGH_BITS_BIT0,
+                                     ASTRAL_TILED_IMAGE_MIP_NUM_HIGH_NUMBITS,
+                                     T.w);
+      high_xy.y = astral_unpack_bits(ASTRAL_TILED_IMAGE_MIP_Y_HIGH_BITS_BIT0,
+                                     ASTRAL_TILED_IMAGE_MIP_NUM_HIGH_NUMBITS,
+                                     T.w);
+
+      out_lod.m_number_levels = astral_unpack_bits(ASTRAL_TILED_IMAGE_MIP_NUM_LEVELS_BIT0,
+                                                   ASTRAL_TILED_IMAGE_MIP_NUM_LEVELS_NUMBITS,
+                                                   T.w);
+
+      R = T.xy | (high_xy << uvec2(8u, 8u));
+      out_lod.m_root_layer = T.z;
+      out_lod.m_root_min_corner = vec2(R);
+    }
+
+  out_lod.m_color_texel_size_in_root_tile = astral_compute_color_texel_size_in_root_tile(out_lod.m_number_levels);
+  out_lod.m_half_texel = (out_lod.m_relative_lod == 0u) ? 0.5 : 1.0;
+
+  uvec2 sub_start, sub_end, sub_sz;
+
+  /* mipmap levels are discreet number of pixels and we
+   * need to know where in the -mipmap- the sub-image
+   * is; The below shifts back and forth make the start
+   * and end occur on texel boundaries of the LOD sampled.
+   */
+  sub_start = (image.m_base.m_sub_image_min_corner >> out_lod.m_absolute_lod) << out_lod.m_absolute_lod;
+  sub_end = ((image.m_base.m_size + image.m_base.m_sub_image_min_corner) >> out_lod.m_absolute_lod) << out_lod.m_absolute_lod;
+  sub_sz = sub_end - sub_start;
+
+  out_lod.m_rel_size = out_lod.m_image_coordinate_to_color_texel_multipler * vec2(sub_sz);
+  r = out_lod.m_image_coordinate_to_color_texel_multipler * out_lod.m_color_texel_size_in_root_tile;
+  out_lod.m_root_min_corner.xy += r * vec2(sub_start);
+
+  return vec2(sub_sz) / vec2(image.m_base.m_size);
+}
+
+/*!
+ * Given a texel index, return the x, y, and layer (z)
+ * components of the corresponding texel in the image atlas.
+ */
+uvec3
+astral_unpack_index_texel(in uint texel)
+{
+  uvec3 return_value;
+
+  return_value.x = astral_unpack_bits(ASTRAL_TILED_IMAGE_X_BIT0,
+                                      ASTRAL_TILED_IMAGE_X_NUMBITS,
+                                      texel);
+  return_value.y = astral_unpack_bits(ASTRAL_TILED_IMAGE_Y_BIT0,
+                                      ASTRAL_TILED_IMAGE_Y_NUMBITS,
+                                      texel);
+  return_value.z = astral_unpack_bits(ASTRAL_TILED_IMAGE_LAYER_BIT0,
+                                      ASTRAL_TILED_IMAGE_LAYER_GENERIC_TILE_NUMBITS,
+                                      texel);
+
+  return return_value;
+}
+
+/*!
+ * Given a texel coordinate that refers to a texel of a root index tile,
+ * return the color texel coordinate of the image.
+ * \param root_index_texel (x, y) of texel coordinate into a root index tile
+ * \param root_index_layer the z-texel coordinate
+ * \param number_levels number of index-layer to walk
+ * \param dst_to_tile_start location to which to write the
+ *                          distance in texel coordinates to the
+ *                          min-corner of the tile.
+ * \param dst_to_tile_end location to which to write the
+ *                        distance in texel coordinates to the
+ *                        max-corner of the tile.
+ * \param parent_index_texel location to which to write the
+ *                           index tile value pointing to the
+ *                           tile.
+ */
+vec3
+astral_image_texel_coordinate_from_root_index_tex_coordinate(in vec2 root_index_texel,
+                                                             in uint root_index_layer,
+                                                             in uint number_levels,
+                                                             out vec2 dst_to_tile_start,
+                                                             out vec2 dst_to_tile_end,
+                                                             out uint parent_index_texel)
+{
+  vec2 texel_coord;
+  ivec2 itexel_coord;
+  uvec3 tile_coord;
+
+  texel_coord = root_index_texel.xy;
+  itexel_coord = ivec2(texel_coord);
+  parent_index_texel = texelFetch(astral_image_index_atlas, ivec3(itexel_coord, root_index_layer), 0).r;
+  tile_coord = astral_unpack_index_texel(parent_index_texel);
+
+  if (number_levels == 0u)
+    {
+      /* the numbers below are lies, we really don't know where
+       * in a tile we are. We could compute something if we knew
+       * the image occupied an entire tile, but that we don't
+       * know either.
+       */
+      dst_to_tile_start = vec2(ASTRAL_TILE_SIZE);
+      dst_to_tile_end = vec2(ASTRAL_TILE_SIZE);
+
+      /* get the location within the texel */
+      texel_coord -= vec2(itexel_coord);
+
+      /* scale up to tile size */
+      texel_coord *= float(ASTRAL_TILE_SIZE);
+
+      /* translate to where in the tile */
+      texel_coord += vec2(tile_coord.xy);
+
+      return vec3(texel_coord, float(tile_coord.z));
+    }
+
+  /* MAYBE TODO: it might be wise to bound number_levels
+   * incase of invalid data is loaded so we don't hang the GPU
+   */
+  for (uint i = 1u; i < number_levels; ++i)
+    {
+      /* get the location within the last fetched texel */
+      texel_coord -= vec2(itexel_coord);
+
+      /* scale it up to the next level */
+      texel_coord *= float(ASTRAL_TILE_SIZE);
+
+      /* translate it to where it is within the index atlas */
+      texel_coord += vec2(tile_coord.xy);
+
+      /* look up the value and prepare the next iteration */
+      itexel_coord = ivec2(texel_coord);
+      parent_index_texel = texelFetch(astral_image_index_atlas, ivec3(itexel_coord, tile_coord.z), 0).r;
+      tile_coord = astral_unpack_index_texel(parent_index_texel);
+    }
+
+  /* get where within the color tile relative */
+  texel_coord -= vec2(itexel_coord);
+
+  /* scale it up to texels in the color tile */
+  texel_coord *= float(ASTRAL_TILE_SIZE - 2u * ASTRAL_TILE_PADDING);
+
+  /* add the padding */
+  texel_coord += vec2(ASTRAL_TILE_PADDING, ASTRAL_TILE_PADDING);
+
+  /* compute the distance to the tile boundary */
+  dst_to_tile_start = texel_coord;
+  dst_to_tile_end = vec2(ASTRAL_TILE_SIZE, ASTRAL_TILE_SIZE) - texel_coord;
+
+  /* translate to the start of the tile */
+  texel_coord += vec2(tile_coord.xy);
+
+  return vec3(texel_coord, float(tile_coord.z));
+}
+
+/*!
+ * Given an image coordinate within an image, compute the
+ * texture coordinate to feed to the backing color tile
+ * store.
+ * \param image_coord image texel coordinate in coordintes of
+ *                    the passed AstralImageLOD
+ * \param image LOD from which to compute the texel coordinate
+ *              for the textrue sampling
+ * \param dst_to_tile_start location to which to write the
+ *                          distance in texel coordinates to the
+ *                          min-corner of the tile.
+ * \param dst_to_tile_end location to which to write the
+ *                        distance in texel coordinates to the
+ *                        max-corner of the tile.
+ * \param parent_index_texel location to which to write the
+ *                           index tile value pointing to the
+ *                           tile. If there is no tile because
+ *                           the image is small, then writes ~0u.
+ */
+vec3
+astral_image_texel_coordinate(in vec2 image_coord,
+                              in AstralImageLOD image,
+                              out vec2 dst_to_tile_start,
+                              out vec2 dst_to_tile_end,
+                              out uint parent_index_texel)
+{
+  vec2 texel_coord;
+
+  texel_coord = image.m_root_min_corner + image.m_color_texel_size_in_root_tile * image_coord;
+  return astral_image_texel_coordinate_from_root_index_tex_coordinate(texel_coord,
+                                                                      image.m_root_layer,
+                                                                      image.m_number_levels,
+                                                                      dst_to_tile_start,
+                                                                      dst_to_tile_end,
+                                                                      parent_index_texel);
+}
+
+/*!
+ * Given a tile mode, pixel value p, and a size relative to p;
+ * compute the tiled pixel value.
+ * It returns true if p is smaller than zero or greater than rel_size
+ * when the tile mode is ASTRAL_TILE_MODE_DECAL.
+ * For all other cases, it returns false.
+ */
+bool
+astral_apply_tile_mode(in uint tile_mode, in float rel_size, inout float p)
+{
+  /* Thought: If we worked in normalized coordinate, rel_size is 1.0.
+   * When this is the case, mod(p, rel_size) and mod(p, 2.0 * rel_size)
+   * can be simplified.
+   *    - mod(p, 1.0) = p - fract(p)
+   *    - mod(p, 2.0) = p - 2.0 * fract(p * 0.5)
+   *
+   * Now, fract(x) can be implemented on GPU in the ALU via bit
+   * twiddling. It my be worthwhile to work in normalized coordinates
+   * so that we can skip that pesky divide completely.
+   */
+  if (tile_mode == ASTRAL_TILE_MODE_CLAMP)
+    {
+      p = clamp(p, 0.0, rel_size);
+      return false;
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_MIRROR)
+    {
+      p = min(abs(p), rel_size);
+      return false;
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_REPEAT)
+    {
+      p = mod(p, rel_size);
+      return false;
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_MIRROR_REPEAT)
+    {
+      p = rel_size - abs(mod(p, 2.0 * rel_size) - rel_size);
+      return false;
+    }
+  else
+    {
+      return (p < 0.0 || p >= rel_size);
+    }
+}
+
+/*!
+ * Sample directly from a tiled image; if the coordinate is
+ * outside of the image, return vec4(0, 0, 0, 0).
+ * \param image what LOD of the image from which to sample
+ * \param image_coordinate iamge coordinate in the BASE LOD
+ */
+vec4
+astral_sample_image_raw(in AstralImageLOD image, in vec2 image_coordinate)
+{
+  vec4 return_value;
+  vec3 texel_coordinate;
+  vec2 dst_to_tile_start, dst_to_tile_end;
+  vec2 dst_to_start, dst_to_end;
+  vec2 texel_min, texel_max;
+  uint parent_index_texel, sampler_filter;
+
+  if (image.m_rel_size.x < 0.5 || image.m_rel_size.y < 0.5)
+    {
+      return vec4(0.0);
+    }
+
+  /* scale the image coordinate as needed by the -emulated- mipmap
+   * level. Recall that Astral's image atlas only has LOD = 0, 1.
+   * An astral::Image's mipmaps is a sequence of upto five
+   * astral::MipMapElement where each astral::MipmapElement has
+   * itself 1-mip level using LOD = 1 of the ImgeAtlas. This
+   * scaling factor is the scaling factor from the astral::Image
+   * to the chosen mipmap level.
+   */
+  image_coordinate *= image.m_image_coordinate_to_color_texel_multipler;
+
+  /* apply the tile mode; if tile mode is none and outside of the
+   * image, bail early by returning clear-black.
+   */
+  if (astral_apply_tile_mode(astral_image_sampler_x_tile_mode(image.m_sampler), image.m_rel_size.x, image_coordinate.x)
+      || astral_apply_tile_mode(astral_image_sampler_y_tile_mode(image.m_sampler), image.m_rel_size.y, image_coordinate.y))
+    {
+      return vec4(0.0);
+    }
+
+  /* After applying the tiling mode, we need to clamp the texel coordinate
+   * to be within the sub-image's half texel marks.
+   */
+  image_coordinate = clamp(image_coordinate,
+                           vec2(image.m_half_texel),
+                           image.m_rel_size - vec2(image.m_half_texel));
+
+  /* compute the distance to the start and end of the image,
+   * note that the image coordinate has already been multiplied
+   * by image.m_image_coordinate_to_color_texel_multipler which
+   * means it is coordinates of the hit mipmap level.
+   */
+  dst_to_start = max(vec2(astral_image_sampler_pre_padding(image.m_sampler)), image_coordinate);
+  dst_to_end = image.m_rel_size - image_coordinate;
+
+  /* get the texel coordinate */
+  texel_coordinate = astral_image_texel_coordinate(image_coordinate, image,
+                                                   dst_to_tile_start, dst_to_tile_end,
+                                                   parent_index_texel);
+
+  if (parent_index_texel == astral_white_tile_id)
+    {
+      return_value = vec4(1.0);
+    }
+  else if (parent_index_texel == astral_empty_tile_id)
+    {
+      return_value = vec4(0.0);
+    }
+  else
+    {
+      sampler_filter = astral_image_sampler_filter(image.m_sampler);
+
+      /* get the distance to the boundary from which we may sample */
+      dst_to_tile_start = min(dst_to_tile_start, dst_to_start);
+      dst_to_tile_end = min(dst_to_tile_end, dst_to_end);
+
+      /* reduce by half a texel so that filtering does not bleed */
+      dst_to_tile_start -= vec2(image.m_half_texel);
+      dst_to_tile_end -= vec2(image.m_half_texel);
+
+      /* make the values relative to the location of the texel */
+      texel_min = texel_coordinate.xy - max(vec2(0.0), dst_to_tile_start);
+      texel_max = texel_coordinate.xy + max(vec2(0.0), dst_to_tile_end);
+
+      if (image.m_absolute_lod <= 0u && sampler_filter == ASTRAL_FILTER_CUBIC)
+        {
+          return_value = astral_sample_cubic(astral_image_color_atlas,
+                                             astral_image_color_atlas_inverse_size,
+                                             texel_coordinate,
+                                             texel_min, texel_max);
+        }
+      else
+        {
+          if (sampler_filter != ASTRAL_FILTER_NEAREST)
+            {
+              texel_coordinate.xy = clamp(texel_coordinate.xy, texel_min, texel_max);
+              texel_coordinate.xy *= astral_image_color_atlas_inverse_size;
+              return_value = textureLod(astral_image_color_atlas, texel_coordinate, float(image.m_relative_lod));
+            }
+          else
+            {
+              ivec2 itexel_coordinate;
+
+              itexel_coordinate = ivec2(texel_coordinate.xy) >> int(image.m_relative_lod);
+              return_value = texelFetch(astral_image_color_atlas,
+                                        ivec3(itexel_coordinate, texel_coordinate.z),
+                                        int(image.m_relative_lod));
+            }
+        }
+    }
+
+  return return_value;
+}
+
+/*!
+ * Sample color from an AstralUnpackedImage at image_coordinate.
+ */
+vec4
+astral_sample_image_raw(in AstralUnpackedImage image,
+                        in vec2 image_coordinate, in uint in_lod)
+{
+  AstralImageLOD lod;
+  vec2 f;
+
+  f = astral_compute_lod(image, in_lod, lod);
+  return astral_sample_image_raw(lod, f * image_coordinate);
+}
+
+/*!
+ */
+uint
+astral_compute_lod_for_sampler(in AstralImageSampler sampler, in vec2 dpdx, in vec2 dpdy)
+{
+  uint mip, max_lod;
+
+  mip = astral_image_sampler_mipmap(sampler);
+  max_lod = astral_image_sampler_max_lod(sampler);
+
+  if (mip == ASTRAL_MIPMAP_CHOSEN || max_lod <= 0u)
+    {
+      return 0u;
+    }
+
+  return astral_compute_raw_lod_fast(mip, dpdx, dpdy);
+}
+
+/*!
+ * Sample color from an AstralUnpackedImage at image_coordinate, using the mipmap level
+ * chosen based on the derivatives, dpdx and dpdy, and the image sampler.
+ */
+vec4
+astral_sample_image_raw(in AstralUnpackedImage image,
+                        in vec2 p, in vec2 dpdx, in vec2 dpdy)
+{
+  uint lod;
+
+  lod = astral_compute_lod_for_sampler(image.m_base.m_sampler, dpdx, dpdy);
+  return astral_sample_image_raw(image, p, lod);
+}
+
+/*!
+ * Sample mask value from an AstralImageLOD at pixel p, using the mipmap level
+ * chosen based on the derivatives, dpdx and dpdy, and the image sampler.
+ * The derivatives also affect the filtering of the distance field.
+ */
+float
+astral_sample_mask(in AstralImageLOD image, in vec2 p, vec2 dpdx, vec2 dpdy)
+{
+  vec4 rgba;
+  rgba = astral_sample_image_raw(image, p);
+  return astral_apply_mask_parameters(rgba, dpdx, dpdy, image.m_sampler);
+}
+
+/*!
+ * Sample mask value from an AstralImageLOD at pixel p,
+ * taking the LOD index lod, into account.
+ */
+float
+astral_sample_mask(in AstralImageLOD image, in vec2 p, in uint lod)
+{
+  vec4 rgba;
+  float sharpness_factor;
+
+  sharpness_factor = astral_compute_sharpness_factor_from_lod(lod);
+  rgba = astral_sample_image_raw(image, p);
+  return astral_apply_mask_parameters(rgba, sharpness_factor, image.m_sampler);
+}
+
+/*!
+ * Sample mask value from an AstralUnpackedImage at pixel p,
+ * taking the LOD index in_lod, into account.
+ */
+float
+astral_sample_mask(in AstralUnpackedImage image, in uint in_lod, in vec2 p)
+{
+  AstralImageLOD lod;
+
+  astral_compute_lod(image, in_lod, lod);
+  return astral_sample_mask(lod, p, in_lod);
+}
+
+/*!
+ * Sample mask value from an AstralUnpackedImage at pixel p, using the mipmap level
+ * chosen based on the derivatives, dpdx and dpdy, and the image sampler.
+ * The derivatives also affect the filtering of the distance field.
+ */
+float
+astral_sample_mask(in AstralUnpackedImage image, vec2 p, vec2 dpdx, vec2 dpdy)
+{
+  uint lod;
+  AstralImageLOD im_lod;
+  vec2 f;
+
+  lod = astral_compute_lod_for_sampler(image.m_base.m_sampler, dpdx, dpdy);
+  f = astral_compute_lod(image, lod, im_lod);
+
+  return astral_sample_mask(im_lod, p * f, dpdx, dpdy);
+}
+
+/*!
+ * Sample color in color_space from an AstralImageLOD at pixel p.
+ * \param image what LOD of the image from which to sample
+ * \param color_space enumaration that specifies color space
+ *                    (mapping to astral::colorspace_t)
+ *                    which could be one of the following:
+ *                    \ref ASTRAL_COLORSPACE_LINEAR,
+ *                    \ref ASTRAL_COLORSPACE_SRGB.
+ * \param p pixel which to sample color at
+ */
+vec4
+astral_sample_image(in AstralImageLOD image, in uint color_space, in vec2 p)
+{
+  vec4 return_value;
+
+  return_value = astral_sample_image_raw(image, p);
+  return_value = astral_apply_color_post_sampling_mode(return_value, image.m_sampler);
+
+  /* ISSUE: we convert colorspaces AFTER filtering. Ideally we would
+   *        filter always in linear colorspace. One way to make sure
+   *        filtering is in linear color space is to use glTextureView
+   *        (of GL_ARB_texture_view) to have another sampler2DArray of
+   *        the colored image atlas that views the texels as stored in
+   *        sRGB space and when sampling from an image whose colorspace
+   *        is sRGB to sample from the sampler2DArray instead. Sadly,
+   *        glTextureView is not in WebGL2 (even as an extension) and is
+   *        not even on MacOS's OpenGL (which Apple is cynically strongly
+   *        discouraging developers to use in favor of Metal).
+   */
+  return_value = astral_convert_colorspace(color_space,
+                                           astral_image_sampler_colorspace(image.m_sampler),
+                                           return_value);
+
+  return return_value;
+}
+
+/*!
+ * Sample color in color_space from an AstralUnpackedImage at pixel p,
+ * using the mipmap level chosen based on the derivatives, dpdx and dpdy,
+ * and the image sampler.
+ * \param image unpacked image from which to sample
+ * \param color_space enumaration that specifies color space
+ *                    (mapping to astral::colorspace_t)
+ *                    which could be one of the following:
+ *                    \ref ASTRAL_COLORSPACE_LINEAR,
+ *                    \ref ASTRAL_COLORSPACE_SRGB.
+ * \param p pixel which to sample color at
+ * \param dpdx derivative in x-direciton of texel coordinate
+ * \param dpdy derivative in y-direciton of texel coordinate
+ */
+vec4
+astral_sample_image(in AstralUnpackedImage image, in uint color_space,
+                    in vec2 p, in vec2 dpdx, in vec2 dpdy)
+{
+  vec4 return_value;
+
+  return_value = astral_sample_image_raw(image, p, dpdx, dpdy);
+  return_value = astral_apply_color_post_sampling_mode(return_value, image.m_base.m_sampler);
+
+  return_value = astral_convert_colorspace(color_space,
+                                           astral_image_sampler_colorspace(image.m_base.m_sampler),
+                                           return_value);
+
+  return return_value;
+}
+
+/*! @} */

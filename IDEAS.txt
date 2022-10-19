@@ -1,0 +1,248 @@
+1. Binary Search on GPU
+     Let t[i], 0 <= i <= n be a an array of "times" and n = 2^k for
+     some k with 0.0 = t[0] <= t[1] <= t[2] <= ... <= t[n] = 1.0.
+     Given a value t, find i so that t[i] <= t < t[i + 1] using the
+     GPU.
+
+     int
+     find_index(float t)
+     {
+       begin = 0;
+       end = n;
+       for (int i = 0; i < k - 1; ++i)
+         {
+           current = (begin + end) / 2;
+           if (t > t[current])
+             {
+               begin = current;
+             }
+           else
+             {
+               end = current;
+             }
+         }
+
+       return begin;
+     }
+
+2. Clipping by convex polygon and rects. For clipOutConvexPolygon and
+   without anti-aliasing can be done by drawing an occluder. For
+   clipInRect and clipInCovexPolyon without anti-aliasing can also
+   be done by drawing an occluder. The performance issue is that the
+   occluder might be HUGE. A simple example is drawing a table of
+   cells where eac cell is clipped. In this example, then each
+   cell's clip is an occluder over its complement which is quite
+   large.
+
+3. Rework offscreen region allocator. The main issue is that it is
+   not very fast and the way it allocates spaces does not allow
+   to use a smaller offscreen target. The idea is to use a shelf
+   algorithm together with the ablity to swap x/y coordinate so
+   that the allocator can always assume that width >= hieght.
+
+4. Sparse offscreen stroking. Currently when rendering strokes
+   we generate multiple VirtualBuffer objects and render what
+   stroking primitives hit it. Instead, we should have a single
+   VirtualBuffer, but return the unused tiles (unioned up in
+   the same fashion that we currently union up what is hit).
+   A more agressive return strategy would be to have TileAllocator
+   a public interface to return unused regions of allocated
+   tiles and it would internally union it up. Lastly, to
+   make sure that there is no rendering leackage, we would
+   draw the masks AFTER drawing the color buffers and at
+   the end of drawing the color buffers, we would cap all
+   color buffers with a depth-value of occlude always.
+
+5. Sparse offscreen filling. Following the same idea of having
+   a single VirtualBuffer but marking returning what region
+   are not touched by partial tiles. However, there are more
+   details:
+  a. For contours that are small in one of their dimension
+     (i.e. no more than 3 tiles), instead of mapping and clipping
+     them, just add their STC data to the VirtualBuffer and all of
+     the tiles that are hit by it are fully backed. The "is hit"
+     decision would be by using astral::TransformedBoundingBox,
+     which would be given a method to return the length of its
+     edges.
+  b. For "biggish contours", we run the clipping to see what
+     tiles are hit. However, because we no longer have that
+     each tile has padding, we only need to clip against the
+     lines H_n = { (x, 60n) | x real } and V_n = {60n, y) | y real }.
+     We can get efficient clipping by first breaking each curve
+     C of the contour into pieces where each piece is on a
+     specific side of each H_n and V_n, i.e. curves get clipped
+     once. From there, we can quickly compute what tiles are
+     partial tiles. The actual clipped contour generation would
+     simply walk the clipped curve's instead of the original
+     curve list to generate the contour to run on a tile.
+     Tiles that have no original curves walking though them
+     would, as before, have an internal winding number on
+     them incremented. At the end of data generation, if the
+     rull is odd-even, we would add N % 1 rects to draw where
+     N is the winding number, but for non-zero, we would add
+     N rects.
+  c. We could, in theory avoid streaming the anti-aliasing
+     data by drawing the original anti-alias fuzz to the large
+     render target. To make sure of no leakage, the rendering
+     needs to be protected always by depth buffer capping;
+     A simple way to do this is to first render the color virtual
+     buffers and then cap them. This will prevent any drawing
+     to them period by the masks. To reduce the area covered,
+     we should also tessellate the curves for filling also
+     according to area.
+  d. The generation of the STC data is tempting to also
+     do this way, but would eat oddles of fill-rate. It is
+     likely best to continue to clip the contour to produce
+     the STC passes.
+
+6. Likely not a good idea to reset UBO buffer pool on each render
+   target as that would cause a GPU to issue a pipeline stall to
+   wait until the GPU is done if a BO gets reused.  Though, given
+   that at the end of each render target we need to blit the renders
+   to the ImageAtlas anyways, the GPU pipeline will need to stall
+   anyways.
+
+7. IDEA: Path union, intersection in STC.
+   A. When filling, a VirtualBuffer will have "boundaries" in its
+      STC data indicating the start of a new combined path, several
+      types of markers:
+     1. End: this means run the cover pass (but not anti-aliasing)
+        to not only set .r channel to indicate covered but to also
+        clear the stencil
+     2. ComplementEnd: run the cover pass as for End and then also
+        run another rect that complement the .r channel using
+        a fragment shader that emits .r = 1 with GL_FUNC_SUBTRACT
+        and coefficient (GL_ONE, GL_ONE) because then the blender
+        does D <-- GL_ONE * F - GL_ONE * D and F is 1 thus it does
+        D <-- 1 - D which is what we want to do invert.
+   B. P1 union P2 would just have an End marker between them.
+   C. P1 intersect P2 would be fill P1 with the complement of its
+      fill rule, then an End between P1 and P2, fill P2 with its
+      complement fill rule as well and then P2 ends with a ComplementEnd
+   D. We can then support any sequence of such path building, but
+      an arbitary set expression is likely not feasible.
+   E. Modify the distace field data, kill one of the "raw coverage" value,
+      or ideally both and in the post-process step have a channel as
+      0 or 1 indicating it is a boundary texel.
+   F. Drawing anti-alias fuzz is delayed compeletely after STC.
+   G. Stroking idea may or may not work. Taking the mask generated
+      from (E). In the fragment shader when generating the mask for
+      stroking, go to the point along the path that generated the fragment
+      (this is easy to compute if the fragment shader knows enough of
+      the geometry for the primitive). Sample the path-intersection mask
+      and if it says it is on the boundary, then emit as usual. If not
+      on the boundary, emit covered as 0 and distance as maximum.
+
+8. IDEA: support 3D scenes. There would be a special "3DSCENE"
+    group that would specify an ENTIRE 3D scene. Within such a
+    group, there would be stuff to render, in 3D. Items within
+    a group would have different vertex and fragment shader entry
+    functions: the vertex shader would emit the analogue of
+    gl_Position and the fragment shader would only emit a color
+    value. When a 3D scene is requested, we allocate a range of
+    Z-values that it will consume to do depth testing; since we
+    are not rendering games or sophisticated things, the range
+    would be around 16-bits wide. This would allow us to still
+    use the dept-buffer occlusion in rendering and have many
+    3D scenes (though too many scenes would sink this still).
+     B. The caller of the vertex shader would MODIFY the output
+        clip-vertex value as follows:
+      1. Let [minX, maxX]x[minY, maxY] be the viewport in -normalized-
+         coordinates of the current virtual buffer. Let (A, B) and
+         (C, D) be the numbers so that
+           x --> Ax + B maps [-1, 1] to [minX, maxX]
+           y --> Cx + D maps [-1, 1] to [minY, maxY]
+         and we do
+           gl_Position.x = A * vertex_shader.x + B * vertex_shader.w
+           gl_Position.y = C * vertex_shader.y + D * vertex_shader.w
+      2. Let [minZ, maxZ] be the depth-buffer range allocated to the
+         3D scene and let (E, F) be the numbers so that
+           z --> Ez + F maps [-1, 1] to [minZ, maxZ]
+         and we do
+           gl_Position.z = A * vertex_shader.z + B * vertex_shader.w
+      3. We add the clipping planes:
+         i.   minX * gl_Position.w <= gl_Position.x <= maxX * gl_Position.w
+         ii.  minY * gl_Position.w <= gl_Position.y <= maxY * gl_Position.w
+         iii. minZ * gl_Position.w <= gl_Position.z <= maxZ * gl_Position.w
+     C. As an alternative do doing B., we could instead call
+        glViewport, glScissor and glDepthRange. This avoids the silliness
+        of adding more hardware clip planes and allows for better GPU optimizaions,
+        but some GPU's lose performance when glViewport and glDepthRange
+        are called. Lastly, this makes it impossible to walk across different
+        virtual buffers to draw scenes to reduce shader changes.
+
+9. sRGB support via HW support and GL extensions. Currently, we have that
+   a render emits sRGB or linear values and that an astral::Image is encoded
+   to store sRGB or linear values. Steps:
+     a. Make the format of the image atlas as GL_SRGB8_ALPHA8
+     b. Bind the image atlas to two different image units where
+         - decoded: no sampler, this will convert the sRGB stored
+                    values into linear
+         - raw:  with a sampler using GL_EXT_texture_sRGB_decode
+                 to set the sampler with GL_TEXTURE_SRGB_DECODE_EXT
+                 having GL_SKIP_DECODE_EXT
+     c. when rendering virtual buffers, note that we have the following:
+         - mask rendering
+             i. means fragment shader emits linear values
+             ii. want to store the exact value that shader emitted
+         - srgb rendering
+             i. means fragment shader emits srgb values
+             ii. want to store the exact value that shader emitted
+         - linear rendering
+             i. means fragment shader emits linear values
+             ii. want the HW to covert the linear to sRGB and store the sRGB value
+     d. when rendering render the linear color buffers with
+        glEnable(GL_FRAMEBUFFER_SRGB) and when rendering the mask and
+        sRGB buffers render with glDisable(GL_FRAMEBUFFER_SRGB). The offscreen
+        render target should be an GL_SRGB8_ALPHA8 texture.
+     e. Sampling
+          - masks: sample from raw always
+          - color, get srgb value: sample from raw
+          - color, get linear value: sample from decoded
+     f. The main difference is that Image::set_pixels() should always
+        be passed sRGB values for color images and linear values
+        for mask values. In addition, Image::colorspace() and
+        ImageSampler::colorspace() have no role anymore.
+     g. The colorspace argument to astral_sample_image() will still hold
+        and chances are we still want the item and material shaders to
+        know the colorspace they are to work in.
+     h. when blitting the results from the render target to the atlas,
+        sRGB rendering should be disabled and the sampling from the render
+        target should be that GL_TEXTURE_SRGB_DECODE_EXT is the value
+        GL_SKIP_DECODE_EXT so that the blits are bit-copies. In addition,
+        the render target should be backed by an sRGB texture.
+     i. Comment: if GL_EXT_texture_sRGB_decode is not available, one
+        can use GL_ARB_texture_view instead to alias a GL_SRGB8_ALPHA8
+        texture as an GL_RGB8 texture.
+
+10. Compute and Sparse Rendering together. Firstly, we do the path
+    clipping for filling into tiles in a -compute- shader. By
+    doing successive splitting, we can narrow down to exactly what
+    path splits hit what tiles. The compute shader will maintain
+    a single atomic which indicates the number of tiles that
+    have paths going through them. The first time a path is added
+    to a tile, that atomic is incremented and the return value
+    of the increment is the "ID" for the tile as well. Each of
+    the tiles is the SAME size and the size of a tile in the atlas
+    system. Thus, all that is needed to be known for the allocation
+    of tiles by the CPU is the number of tiles. However, it goes
+    further. Since there are no frees, the exact tile to use can
+    also be computed in the compute shader if the free tile list
+    is passed as well and now there are two atomics: where in the
+    free list to take the next tile and if the free list is empty,
+    what tile to take. With this system, we know what tiles are
+    needed and where they are in the atlas. From there, instead of
+    doing sencil-then cover, we could instead use a compute shader
+    operating directly on the atlas surface where the compute shader
+    used the contours to compute the psuedo-distance field value.
+    Before running the compute shader, the CPU will fetch that single
+    atomic value to make sure that the mask atlas is big enough
+    for all the masks.
+
+    The next issue is drawing the mask "sparsely". The core issue
+    is that we don't know what tiles are full and empty until
+    after the comptute shader runs. One solution is to make a place
+    holder draw command that will emit the necessary tiles by the
+    backend after the compute path splitting is done. One issue then
+    is that if background pixels are needed to be known, then the
+    query for such needs to take into a time range too.

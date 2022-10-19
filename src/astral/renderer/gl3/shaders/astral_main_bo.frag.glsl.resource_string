@@ -1,0 +1,206 @@
+// -*- C++ -*-
+/*!
+ * \file atral_main_ubo.frag.glsl.resource_string
+ * \brief atral_main_ubo.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+#if !defined(ASTRAL_USE_HW_CLIP_PLANES) && !defined(ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW)
+
+  in vec4 astral_clip_distance;
+  #define astral_clip_distance_min_x astral_clip_distance.x
+  #define astral_clip_distance_min_y astral_clip_distance.y
+  #define astral_clip_distance_max_x astral_clip_distance.z
+  #define astral_clip_distance_max_y astral_clip_distance.w
+
+  bool
+  astral_fragment_clipped_with_slack(void)
+  {
+    float x, y;
+
+    // x represents being inside the x-range for the clip-window
+    x = min(astral_clip_distance_min_x, astral_clip_distance_max_x);
+
+    // y represents being inside the y-range for the clip-window
+    y = min(astral_clip_distance_min_y, astral_clip_distance_max_y);
+
+    /* Shader code aftwerwards may use dFdx(), dFdy() or fwidth().
+     * In order for those to always give well defined results,
+     * we need for that the neighbouring pixel is well defined,
+     * thus we give a slack along all four sides of a single
+     * pixel.
+     *
+     * Also note that we use fwidth() instead of abs(dFdx())
+     * and abs(dFdy()). This is because the vertex shader can
+     * permute the x and y coordinates, but the clip-window
+     * values are before the permute. Without permute, we have
+     * that astral_clip_distance_min_x varies only in pixel-x,
+     * but with permute it varies only in pixel-y. Rather than
+     * having more logic to deal with this, we just use fwidth().
+     */
+    x += fwidth(astral_clip_distance_min_x);
+    y += fwidth(astral_clip_distance_min_y);
+
+    return min(x, y) < 0.0;
+  }
+
+  bool
+  astral_fragment_clipped_without_slack(void)
+  {
+    float x, y;
+
+    x = min(astral_clip_distance_min_x, astral_clip_distance_max_x);
+    y = min(astral_clip_distance_min_y, astral_clip_distance_max_y);
+    return min(x, y) < 0.0;
+  }
+
+#endif
+
+#ifndef ASTRAL_SHADOW_GENERATOR_SHADER
+  out vec4 astral_final_color;
+
+  vec4
+  astral_run_apply_blending(in uint shader, in float coverage, in vec4 color);
+
+#endif
+
+#ifdef ASTRAL_COLOR_ITEM_SHADER
+void
+astral_run_material_frag_shader(in uint shader, in uint color_space, inout vec4 color, inout float coverage);
+#endif
+
+
+/* The purpose of the astral_functional_main() is so that
+ * we can easily code the early out of not running the fragment
+ * shader and then after running astral_functional_main() to
+ * then if we are using shader discard to do clipping then to
+ * issue discard.
+ *
+ * The reasoning is as follows: in GLSL discard kills the fragment
+ * and any further computation on it which means the derivative
+ * operations are then incorrect. Now, the issue may not happen
+ * on all platforms, especially those that map GL to other 3D APIs.
+ * Both Metal and HLSL have that discard demotes the pixel to a
+ * helper pixel which then allows for the derivatives to continue
+ * to make sense.
+ */
+
+void
+astral_functional_main(void)
+{
+  #if !defined(ASTRAL_USE_HW_CLIP_PLANES) && !defined(ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW)
+    {
+      if (astral_fragment_clipped_with_slack())
+        {
+          astral_final_color = vec4(0.0, 0.0, 0.0, 0.0);
+          return;
+        }
+    }
+  #endif
+
+  #ifdef ASTRAL_SHADOW_GENERATOR_SHADER
+    {
+      float depth;
+
+      astral_run_frag_shader(astral_main_item_shader(),
+                             astral_main_item_data(),
+                             depth);
+
+      gl_FragDepth = astral_compute_shadow_map_depth(depth);
+    }
+  #elif defined(ASTRAL_COLOR_ITEM_SHADER)
+    {
+      vec4 c, tmp_c;
+      uint color_space;
+      float coverage;
+
+      /* get the framebuffer fetch value ready in the case that the
+       * blend or material shader needs it. if the blend and material
+       * shader do not, this does nothing.
+       *
+       * Only ASTRAL_COLOR_ITEM_SHADER supports blend modes that
+       * read from the framebuffer.
+       *
+       * TODO: in the case of uber-shading, it is possible that a shader
+       *       is running that won't sample, but this code will trigger
+       *       the sample. It would be useful that this call also checks
+       *       the nature of the item and material shader to see if it
+       *       framebuffer fetch emulate can be skipped.
+       */
+      astral_prepare_framebuffer_fetch_value();
+
+      color_space = astral_main_emit_color_space();
+      astral_material_alpha_only = false;
+      astral_run_frag_shader(astral_main_item_shader(),
+                             color_space,
+                             astral_main_item_data(),
+                             coverage, c);
+
+      tmp_c = (astral_material_alpha_only) ? vec4(1.0) : c;
+      astral_run_material_frag_shader(astral_main_material_shader(), color_space, tmp_c, coverage);
+      c = (astral_material_alpha_only) ? c * tmp_c.a : tmp_c;
+
+      /* apply the mask */
+      coverage *= astral_main_sample_mask();
+
+      /* blending has as input the color value with alpha pre-multiplied */
+      c = astral_run_apply_blending(astral_main_blend_shader(), coverage, c);
+      astral_final_color = c;
+    }
+  #else
+    {
+      vec4 c;
+
+      astral_run_frag_shader(astral_main_item_shader(),
+                             astral_main_item_data(),
+                             c);
+
+      /* combine the coverage and distance_field values
+       * with the optional clip-mask.
+       */
+      c.xy = astral_main_combine_with_sample_mask(c.xy);
+      astral_final_color = c;
+    }
+  #endif
+}
+
+void
+main(void)
+{
+  astral_functional_main();
+
+  #if !defined(ASTRAL_USE_HW_CLIP_PLANES) && !defined(ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW) && defined(ASTRAL_ENFORCE_CLIP_WINDOW)
+    {
+      if (astral_fragment_clipped_without_slack())
+        {
+          /* A variety of blend modes with certian situations can allow for
+           * that we do not need to issue a discard and instead let (0, 0, 0, 0)
+           * occur:
+           *  - if a draw not opaque and the blend mode obeys alpha, then emitting
+           *    (0, 0, 0, 0) is fine.
+           *  - for mask shading, when NOT doing STC passes, then emitting
+           *    (0, 0, 0, 0) is also fine
+           *
+           * We can have Renderer do this logic for us. The main cost is that
+           * if a scene alternates between draws that do and do not enforce
+           * clipping will mean lots of state changes which is BAD. In addition,
+           * the real expectation is that if HW clip planes are not available, a
+           * renderer will rely on depth testing and use optional enforcement to
+           * give the pixel shader and early out.
+           */
+          discard;
+        }
+    }
+  #endif
+
+}

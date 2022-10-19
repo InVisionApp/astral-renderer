@@ -1,0 +1,41 @@
+// -*- C++ -*-
+/*!
+ * \file astral_item_path.vert.glsl.resource_string
+ * \brief astral_item_path.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr,
+                   out vec2 item_p)
+{
+  vec2 p;
+
+  p = astral_item_path_vert_shader_common(item_data_location, a0, tr);
+
+  astral_path_coord_x = p.x;
+  astral_path_coord_y = p.y;
+
+  item_p = p;
+
+  return astral_apply_transformation(tr, p);
+}

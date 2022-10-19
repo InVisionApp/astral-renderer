@@ -1,0 +1,51 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image_glyph.frag.glsl.resource_string
+ * \brief astral_image_glyph.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader,
+                   in uint color_space,
+                   in uint item_data_location,
+                   out float coverage, out vec4 base_color)
+{
+  AstralUnpackedImage image;
+  vec2 p;
+
+  p = vec2(astral_glyph_x, astral_glyph_y);
+  astral_unpack_image(uvec4(astral_glyph_packed_image0_x,
+                                  astral_glyph_packed_image0_y,
+                                  astral_glyph_packed_image0_z,
+                                  astral_glyph_packed_image0_w),
+                            uvec4(astral_glyph_packed_image1_x,
+                                  astral_glyph_packed_image1_y,
+                                  astral_glyph_packed_image1_z,
+                                  astral_glyph_packed_image1_w),
+                            image);
+
+  base_color = astral_sample_image(image, color_space, p, dFdx(p), dFdy(p));
+  coverage = 1.0;
+
+  if ((astral_glyph_flags & ASTRAL_GLYPH_SHADER_IS_COLORED_GLYPH) != 0u)
+    {
+      astral_material_alpha_only = true;
+    }
+}

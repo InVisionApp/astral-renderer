@@ -1,0 +1,7 @@
+To force Astral Demos to ue the integrated GPU:
+ 1) copy Info.plist to astral's root
+ 2) the MacBookPro must be unplugged from both power and an external display
+
+The performance is abymsal though which is a big mystery since
+performance on a Linux NUC with a similarly classed GPU runs just
+fine.

@@ -1,0 +1,100 @@
+<svg width="800" height="600" version="1.1" viewBox="0 0 211.67 158.75" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <marker id="marker35926" overflow="visible" orient="auto">
+   <path transform="scale(.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#e85100" fill-rule="evenodd" stroke="#e85100" stroke-linejoin="round" stroke-width=".625"/>
+  </marker>
+  <marker id="marker37548" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#e85100" fill-rule="evenodd" stroke="#e85100" stroke-linejoin="round" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-2-8-2-0-5-5" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#dba100" fill-opacity=".5" fill-rule="evenodd" stroke="#dba100" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker30680" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#00bf00" fill-rule="evenodd" stroke="#00bf00" stroke-linejoin="round" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-7" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#bf3fef" fill-opacity=".5" fill-rule="evenodd" stroke="#bf3fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-4-2" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#003fef" fill-opacity=".5" fill-rule="evenodd" stroke="#003fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-9-6" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#bf3fef" fill-opacity=".5" fill-rule="evenodd" stroke="#bf3fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-4-9-1" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#003fef" fill-opacity=".5" fill-rule="evenodd" stroke="#003fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-1-6" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#bf3fef" fill-opacity=".5" fill-rule="evenodd" stroke="#bf3fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker25922-5-4-5-1" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#003fef" fill-opacity=".5" fill-rule="evenodd" stroke="#003fef" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker31434-7" overflow="visible" orient="auto">
+   <path transform="scale(.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill="#00bf00" fill-rule="evenodd" stroke="#00bf00" stroke-linejoin="round" stroke-width=".625"/>
+  </marker>
+ </defs>
+ <text font-family="sans-serif" font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38140);white-space:pre" xml:space="preserve"/>
+ <text font-family="sans-serif" font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38146);white-space:pre" xml:space="preserve"/>
+ <rect width="100%" height="100%" fill="white"/>
+ <g fill="none">
+  <path d="m98.019 151.04v-47.981" stroke="#bf3fef" stroke-dasharray="0.529168, 0.529168" stroke-dashoffset=".83344" stroke-opacity=".5" stroke-width=".13229"/>
+  <g>
+   <g stroke-width=".39688">
+    <path d="m25.73 26.126a144.58 144.58 0 0 1 72.289-19.37" stop-color="#000000" stroke="#003fef" style="font-variation-settings:normal"/>
+    <path d="m98.019 6.7559a120.44 120.44 0 0 1 60.221 16.136" stop-color="#000000" stroke="#bf3fef" style="font-variation-settings:normal"/>
+    <path d="m74.004 109.74a48.032 48.032 0 0 1 24.016-6.435" stop-color="#000000" stroke="#003fef" style="font-variation-settings:normal"/>
+   </g>
+   <path d="m74.004 109.74-48.273-83.611" stroke="#003fef" stroke-opacity=".5" stroke-width=".26458"/>
+   <path d="m109.97 106.5 48.273-83.611" stroke="#bf3fef" stroke-opacity=".5" stroke-width=".26458"/>
+   <path d="m49.867 67.931c14.724-7.4579 41.438-23.659 84.237-3.2336" stroke="#ffef00" stroke-width=".79375"/>
+   <path d="m97.778 103.06v-96.546" stroke="#003fef" stroke-opacity=".5" stroke-width=".13229"/>
+  </g>
+  <path d="m98.019 151.28-24.016-41.546" stroke="#003fef" stroke-dasharray="0.529165, 0.529165" stroke-dashoffset=".82021" stroke-opacity=".5" stroke-width=".26458"/>
+  <path d="m109.97 106.5-11.951 20.475" stroke="#bf3fef" stroke-dasharray="0.529165, 0.529165" stroke-dashoffset="1.614" stroke-opacity=".5" stroke-width=".26458"/>
+  <path d="m98.019 55.029a72.168 72.168 0 0 1 36.084 9.6687" stop-color="#000000" stroke="#bf3fef" stroke-width=".39688" style="font-variation-settings:normal"/>
+  <path d="m49.867 67.931a96.305 96.305 0 0 1 48.152-12.902" stop-color="#000000" stroke="#003fef" stroke-width=".39688" style="font-variation-settings:normal"/>
+ </g>
+ <circle cx="97.879" cy="151.09" r=".48273" fill="#003fef" fill-rule="evenodd" stop-color="#000000" stroke="#003fef" stroke-width=".56012" style="font-variation-settings:normal"/>
+ <g fill="none">
+  <path d="m97.778 151.04v-47.981" stroke="#003fef" stroke-dasharray="0.529168, 0.529168" stroke-dashoffset=".83344" stroke-opacity=".5" stroke-width=".13229"/>
+  <g>
+   <path d="m98.019 103.06v-96.546" stroke="#bf40ff" stroke-opacity=".5" stroke-width=".13229"/>
+   <path d="m68.101 112.37-47.62-82.492" marker-end="url(#marker37548)" marker-start="url(#marker35926)" stroke="#e85100" stroke-width=".26458"/>
+   <path d="m131.23 76.988c-12.007-0.38044-19.1-4.3636-18.124-18.624" marker-end="url(#marker5700-2-8-2-0-5-5)" stroke="#dba100" stroke-opacity=".5" stroke-width=".26458"/>
+  </g>
+ </g>
+ <text x="62.721443" y="72.169281" fill="#00bf00" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458" style="line-height:1.05" xml:space="preserve"><tspan x="62.721443" y="72.169281">negative </tspan><tspan x="62.721443" y="77.775795">offset</tspan><tspan x="62.721443" y="83.382309">direction</tspan></text>
+ <path d="m97.878 103.3a24.177 23.895 0 0 1 12.088 3.2013" fill="none" stop-color="#000000" stroke="#bf3fef" stroke-width=".39688" style="font-variation-settings:normal"/>
+ <g>
+  <circle cx="97.879" cy="126.96" r=".48273" fill="#bf3fef" fill-rule="evenodd" stop-color="#000000" stroke="#bf3fef" stroke-width=".56003" style="font-variation-settings:normal"/>
+  <text x="28.213238" y="13.046807" fill="#003fef" font-family="sans-serif" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458" style="line-height:1.05" xml:space="preserve"><tspan x="28.213238" y="13.046807" fill="#003fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458">first arc</tspan></text>
+  <text x="138.8286" y="11.648563" fill="#bf3fef" font-family="sans-serif" font-size="5.2917px" stroke-width=".26458" style="line-height:1.05" xml:space="preserve"><tspan x="138.8286" y="11.648563" fill="#bf3fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-width=".26458">second arc</tspan></text>
+ </g>
+ <path d="m25.744 26.141-5.5523 3.2408" fill="none" stroke="#e85100" stroke-dasharray="0.264583, 0.264583" stroke-dashoffset=".13229" stroke-opacity=".5" stroke-width=".26458"/>
+ <path d="m74.004 109.74-5.5523 3.2408" fill="none" stroke="#e85100" stroke-dasharray="0.264583, 0.264583" stroke-dashoffset=".47625" stroke-opacity=".5" stroke-width=".26458"/>
+ <g font-size="5.2917px" stroke-width=".26458">
+  <text x="14.521715" y="74.857597" fill="#e85100" font-family="sans-serif" style="line-height:1.05" xml:space="preserve"><tspan x="14.521715" y="74.857597" fill="#e85100" font-family="'Cambria Math'" font-size="5.2917px" stroke-width=".26458">stroke width</tspan></text>
+  <text x="144.66414" y="58.105179" fill="#5f3fef" font-family="'Cambria Math'" stroke-opacity=".7" style="line-height:1.05" xml:space="preserve"><tspan x="144.66414" y="58.105179">approximated</tspan><tspan x="144.66414" y="63.711689">biarc (base curve)</tspan></text>
+  <text x="133.53285" y="78.157562" fill="#e5bc00" font-family="sans-serif" stroke-opacity=".7" style="line-height:1.05" xml:space="preserve"><tspan x="133.53285" y="78.157562" fill="#e5bc00" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458">quadratic Bézier curve</tspan></text>
+ </g>
+ <path d="m80.028 56.481-8.2021-46.364" fill="none" marker-end="url(#marker30680)" stroke="#00bf00" stroke-width=".26458px"/>
+ <text x="156.46951" y="34.976368" fill="#6b3fef" font-family="sans-serif" font-size="5.2917px" stroke-opacity=".7" stroke-width=".265" style="line-height:1.05" xml:space="preserve"><tspan x="156.46951" y="34.976368" fill="#6b3fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".265">outer offset curve</tspan></text>
+ <text x="132.04332" y="102.41599" fill="#6b3fef" font-family="sans-serif" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458" style="line-height:1.05" xml:space="preserve"><tspan x="132.04332" y="102.41599" fill="#6b3fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458">inner offset curve</tspan></text>
+ <g fill="none">
+  <g stroke-opacity=".5">
+   <path d="m142.57 58.637c-14.866-1.2834-18.489-7.5286-23.171-0.98127" marker-end="url(#marker25922-5-7)" stroke="#bf3fef" stroke-width=".26458px"/>
+   <path d="m142.56 58.618c-19.488-0.3136-48.295-25.909-55.012-3.1206" marker-end="url(#marker25922-5-4-2)" stroke="#003fef" stroke-width=".26458px"/>
+   <path d="m155.33 33.648c-27.675 1.8998-29.65-10.618-28.149-22.367" marker-end="url(#marker25922-5-9-6)" stroke="#bf3fef" stroke-width=".26458px"/>
+   <path d="m155.33 33.648c-24.359 1.096-63.02-1.9075-68.387-25.562" marker-end="url(#marker25922-5-4-9-1)" stroke="#003fef" stroke-width=".26458px"/>
+   <path d="m130.83 100.45c-13.541-0.45755-24.75-7.9965-27.561 2.6403" marker-end="url(#marker25922-5-1-6)" stroke="#bf3fef" stroke-width=".26458px"/>
+   <path d="m130.83 100.45c-17.584 0.16092-39.561-15.476-38.695 2.4868" marker-end="url(#marker25922-5-4-5-1)" stroke="#003fef" stroke-width=".26458px"/>
+  </g>
+  <path d="m88.587 103.26-8.4694-46.313" marker-start="url(#marker31434-7)" stroke="#00bf00" stroke-width=".26458"/>
+ </g>
+ <g font-size="5.2917px" stroke-width=".26458">
+  <text x="56.709515" y="37.744957" fill="#00bf00" font-family="'Cambria Math'" stroke-opacity=".7" style="line-height:1.05" xml:space="preserve"><tspan x="56.709515" y="37.744957">positive </tspan><tspan x="56.709515" y="43.351471">offset</tspan><tspan x="56.709515" y="48.957985">direction</tspan></text>
+  <text x="100.9756" y="128.52933" fill="#bf3fef" font-family="sans-serif" style="line-height:1.05" xml:space="preserve"><tspan x="100.9756" y="128.52933" fill="#bf3fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-width=".26458">second arc center</tspan></text>
+  <text x="101.02274" y="152.88828" fill="#003fef" font-family="sans-serif" stroke-opacity=".7" style="line-height:1.05" xml:space="preserve"><tspan x="101.02274" y="152.88828" fill="#003fef" font-family="'Cambria Math'" font-size="5.2917px" stroke-opacity=".7" stroke-width=".26458">first arc center</tspan></text>
+ </g>
+</svg>

@@ -1,0 +1,110 @@
+// -*- C++ -*-
+/*!
+ * \file astral_brush_bo.frag.glsl.resource_string
+ * \brief astral_brush_bo.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_frag_shader(in uint sub_shader, in uint color_space)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_material_frag_shader(in uint sub_shader, in uint out_colorspace, inout vec4 color, inout float coverage)
+{
+  if ((astral_brush_flags & ASTRAL_BRUSH_ACTIVE) == 0u)
+    {
+      return;
+    }
+
+  vec4 brushcolor;
+  vec2 image_p;
+  uint colorspace;
+
+  brushcolor.xy = astral_unpackHalf2x16(astral_brush_base_color_rg);
+  brushcolor.zw = astral_unpackHalf2x16(astral_brush_base_color_ba);
+
+  if ((astral_brush_flags & ASTRAL_BRUSH_SPECIFIED_COLORSPACE) != 0u)
+    {
+      /* specify to work in the named colorspace and convert color to that named color space */
+      colorspace = astral_unpack_bits(ASTRAL_BRUSH_COLORSPACE_BIT, 1u, astral_brush_flags);
+      color = astral_convert_colorspace(colorspace, out_colorspace, color);
+    }
+  else
+    {
+      colorspace = out_colorspace;
+    }
+
+  if ((astral_brush_flags & ASTRAL_BRUSH_HAS_IMAGE) != 0u)
+    {
+      AstralImageLOD image_lod;
+
+      image_p = vec2(astral_brush_image_p_x, astral_brush_image_p_y);
+      astral_unpack_image_lod(uvec4(astral_brush_image0_x,
+                                    astral_brush_image0_y,
+                                    astral_brush_image0_z,
+                                    astral_brush_image0_w),
+                              uvec2(astral_brush_image1_x,
+                                    astral_brush_image1_y),
+                              image_lod);
+
+      brushcolor *= astral_sample_image(image_lod, colorspace, image_p);
+    }
+
+  if ((astral_brush_flags & ASTRAL_BRUSH_HAS_GRADIENT) != 0u)
+    {
+      AstralUnpackedGradient gradient;
+      vec2 gradient_p;
+      vec4 c;
+
+      gradient_p = vec2(astral_brush_gradient_p_x, astral_brush_gradient_p_y);
+
+      astral_unpack_gradient(uvec4(astral_brush_gradient0_x,
+                                   astral_brush_gradient0_y,
+                                   astral_brush_gradient0_z,
+                                   astral_brush_gradient0_w),
+                             uvec4(astral_brush_gradient1_x,
+                                   astral_brush_gradient1_y,
+                                   astral_brush_gradient1_z,
+                                   astral_brush_gradient1_w),
+                             gradient);
+      if ((astral_brush_flags & ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION) != 0u)
+        {
+          AstralGradientTransformationWindow image_transformation_window;
+          uint r;
+
+          r = astral_brush_flags;
+          astral_unpack_image_transformation_window(uvec4(astral_brush_gradient_transformation_x,
+                                                          astral_brush_gradient_transformation_y,
+                                                          astral_brush_gradient_transformation_z,
+                                                          astral_brush_gradient_transformation_w),
+                                                    r, image_transformation_window);
+
+          gradient_p = astral_apply_image_transformation_window(image_transformation_window, gradient_p);
+        }
+
+      c = astral_sample_gradient(gradient, colorspace, gradient_p);
+
+      /* gradient sampling is without alpha pre-multiplied, so we need to apply the alpha */
+      c.rgb *= c.a;
+
+      brushcolor *= c;
+    }
+
+  color *= brushcolor;
+
+  /* Convert back to the colorspace of the rendering */
+  color = astral_convert_colorspace(out_colorspace, colorspace, color);
+}

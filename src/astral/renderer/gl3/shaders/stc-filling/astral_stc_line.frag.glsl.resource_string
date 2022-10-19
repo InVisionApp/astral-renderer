@@ -1,0 +1,30 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_line.frag.glsl.resource_string
+ * \brief astral_stc_line.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  /* actually does not matter, since during this shader color writes are off */
+  base_color = vec4(1.0);
+}

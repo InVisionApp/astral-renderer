@@ -1,0 +1,254 @@
+// -*- C++ -*-
+/*!
+ * \file astral_gaussian_blur.frag.glsl.resource_string
+ * \brief astral_gaussian_blur.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+struct astral_gaussian_filter_tile_coordinate
+{
+  /* texel coordinate of the point from the tile */
+  vec3 m_texel_coord;
+
+  /* the distance to the boundary of the current tile
+   * from the origin texel with which we are initilized.
+   * Once we need to fetch outside of this boundary, we
+   * need to update the astral_gaussian_filter_coordinate
+   * value for the next tile.
+   */
+  float m_dst_to_tile_start, m_dst_to_tile_end;
+
+  /* the offset value at which the coordinate was initialized */
+  float m_offset;
+
+  /* What LOD from which to sample, value is 0 or 1 */
+  float m_lod;
+};
+
+struct astral_gaussian_filter_coordinate
+{
+  astral_gaussian_filter_tile_coordinate m_base;
+
+  /* initialized in astral_gaussian_filter_coordinate_init(),
+   * gives the maximimum and minimum offset value from the
+   * starting position to stay within the image
+   */
+  float m_min_absolute_offset, m_max_absolute_offset;
+};
+
+/* Used by astral_gaussian_filter_coordinate_init() and
+ * astral_gaussian_filter_coordinate_update_and_fetch()
+ * to update internal values for fetching a sequnece of
+ * values within a tile.
+ * \param p center point of the fetching
+ * \param direction direcion of the offset, either (0, 1) or (1, 0)
+ * \param offset amount to offset from p in the direction given by direction
+ * \param image AstralImageLOD holding the image
+ */
+void
+astral_gaussian_filter_tile_coordinate_init(out astral_gaussian_filter_tile_coordinate G,
+                                            in vec2 p, in vec2 direction, in float offset,
+                                            in AstralImageLOD image, in float lod)
+{
+  /* we only sample from mipmap level 0, so we do not need to multiply
+   * by AstralImageLOD::m_image_coordinate_to_color_texel_multipler
+   */
+  uint ignore_parent_texel;
+  vec2 dst_to_tile_start, dst_to_tile_end;
+  float padding;
+
+  G.m_texel_coord = astral_image_texel_coordinate(p + direction * offset, image,
+                                                  dst_to_tile_start,
+                                                  dst_to_tile_end,
+                                                  ignore_parent_texel);
+
+  /* note the loss of 0.5, this is because the function
+   * astral_image_texel_coordinate() provides the
+   * distance to the boundary, but we need the distance
+   * to boundary where bilinear sampling stays within
+   * the tile.
+   */
+  padding = (lod == 0.0) ? 0.5 : 1.5;
+  G.m_dst_to_tile_start = dot(dst_to_tile_start, direction) - padding;
+  G.m_dst_to_tile_end = dot(dst_to_tile_end, direction) - padding;
+
+  /* record the offset from p; this is used to determine
+   * on successive reads if a passed offset is within the
+   * tile.
+   */
+  G.m_offset = offset;
+
+  G.m_lod = lod;
+}
+
+
+/* Initialize an astral_gaussian_filter_coordinate. Return the
+ * texel fetch at the center to the Gaussian blur.
+ * \param p center point of the fetching
+ * \param direction direcion of the offset, either (0, 1) or (1, 0)
+ * \param offset amount to offset from p in the direction given by direction
+ * \param image AstralImageLOD holding the image
+ */
+vec4
+astral_gaussian_filter_coordinate_init(out astral_gaussian_filter_coordinate G,
+                                       in vec2 p, in vec2 direction,
+                                       in AstralImageLOD image,
+                                       in float lod)
+{
+  astral_gaussian_filter_tile_coordinate_init(G.m_base, p, direction, 0.0, image, lod);
+
+  /* the amount by which we can move in negative offset and stay inside the image */
+  G.m_min_absolute_offset = -dot(p, direction) + 0.5;
+
+  /* the amount by which we can move in positive offset and stay inside the image */
+  G.m_max_absolute_offset = dot(image.m_rel_size - p, direction) - 1.5;
+
+  return textureLod(astral_image_color_atlas,
+                    vec3(astral_image_color_atlas_inverse_size * G.m_base.m_texel_coord.xy, G.m_base.m_texel_coord.z),
+                    G.m_base.m_lod);
+}
+
+/* Updates the astral_gaussian_filter_coordinate value as necesary to read from
+ * the correct tile and returns the vec4 texel fetch value
+ * \param G astral_gaussian_filter_coordinate object to update
+ * \param p center point as passed to astral_gaussian_filter_coordinate_init()
+ * \param in_offset offset from p to update to
+ * \param direction direction vector as passed to astral_gaussian_filter_coordinate_init()
+ * \param image AstralImageLOD as passed to astral_gaussian_filter_coordinate_init()
+ */
+vec4
+astral_gaussian_filter_coordinate_update_and_fetch(inout astral_gaussian_filter_coordinate G,
+                                                   in vec2 p, in float in_offset,
+                                                   in vec2 direction,
+                                                   in AstralImageLOD image)
+{
+  float rel_offset;
+  vec2 texel;
+
+  in_offset *= (1.0 + G.m_base.m_lod);
+
+  /* if outside of the image, then fast return (0, 0, 0, 0) */
+  if (in_offset < G.m_min_absolute_offset || in_offset > G.m_max_absolute_offset)
+    {
+      return vec4(0.0, 0.0, 0.0, 0.0);
+    }
+
+  rel_offset = in_offset - G.m_base.m_offset;
+  if (-rel_offset > G.m_base.m_dst_to_tile_start || rel_offset > G.m_base.m_dst_to_tile_end)
+    {
+      astral_gaussian_filter_tile_coordinate_init(G.m_base, p, direction, in_offset, image, G.m_base.m_lod);
+      texel = G.m_base.m_texel_coord.xy;
+    }
+  else
+    {
+      texel = G.m_base.m_texel_coord.xy + direction * rel_offset;
+    }
+
+  return textureLod(astral_image_color_atlas,
+                    vec3(astral_image_color_atlas_inverse_size * texel.xy, G.m_base.m_texel_coord.z),
+                    G.m_base.m_lod);
+}
+
+void
+astral_material_pre_frag_shader(in uint sub_shader, in uint colorspace)
+{
+}
+
+void
+astral_material_frag_shader(in uint sub_shader, in uint colorspace, inout vec4 inout_color, inout float coverage)
+{
+  float w0, lod;
+  vec2 p, dir;
+  vec3 N_w0_bits;
+  vec4 out_color;
+  uint current, N, halfN, data_location, bits;
+  AstralPackedImageWithoutMipmaps packed_raw_im;
+  AstralUnpackedImageWithoutMipmaps unpacked_raw_im;
+  AstralImageLOD image;
+  astral_gaussian_filter_coordinate pre, post;
+
+  data_location = astral_gaussian_data_location;
+  if (sub_shader == ASTRAL_GAUSSIAN_BLUR_HORIZONTAL_PASS)
+    {
+      dir = vec2(1.0, 0.0);
+    }
+  else
+    {
+      dir = vec2(0.0, 1.0);
+    }
+
+  N_w0_bits = astral_read_item_dataf(data_location).xyw;
+  N = floatBitsToUint(N_w0_bits.x);
+  w0 = N_w0_bits.y;
+  bits = floatBitsToUint(N_w0_bits.z);
+
+  lod = ((bits & ASTRAL_GAUSSIAN_BLUR_SAMPLE_FROM_LOD1_MASK) == 0u) ? 0.0 : 1.0;
+
+  /* unpack the uvec4 holding an AstralPackedImageWithoutMipmaps
+   * into an AstralImageLOD; it might be far better to pack
+   * the AstralImageLOD directly in the vertex shader and
+   * unpack it directly here.
+   */
+  astral_unpack_image(uvec4(astral_gaussian_blur_image_x,
+                            astral_gaussian_blur_image_y,
+                            astral_gaussian_blur_image_z,
+                            astral_gaussian_blur_image_w),
+                      packed_raw_im);
+  astral_unpack_image(packed_raw_im, unpacked_raw_im);
+  astral_compute_lod(unpacked_raw_im, image);
+
+  /* the "material" coordinate is the same as the coordinate within
+   * the rect the gaussian shader code is so that the rect is
+   * always across the size of the input image's LOD = 0.
+   */
+  p = vec2(astral_gaussian_blur_x, astral_gaussian_blur_y);
+  out_color = w0 * astral_gaussian_filter_coordinate_init(pre, p, dir, image, lod);
+  post = pre;
+
+  for (current = 1u, halfN = (N >> 1u); current <= halfN; ++current)
+    {
+      vec4 data;
+      float weightA, offsetA, weightB, offsetB;
+
+      data = astral_read_item_dataf(data_location + current);
+      weightA = data.x;
+      offsetA = data.y;
+      weightB = data.z;
+      offsetB = data.w;
+
+      out_color += weightA * astral_gaussian_filter_coordinate_update_and_fetch(pre, p, -offsetA, dir, image);
+      out_color += weightB * astral_gaussian_filter_coordinate_update_and_fetch(pre, p, -offsetB, dir, image);
+
+      out_color += weightA * astral_gaussian_filter_coordinate_update_and_fetch(post, p, offsetA, dir, image);
+      out_color += weightB * astral_gaussian_filter_coordinate_update_and_fetch(post, p, offsetB, dir, image);
+    }
+
+  if ((N & 1u) != 0u)
+    {
+      vec2 data;
+      float weightA, offsetA;
+
+      data = astral_read_item_dataf(data_location + current).xy;
+      weightA = data.x;
+      offsetA = data.y;
+
+      out_color += weightA * astral_gaussian_filter_coordinate_update_and_fetch(pre, p, -offsetA, dir, image);
+      out_color += weightA * astral_gaussian_filter_coordinate_update_and_fetch(post, p, offsetA, dir, image);
+    }
+
+  out_color = astral_convert_colorspace(colorspace,
+                                        astral_image_sampler_colorspace(image.m_sampler),
+                                        out_color);
+
+  inout_color *= out_color;
+}

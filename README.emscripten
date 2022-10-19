@@ -1,0 +1,7 @@
+Astral can be built with Emscripten. The makefile Makefile.emscripten can build the demos
+and library using the build system's Rules.mk to collect the demos and source files to
+build. Emscripten builds, both the library .bc's and demo html pages, land in wasm.
+Each of the demos can be run using "emrun wasm/demo_name-build.html". The demos accept
+the majority of command line options as the native builds, support --help. In addition,
+the files under demo_data are added to the web pages via Emscripten's "--preload-file"
+option and thus one can use the files under demo_data to feed the demos as well.

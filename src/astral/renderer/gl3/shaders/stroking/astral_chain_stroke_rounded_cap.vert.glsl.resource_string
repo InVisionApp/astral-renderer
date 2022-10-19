@@ -1,0 +1,64 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_rounded_cap.vert.glsl.resource_string
+ * \brief astral_chain_stroke_rounded_cap.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+  astral_cap_point cap;
+  vec2 v, p;
+
+  astral_stroke_cap_common(sub_shader, item_data_location, a0, tr, astral_render_scale(), cap);
+
+  /* ASTRAL_STROKE_SHADER_CAP_POINT_ON_PATH = 0
+   * ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY = 1
+   * ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY = 2
+   */
+  v = vec2(0.0, 0.0);
+  if (cap.m_offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_EDGE_BOUNDARY)
+    {
+      v += cap.m_n;
+    }
+
+  if (cap.m_offset_type >= ASTRAL_STROKE_SHADER_CAP_POINT_BEYOND_EDGE_BOUNDARY)
+    {
+      v += cap.m_v;
+    }
+
+  astral_chain_stroke_position_x = cap.m_cap.m_p.x;
+  astral_chain_stroke_position_y = cap.m_cap.m_p.y;
+  astral_chain_stroke_offset_vector_x = v.x;
+  astral_chain_stroke_offset_vector_y = v.y;
+  astral_chain_stroke_radius = cap.m_stroke_radius.m_radius;
+  astral_chain_stroke_vertex_to_fragment_radius_ratio = cap.m_stroke_radius.m_vertex_to_fragment_radius_ratio;
+  astral_chain_stroke_coverage_multiplier = cap.m_stroke_radius.m_coverage_multiplier;
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      uint flags;
+
+      flags = astral_vertex_flags(floatBitsToUint(a0.y));
+      astral_chain_stroke_distance_along_contour = (0u == (flags & ASTRAL_STROKE_END_CAP_MASK)) ?
+        0.0 :
+        cap.m_cap.m_contour_length;
+
+      astral_chain_stroke_contour_length = cap.m_cap.m_contour_length;
+      astral_chain_stroke_edge_length = cap.m_cap.m_edge_length;
+    }
+  #endif
+}

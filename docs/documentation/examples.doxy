@@ -1,0 +1,77 @@
+/*!
+  \file examples.doxy
+  \brief examples.doxy
+ */
+
+/*!
+  \page ex_framework Example FrameWork
+  \brief Framework used by examples to bring up a window and GL context via SDL2.
+
+  The example framework's sole purpose is to impement via SDL2,
+  the boiler plate code to:
+    - Create a window
+    - Create a GL context and make it current
+    - Provide an interface to handle events
+    - Provide an interface to draw a frame
+    - at dtor, destroy GL context and window
+
+  Astral is not tied to a particular windowing system at all. Astral
+  can work with other frameworks (for example Qt) that handle window creation
+  and event handling.
+
+  The interface is defined by:
+  \snippet demo_framework.hpp ExampleFramework
+
+  The implementation is given by:
+  \snippet demo_framework.cpp ExampleFramework
+*/
+
+/*!
+  \page ex_initialization Example Initialization
+  \brief Example code that shows how to create an astral:: Renderer and to use the GL backend.
+
+  The \ref ex_initialization builds from \ref ex_framework to demonstrate
+  how to initialize Astral's GL3 backend and to create an astral::RenderEngine,
+  astral::Renderer and astral::RenderTarget object.
+
+  The interface is defined by:
+  \snippet initialization.hpp ExampleInitialization
+
+  The implementation is given by:
+  \snippet initialization.cpp ExampleInitialization
+ */
+
+/*!
+  \page ex_path Example Path
+  \brief Example to show how to stroke, fill and clip against an astral::Path
+
+  The \ref ex_path builds from \ref ex_initialization to demonstrate
+  how to use \ref astral::Path to stroke, fill and clip against a
+  path.
+
+  The implementation is given by:
+  \snippet example_path.cpp ExamplePath
+*/
+
+/*!
+  \page ex_brush Example Brush
+  \brief Example to show how to apply image and gradients to drawn content
+
+  The \ref ex_brush builds from \ref ex_initialization to demonstrate
+  how to use \ref astral::Brush
+
+  The implementation is given by:
+  \snippet example_brush.cpp ExampleBrush
+*/
+
+/*!
+  \page ex_custom_brush Example Custom Brush
+  \brief Example to show how to create a custom material using shader chaining
+
+  The \ref ex_custom_brush builds from \ref ex_brush to demonstrate
+  how to build a custom material that is the base brush with a wavy
+  effect applied to it.
+
+  The implementation is given by:
+  \snippet example_custom_brush.cpp ExampleCustomBrush
+*/

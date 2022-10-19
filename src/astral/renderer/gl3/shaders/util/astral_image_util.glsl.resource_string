@@ -1,0 +1,494 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image_util.glsl.resource_string
+ * \brief astral_image_util.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLImage
+ * @{
+ */
+
+/*!
+ * Apply a post-sampling mode to a COLOR value using a GLSL enumeration
+ * that maps to astral::post_sampling_mode_t.
+ * \param raw_color RGBA color value sampled with filtering
+ * \param post_samping_mode an astral::color_post_sampling_mode_t value.
+ *                          The value is one of
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_DIRECT,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_BLACK,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_WHITE,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_BLACK_ALPHA_INVERT,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_WHITE_ALPHA_INVERT,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_INVERT,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_RGB_DIRECT_ALPHA_ONE,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_OPAQUE_BLACK,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_OPAQUE_WHITE,
+ *                          \ref ASTRAL_COLOR_POST_SAMPLING_MODE_OPAQUE_RGB_INVERT,
+ */
+vec4
+astral_apply_color_post_sampling_mode(in vec4 raw_color, in uint post_samping_mode)
+{
+  if ((post_samping_mode & ASTRAL_COLOR_POST_SAMPLING_MODE_BITS_ALPHA_INVERT) != 0u)
+    {
+      raw_color.a = 1.0 - raw_color.a;
+    }
+
+  if ((post_samping_mode & ASTRAL_COLOR_POST_SAMPLING_MODE_BITS_RGB_ZERO) != 0u)
+    {
+      raw_color.rgb = vec3(0.0);
+    }
+
+  if ((post_samping_mode & ASTRAL_COLOR_POST_SAMPLING_MODE_BITS_RGB_INVERT) != 0u)
+    {
+      raw_color.rgb = vec3(raw_color.a) - raw_color.rgb;
+    }
+
+  if ((post_samping_mode & ASTRAL_COLOR_POST_SAMPLING_MODE_BITS_ALPHA_ONE) != 0u)
+    {
+      raw_color.a = 1.0;
+    }
+
+  return raw_color;
+}
+
+
+/*!
+ * Apply a post-samping mode to a COLOR value using an AstralImageSampler
+ * \param raw_color RGBA color value sampled with filtering
+ * \param sampler_bits specifies an image sampler
+ */
+vec4
+astral_apply_color_post_sampling_mode(in vec4 raw_color, in AstralImageSampler sampler_bits)
+{
+  return astral_apply_color_post_sampling_mode(raw_color, astral_image_sampler_color_post_sampling_mode(sampler_bits));
+}
+
+/*!
+ * Apply mask value type, mask channel and post-sampling mode
+ * (as an enumeration that maps to astral::post_sampling_mode_t)
+ * to a raw mask value.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param sharpness_factor used to sharpen the smoothstep;
+ *                         only used if the sampling from the
+ *                         distance field.
+ * \param post_samping_mode an astral::mask_post_sampling_mode_t value, see
+ *                          also \ref ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT
+ *                          and \ref ASTRAL_MASK_POST_SAMPLING_MODE_INVERT.
+ * \param mask_type an astral::mask_type_t value
+ * \param mask_channel an astral::mask_channel_t value that specifies the channel
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in float sharpness_factor,
+                             in uint post_samping_mode,
+                             in uint mask_type,
+                             in uint mask_channel)
+{
+  float r;
+
+  r = astral_extract_channel(mask_channel, raw_mask);
+  if (mask_type == ASTRAL_DISTANCE_FIELD_MASK)
+    {
+      r = astral_apply_sharpness_factor_to_distance_field(r, sharpness_factor);
+    }
+
+  if (post_samping_mode == ASTRAL_MASK_POST_SAMPLING_MODE_INVERT)
+    {
+      r = 1.0 - r;
+    }
+
+  return r;
+}
+
+/*!
+ * Apply mask value type, mask channel and post-sampling mode
+ * (as an enumeration that maps to astral::post_sampling_mode_t)
+ * to a raw mask value.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param sharpness_factor used to sharpen the smoothstep;
+ *                         only used if the sampling from the
+ *                         distance field.
+ * \param post_samping_mode an astral::mask_post_sampling_mode_t value, see
+ *                          also \ref ASTRAL_MASK_POST_SAMPLING_MODE_DIRECT
+ *                          and \ref ASTRAL_MASK_POST_SAMPLING_MODE_INVERT.
+ * \param mask_type an astral::mask_type_t value
+ * \param mask_channel an astral::mask_channel_t value that specifies the channel
+ * \param raw_value location to which to write the raw texel value extracted
+ *                           as according to mask_channel
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in float sharpness_factor,
+                             in uint post_samping_mode,
+                             in uint mask_type,
+                             in uint mask_channel,
+                             out float raw_value)
+{
+  float r;
+
+  raw_value = astral_extract_channel(mask_channel, raw_mask);
+  if (mask_type == ASTRAL_DISTANCE_FIELD_MASK)
+    {
+      r = astral_apply_sharpness_factor_to_distance_field(raw_value, sharpness_factor);
+    }
+  else
+    {
+      r = raw_value;
+    }
+
+  if (post_samping_mode == ASTRAL_MASK_POST_SAMPLING_MODE_INVERT)
+    {
+      r = 1.0 - r;
+    }
+
+  return r;
+}
+
+/*!
+ * Apply mask value type, and mask channel obtained from
+ * an image sampler, to a raw mask value.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param sharpness_factor used to sharpen the smoothstep;
+ *                         only used if the sampling from the
+ *                         distance field.
+ * \param sampler_bits specifies an image sampler
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in float sharpness_factor,
+                             in AstralImageSampler sampler_bits)
+{
+  return astral_apply_mask_parameters(raw_mask, sharpness_factor,
+                                      astral_image_sampler_mask_post_sampling_mode(sampler_bits),
+                                      astral_image_sampler_mask_type(sampler_bits),
+                                      astral_image_sampler_mask_channel(sampler_bits));
+}
+
+/*!
+ * Compute the sharpness_factor argument to feed
+ * astral_apply_mask_parameters() from the
+ * derivatives of the texel sampling point.
+ * The sharnpess facor is used for interpreting
+ * a distance field sample to a coverage value.
+ * \param dpdx derivative in x-direciton of texel coordinate
+ * \param dpdy derivative in y-direciton of texel coordinate
+ */
+float
+astral_compute_sharpness_factor(in vec2 dpdx, in vec2 dpdy)
+{
+  float dx, dy, m;
+
+  dx = dot(dpdx, dpdx);
+  dy = dot(dpdy, dpdy);
+  m = max(dx, dy);
+  return inversesqrt(m);
+}
+
+/*!
+ * Apply mask value type, mask channel and post-sampling mode
+ * (as an enumeration that maps to astral::post_sampling_mode_t)
+ * to a raw mask value, using the dertivatives of the texel samplng point.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param dpdx partial derivative in the x-coordinate
+ *             to compute the sharpness factor
+ * \param dpdy partial derivative in the y-coordinate
+ *             to compute the sharpness factor
+ * \param post_samping_mode enumaration that specifies post-sampling mode,
+ *                          which could be one of the following:
+ *                          \ref ASTRAL_POST_SAMPLING_MODE_NONE,
+ *                          \ref ASTRAL_POST_SAMPLING_MODE_INVERT.
+ * \param mask_type specifies value type
+ * \param mask_channel specifies which channel
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in vec2 dpdx, in vec2 dpdy,
+                             in uint post_samping_mode,
+                             in uint mask_type,
+                             in uint mask_channel)
+{
+  float sharpness_factor;
+
+  sharpness_factor = (mask_type == ASTRAL_DISTANCE_FIELD_MASK) ?
+    astral_compute_sharpness_factor(dpdx, dpdy) :
+    1.0;
+
+  return astral_apply_mask_parameters(raw_mask, sharpness_factor,
+                                      post_samping_mode, mask_type,
+                                      mask_channel);
+}
+
+
+
+/*!
+ * Apply mask value type, mask channel and post-sampling mode
+ * (as an enumeration that maps to astral::post_sampling_mode_t)
+ * to a raw mask value, using the dertivatives of the texel samplng point.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param dpdx partial derivative in the x-coordinate
+ *             to compute the sharpness factor
+ * \param dpdy partial derivative in the y-coordinate
+ *             to compute the sharpness factor
+ * \param post_samping_mode enumaration that specifies post-sampling mode,
+ *                          which could be one of the following:
+ *                          \ref ASTRAL_POST_SAMPLING_MODE_NONE,
+ *                          \ref ASTRAL_POST_SAMPLING_MODE_INVERT.
+ * \param mask_type specifies value type
+ * \param mask_channel specifies which channel
+ * \param raw_value location to which to write the raw texel value extracted
+ *                           as according to mask_channel
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in vec2 dpdx, in vec2 dpdy,
+                             in uint post_samping_mode,
+                             in uint mask_type,
+                             in uint mask_channel,
+                             out float raw_value)
+{
+  float sharpness_factor;
+
+  sharpness_factor = (mask_type == ASTRAL_DISTANCE_FIELD_MASK) ?
+    astral_compute_sharpness_factor(dpdx, dpdy) :
+    1.0;
+
+  return astral_apply_mask_parameters(raw_mask, sharpness_factor,
+                                      post_samping_mode, mask_type,
+                                      mask_channel, raw_value);
+}
+
+/*!
+ * Apply mask value type, mask channel and post-sampling mode
+ * (as an enumeration that maps to astral::post_sampling_mode_t)
+ * obtained from an image sampler, to a raw mask value,
+ * using the dertivatives of the texel samplng point.
+ *
+ * \param raw_mask raw valus sampled from mask with filtering
+ * \param dpdx partial derivative in the x-coordinate
+               to compute the sharpness factor
+ * \param dpdy partial derivative in the y-coordinate
+               to compute the sharpness factor
+ * \param sampler_bits specifies an image sampler
+ */
+float
+astral_apply_mask_parameters(in vec4 raw_mask,
+                             in vec2 dpdx, in vec2 dpdy,
+                             in AstralImageSampler sampler_bits)
+{
+  return astral_apply_mask_parameters(raw_mask, dpdx, dpdy,
+                                      astral_image_sampler_mask_post_sampling_mode(sampler_bits),
+                                      astral_image_sampler_mask_type(sampler_bits),
+                                      astral_image_sampler_mask_channel(sampler_bits));
+}
+
+/*!
+ * Compute the sharpness_factor argument to feed
+ * astral_apply_mask_parameters() from an LOD.
+ */
+float
+astral_compute_sharpness_factor_from_lod(in uint ulod)
+{
+  return float(1u << ulod);
+}
+
+/*!
+ * Compute the sharpness_factor argument to feed
+ * astral_apply_mask_parameters() from an LOD.
+ */
+float
+astral_compute_sharpness_factor_from_lod(in float lod)
+{
+  float pow2lod;
+  uint ulod;
+
+  /* maybe bite the bullet and do pow2 */
+  ulod = uint(lod);
+  pow2lod = float(1u << ulod);
+  return mix(pow2lod, 2.0 * pow2lod, fract(lod));
+}
+
+/*!
+ * Compute the LOD to feed from the partial derivatives
+ * of the texel sampling point.
+ */
+float
+astral_compute_raw_lod(in vec2 dx, in vec2 dy)
+{
+  float return_value, rho;
+
+  /* compute rho as the max of how fast
+   * the x-texture coordinate changes and
+   * the y-texture coordinate changes;
+   */
+  rho = max(dot(dx, dx), dot(dy, dy));
+
+  /* we want the log2(sqrt) which is same
+   * as multiplying by 0.5 after the log2.
+   */
+  return 0.5 * log2(max(1.0, rho));
+}
+
+/*!
+ * Compute the LOD to feed from the partial derivatives
+ * of the texel sampling pointm using a mip-map mode
+ */
+uint
+astral_compute_raw_lod_fast(in uint mipmap_mode, in vec2 dx, in vec2 dy)
+{
+  float rho, pow2uv;
+  int iv;
+  uint uv;
+
+  /* compute rho as the max of how fast
+   * the x-texture coordinate changes and
+   * the y-texture coordinate changes;
+   */
+  rho = max(dot(dx, dx), dot(dy, dy));
+
+  /* we want the log2(sqrt) which is same
+   * as multiplying by 0.5 after the log2;
+   */
+  iv = max(0, astral_fast_log2(rho));
+  uv = uint(iv);
+
+  /* multiply by 0.5 */
+  uv = (uv >> 1u);
+
+  pow2uv = float(1u << (2u * uv));
+
+  if (mipmap_mode == ASTRAL_MIPMAP_CEILING)
+    {
+      /* this is mipmap-ceiling where we favor to take bigger LOD values,
+       * which means we favor lower resolution images; the 0.01 is a tiny
+       * fudge factor so that images displayed at 1:1 resolution don't
+       * have pixels accidentally cross the threshold to miplevel 1.
+       */
+      if (rho > 0.01 + pow2uv)
+        {
+          ++uv;
+        }
+    }
+  else
+    {
+      /* This is mipmap-floor where we favor to take lower LOD values,
+       * which means we favor higher resolution images.
+       */
+      if (uv > 0u && rho < pow2uv)
+        {
+          --uv;
+        }
+    }
+
+  return uv;
+}
+
+///@cond
+vec4
+astral_cubic_weights(float x)
+{
+  float x_squared = x * x;
+  float x_cubed = x_squared * x;
+  float one_minus_x = 1.0 - x;
+  float one_minus_x_squared = one_minus_x * one_minus_x;
+  float one_minus_x_cubed = one_minus_x_squared  * one_minus_x;
+  vec4 w;
+
+  w.x = one_minus_x_cubed;
+  w.y = 3.0 * x_cubed - 6.0 * x_squared + 4.0;
+  w.z = 3.0 * one_minus_x_cubed - 6.0 * one_minus_x_squared + 4.0;
+  w.w = x_cubed;
+  return w / 6.0;
+}
+///@endcond
+
+/*!
+ * Apply bicubic filtering when sampling from a texture.
+ * In addition to performing the bicubic filter with only
+ * four (bilinear filtered) texture fetches, the sampling
+ * from the texture will also be clamped to be within a
+ * sampling window; this is useful for when sampling from
+ * a texture that contains many images to make sure that
+ * neighboring images do not bleed onto each other.
+ *
+ * \param sampler sampler2DArray from which to sample; sampler
+ *                must have that width and height are the same
+ *                value
+ * \param inverse_sampler_width_height reciprocal of the width
+ *                                      and height of sampler
+ * \param texel_coord TEXEL (not teture coordinate) of point to
+ *                    sample.
+ * \param xy_min min-xy of the clamp sampling window
+ * \param xy_max max-xy of the clamp sampling window
+ */
+/*
+ * TODO: should we support LOD's? This method always samples
+ *       from LOD = 0, i.e. the base image.
+ */
+vec4
+astral_sample_cubic(in sampler2DArray sampler,
+                    in float inverse_sampler_width_height,
+                    in vec3 texel_coord,
+                    in vec2 xy_min, in vec2 xy_max)
+{
+  vec2 fract_texel_coord, linear_weight;
+  vec4 x_weights, y_weights;
+  vec4 corner_coords, weight_sums, texture_coords;
+  vec4 t00, t10, t01, t11;
+
+  /* Cubic filtering by realizing cubic-filtering as repeated
+   * bilinear filtering, see GPU Gems 2, Chapter 20.
+   * Code inspired by StackOverflow (http://stackoverflow.com/questions/13501081/efficient-bicubic-filtering-code-in-glsl)
+   * and from Shiny Pixels (http://vec3.ca/bicubic-filtering-in-fewer-taps/)
+   */
+  texel_coord.xy -= vec2(0.5);
+  fract_texel_coord = fract(texel_coord.xy);
+  texel_coord.xy -= fract_texel_coord;
+
+  x_weights = astral_cubic_weights(fract_texel_coord.x);
+  y_weights = astral_cubic_weights(fract_texel_coord.y);
+
+  corner_coords = texel_coord.xxyy;
+  corner_coords.xz -= vec2(0.5);
+  corner_coords.yw += vec2(1.5);
+  weight_sums = vec4(x_weights.x + x_weights.y, x_weights.z + x_weights.w,
+                     y_weights.x + y_weights.y, y_weights.z + y_weights.w);
+
+  texture_coords = corner_coords + vec4(x_weights.yw, y_weights.yw) / weight_sums;
+
+  /* clamp to be within the [xy_min, xy_max] window */
+  texture_coords.xz = clamp(texture_coords.xz, xy_min, xy_max);
+  texture_coords.yw = clamp(texture_coords.yw, xy_min, xy_max);
+
+  /* covert to normalized texture coordinates for the fetches */
+  texture_coords *= inverse_sampler_width_height;
+
+  t00 = textureLod(sampler, vec3(texture_coords.xz, texel_coord.z), 0.0);
+  t10 = textureLod(sampler, vec3(texture_coords.yz, texel_coord.z), 0.0);
+  t01 = textureLod(sampler, vec3(texture_coords.xw, texel_coord.z), 0.0);
+  t11 = textureLod(sampler, vec3(texture_coords.yw, texel_coord.z), 0.0);
+
+  linear_weight.x = weight_sums.y / (weight_sums.x + weight_sums.y);
+  linear_weight.y = weight_sums.w / (weight_sums.z + weight_sums.w);
+
+  return mix(mix(t00, t10, linear_weight.x),
+             mix(t01, t11, linear_weight.x),
+             linear_weight.y);
+}
+
+/*! @} */

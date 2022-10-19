@@ -1,0 +1,78 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_join.vert.glsl.resource_string
+ * \brief astral_chain_stroke_join.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  vec2 p;
+
+  /* The join fragment shaders are setup so that they operate in a coordinate system
+   * where the stroke radius is 1. To nudge 1 pixel futher we stretch the offset
+   * vector by the ratio of the inflated radius to the actual stroke radius.
+   *
+   * For the rounded joins, it is critical that we stretch the varyings
+   * astral_chain_stroke_offset_vector_x and astral_chain_stroke_offset_vector_y
+   * because those are the varying it uses in the fragment shader to compute
+   * the normalized distance to the path point.
+   */
+  astral_chain_stroke_offset_vector_x *= astral_chain_stroke_vertex_to_fragment_radius_ratio;
+  astral_chain_stroke_offset_vector_y *= astral_chain_stroke_vertex_to_fragment_radius_ratio;
+
+  p.x = astral_chain_stroke_position_x + astral_chain_stroke_radius * astral_chain_stroke_offset_vector_x;
+  p.y = astral_chain_stroke_position_y + astral_chain_stroke_radius * astral_chain_stroke_offset_vector_y;
+
+  #ifdef astral_chain_stroke_normalized_distance_to_path
+    {
+      /* The miter and join shader have this value as 0.0 for the
+       * point on the path and as 1.0 for points on the join boundary.
+       * By multiplying by ratio we make their fragment shaders do the
+       * right thing.
+       */
+      astral_chain_stroke_normalized_distance_to_path *= astral_chain_stroke_vertex_to_fragment_radius_ratio;
+    }
+  #endif
+
+  #ifdef ASTRAL_STROKING_WITH_DASHING
+    {
+      astral_apply_dash_pattern_to_join_t J;
+      float cd;
+
+      J.m_edge_into_join_length = astral_chain_stroke_edge_into_join_length;
+      J.m_contour_length = astral_chain_stroke_contour_length;
+      J.m_item_data_location = item_data_location;
+      J.m_distance_from_edge_start = astral_chain_stroke_distance_from_start_edge;
+      J.m_distance_from_contour_start = astral_chain_stroke_distance_along_contour;
+
+      cd = astral_apply_dash_pattern_to_join(J);
+
+      /* if the dash pattern does not cover the where the join is
+       * along the contour, the join should not be drawn, i.e.
+       * collapsed to a point.
+       */
+      if (cd < 0.0)
+        {
+          p.x = 0.0;
+          p.y = 0.0;
+        }
+    }
+  #endif
+
+  /* p is in local coordinate, put into pixel coordinates */
+  return astral_apply_transformation(tr, p);
+}

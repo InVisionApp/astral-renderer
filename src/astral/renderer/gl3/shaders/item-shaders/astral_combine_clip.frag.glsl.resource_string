@@ -1,0 +1,75 @@
+// -*- C++ -*-
+/*!
+ * \file astral_combine_clip.frag.glsl.resource_string
+ * \brief astral_combine_clip.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location, out vec4 base_color)
+{
+  uint layer, distance_channel, coverage_channel, mode;
+  ivec3 texel_pos;
+  vec4 texel;
+  float distance, coverage;
+
+  /* extract from astral_combine_bits:
+   *   - layer of texel read
+   *   - channel for coverage value
+   *   - channel for distance value
+   */
+  layer = astral_unpack_bits(ASTRAL_CLIP_COMBINE_LAYER_BIT0,
+                             ASTRAL_CLIP_COMBINE_LAYER_NUMBER_BITS,
+                             astral_combine_bits);
+
+  distance_channel = astral_unpack_bits(ASTRAL_CLIP_COMBINE_DISTANCE_CHANNEL_BIT0,
+                                        ASTRAL_CLIP_COMBINE_CHANNEL_NUMBER_BITS,
+                                        astral_combine_bits);
+
+  coverage_channel = astral_unpack_bits(ASTRAL_CLIP_COMBINE_COVERAGE_CHANNEL_BIT0,
+                                        ASTRAL_CLIP_COMBINE_CHANNEL_NUMBER_BITS,
+                                        astral_combine_bits);
+
+  mode = astral_unpack_bits(ASTRAL_CLIP_COMBINE_MODE_BIT0,
+                            ASTRAL_CLIP_COMBINE_MODE_NUM_BITS,
+                            astral_combine_bits);
+
+  /* read from the image atlas */
+  texel_pos = ivec3(astral_combine_texel_x, astral_combine_texel_y, layer);
+  texel = texelFetch(astral_image_color_atlas, texel_pos, 0);
+
+  /* get the distance and coverage value from the texel read */
+  distance = astral_extract_channel(distance_channel, texel);
+  coverage = astral_extract_channel(coverage_channel, texel);
+
+  if (mode == ASTRAL_CLIP_COMBINE_EMIT_COMPLEMENT_BLUE_ALPHA)
+    {
+      /*
+       * (untouched, untouched, inverse of signed distance, inverse of coverage)
+       */
+      base_color = vec4(0.0, 0.0, 1.0 - distance, 1.0 - coverage);
+    }
+  else if (mode == ASTRAL_CLIP_COMBINE_EMIT_RAW_BLUE_ALPHA)
+    {
+      base_color = vec4(0.0, 0.0, coverage, distance);
+    }
+  else
+    {
+      base_color = vec4(coverage, distance, 0.0, 0.0);
+    }
+}

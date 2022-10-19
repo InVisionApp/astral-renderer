@@ -1,0 +1,124 @@
+// -*- C++ -*-
+/*!
+ * \file astral_conic_shadow.vert.glsl.resource_string
+ * \brief astral_conic_shadow.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0, in AstralTransformation item_transformation)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 in_a0, in AstralTransformation item_transformation)
+{
+  const float tol_l1 = 0.5;
+  const float tol_det = 0.5;
+
+  float t, y_start;
+  vec2 a, b, c, return_value;
+  vec4 a0_a1, b0_b1, c0_c1;
+  uint tp, static_data_offset, dimensions;
+  astral_edge_shadow ab_min_side, bc_min_side, min_side;
+  astral_edge_shadow ab_max_side, bc_max_side, max_side;
+  astral_edge_shadow both_sides;
+
+  static_data_offset = floatBitsToUint(in_a0.x);
+  tp = floatBitsToUint(in_a0.w);
+
+  t = astral_read_item_dataf(item_data_location).x;
+
+  a0_a1 = astral_read_static_data32f(static_data_offset + 0u);
+  b0_b1 = astral_read_static_data32f(static_data_offset + 1u);
+  c0_c1 = astral_read_static_data32f(static_data_offset + 2u);
+
+  a = astral_apply_transformation(item_transformation, mix(a0_a1.xy, a0_a1.zw, t));
+  b = astral_apply_transformation(item_transformation, mix(b0_b1.xy, b0_b1.zw, t));
+  c = astral_apply_transformation(item_transformation, mix(c0_c1.xy, c0_c1.zw, t));
+
+  if (sub_shader == ASTRAL_SHADOW_X_SIDE)
+    {
+      /* by permuting x and y, we can assume below we are
+       * computing for the y-sides
+       */
+      a.xy = a.yx;
+      b.xy = b.yx;
+      c.xy = c.yx;
+      y_start = 2.0;
+    }
+  else
+    {
+      y_start = 0.0;
+    }
+
+  astral_conic_p0_x = a.x;
+  astral_conic_p0_y = a.y;
+  astral_conic_wp1_x = b.x;
+  astral_conic_wp1_y = b.y;
+  astral_conic_p2_x = c.x;
+  astral_conic_p2_y = c.y;
+
+  /* the shadow of the edges of teh conic triangle contain the
+   * shadow of the actual curve without typically containing
+   * much more.
+   */
+  astral_edge_shadow_compute_range_max_y_side(a, b, ASTRAL_MAX_SIDE_ACTIVE, ab_max_side);
+  astral_edge_shadow_compute_range_max_y_side(b, c, ASTRAL_MAX_SIDE_ACTIVE, bc_max_side);
+  astral_edge_shadow_union(ab_max_side, bc_max_side, max_side);
+
+  astral_edge_shadow_compute_range_min_y_side(a, b, ASTRAL_MIN_SIDE_ACTIVE, ab_min_side);
+  astral_edge_shadow_compute_range_min_y_side(b, c, ASTRAL_MIN_SIDE_ACTIVE, bc_min_side);
+  astral_edge_shadow_union(ab_min_side, bc_min_side, min_side);
+
+  astral_edge_shadow_union(max_side, min_side, both_sides);
+
+  if (both_sides.m_flags == 0u)
+    {
+      /* contains nothing, make the geometry degenerate */
+      astral_y_coord = 0.0;
+      astral_R_value = -2.0;
+      return_value = vec2(0.0, 0.0);
+    }
+  else
+    {
+      float min_x, max_x, min_y, max_y;
+
+      if (0u == (both_sides.m_flags & ASTRAL_EDGE_SHADOW_CLIPPED))
+        {
+          /* TODO: the truth is that this is quite poor, the right thing
+           *       to do is to optimize p_x(t) / p_y(t) on [0, 1] subject
+           *       to |p_y(t)| >= |p_x(t)| and feed the min and max value
+           *       as m_begin and m_end.
+           */
+          astral_edge_shadow_inflate(both_sides, min_x, max_x);
+        }
+      else
+        {
+          min_x = -1.0;
+          max_x = 1.0;
+        }
+
+      min_y = (min_side.m_flags != 0u) ? 0.0 : 1.0;
+      max_y = (max_side.m_flags != 0u) ? 2.0 : 1.0;
+
+      astral_R_value = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MAJOR_MASK) == 0u) ? min_x : max_x;
+      astral_y_coord = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) == 0u) ? min_y : max_y;
+
+      return_value = vec2(astral_R_value, y_start + astral_y_coord);
+    }
+
+  return return_value;
+}

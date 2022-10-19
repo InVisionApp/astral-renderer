@@ -1,0 +1,1078 @@
+// -*- C++ -*-
+/*!
+ * \file astral_types_bo.glsl.resource_string
+ * \brief astral_types_bo.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+struct AstralImageSampler
+{
+  /* Bit meaning specified by astral::ImageSamplerBits */
+  uint m_bits;
+};
+
+uint
+astral_image_sampler_filter(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_FILTER_BIT0,
+                            ASTRAL_FILTER_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_mipmap(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_MIPMAP_BIT0,
+                            ASTRAL_MIPMAP_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_color_post_sampling_mode(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_COLOR_POST_SAMPLING_MODE_BIT0,
+                            ASTRAL_COLOR_POST_SAMPLING_MODE_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_mask_post_sampling_mode(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_MASK_POST_SAMPLING_MODE_BIT0,
+                            ASTRAL_MASK_POST_SAMPLING_MODE_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_mask_type(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_MASK_TYPE_BIT0,
+                            ASTRAL_MASK_TYPE_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_mask_channel(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_MASK_CHANNEL_BIT0,
+                            ASTRAL_MASK_CHANNEL_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_max_lod(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_MAX_LOD_BIT0,
+                            ASTRAL_MAX_LOD_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_pre_padding(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_NUMBER_PRE_PADDING_TEXELS_BIT0,
+                            ASTRAL_NUMBER_PRE_PADDING_TEXELS_NUM_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_x_tile_mode(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_X_TILE_MODE_BIT0,
+                            ASTRAL_TILE_MODE_NUMBER_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_y_tile_mode(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_Y_TILE_MODE_BIT0,
+                            ASTRAL_TILE_MODE_NUMBER_BITS,
+                            v.m_bits);
+}
+
+uint
+astral_image_sampler_colorspace(in AstralImageSampler v)
+{
+  return astral_unpack_bits(ASTRAL_IMAGE_COLORSPACE_BIT0,
+                            ASTRAL_IMAGE_COLORSPACE_NUMBER_BITS,
+                            v.m_bits);
+}
+
+struct AstralPackedImageWithoutMipmaps
+{
+  /* Full description of tiled image:
+   *  - bits [ 0, 11) --> x-min corner of root tile
+   *  - bits [11, 22) --> y-min corner of root tile
+   *  - bits [22, 24) --> number of index layers
+   *  - bits [24, 32) --> layer of root tile
+   */
+  uint m_root_tile;
+
+  /* min-min corner of sub-image
+   *  - bits [ 0, 16) --> min_x
+   *  - bits [16, 32) --> min_y
+   */
+  uint m_min_corner;
+
+  /* size of sub-image
+   *  - bits [ 0, 16) --> size_x
+   *  - bits [16, 32) --> size_y
+   */
+  uint m_size;
+
+  /* How to sample the image */
+  AstralImageSampler m_sampler;
+};
+
+struct AstralUnpackedImageWithoutMipmaps
+{
+  /* min-min corner of the Image's
+   * root index tile
+   */
+  uvec2 m_root_min_corner;
+
+  /* the layer */
+  uint m_root_layer;
+
+  /* min-min corner of the sub-image */
+  uvec2 m_sub_image_min_corner;
+
+  /* sub-image size */
+  uvec2 m_size;
+
+  /* number of index lookups to color tiles */
+  uint m_number_levels;
+
+  /* how to sample the image */
+  AstralImageSampler m_sampler;
+};
+
+struct AstralPackedImage
+{
+  AstralPackedImageWithoutMipmaps m_base;
+
+  /* bit-packed for low 8-bits of the x-coordinate
+   * of the location of root index tile for mipmaps LODs.
+   */
+  uint m_mips_x_low_bits;
+
+  /* bit-packed for low 8-bits of the y-coordinate
+   * of the location of root index tile for mipmaps LODs.
+   */
+  uint m_mips_y_low_bits;
+
+  /* bit-packed for the layer coordinate of the location
+   * of root index tile for mipmaps LODs.
+   */
+  uint m_mips_layers;
+
+  /* bit-packed for high 3-bits of the x-coordinate,
+   * y-coordinate and the number of index layers
+   * for mipmaps LODs.
+   */
+  uint m_mips_xy_high_and_num_index_levels;
+};
+
+struct AstralUnpackedImage
+{
+  AstralUnpackedImageWithoutMipmaps m_base;
+
+  /* copied directly from AstralPackedImage */
+  uint m_mips_x_low_bits;
+  uint m_mips_y_low_bits;
+  uint m_mips_layers;
+  uint m_mips_xy_high_and_num_index_levels;
+};
+
+struct AstralScaleTranslate
+{
+  vec2 m_translate;
+  vec2 m_scale;
+};
+
+struct AstralMatrix
+{
+  /* Matrix packed into a vec4 where
+   *  - m_value.xy = first columnn
+   *  - m_value.zw = second column
+   */
+  vec4 m_value;
+};
+
+struct AstralTransformation
+{
+  AstralMatrix m_matrix;
+  vec2 m_translation;
+  uvec2 m_padding;
+};
+
+struct AstralEmulateFramebufferFetch
+{
+  AstralMatrix m_matrix;
+  vec2 m_translation;
+  uint m_image;
+  uint m_padding;
+};
+
+struct AstralShadowMap
+{
+  /*!
+   * Value of astral::ShadowMap::atlas_location()
+   */
+  vec2 m_atlas_location;
+
+  /*!
+   * Value of astral::ShadowMap::dimensions().
+   */
+  float m_dimensions;
+  float m_padding;
+};
+
+struct AstralGradientTransformation
+{
+  AstralMatrix m_matrix;
+  vec2 m_translation;
+  float m_x_tile_begin;
+  float m_x_tile_end;
+  float m_y_tile_begin;
+  float m_y_tile_end;
+  uint m_x_tile_mode;
+  uint m_y_tile_mode;
+};
+
+/* When handing an AstralGradientTransformation, we apply the
+ * matrix and transformation in the vertex shader but the
+ * tile-range window (if there is one) in the fragment shader;
+ * this way we do not need to push through the 6 values that
+ * are the transformation via varyings.
+ */
+struct AstralGradientTransformationWindow
+{
+  float m_x_tile_begin;
+  float m_x_tile_end;
+  float m_y_tile_begin;
+  float m_y_tile_end;
+  uint m_x_tile_mode;
+  uint m_y_tile_mode;
+};
+
+struct AstralPackedGradient
+{
+  // packing:
+  //   Linear: .xy = start, .zw = unit vector from start to end
+  //   Radial gradients: .xy = start, .zw = end
+  //   Sweep: .xy = center-point, .z = angle-start, .w = angle speed
+  vec4 m_data;
+
+  // encodes the start and end radius for radial gradients.
+  float m_start_radius, m_end_radius;
+
+  // packed data holding location of color-stops, type, colorspace and tile mode
+  uvec2 m_packed_bits;
+};
+
+struct AstralUnpackedGradient
+{
+  vec4 m_data;
+  float m_start_radius, m_end_radius;
+  uint m_type, m_tile_mode, m_colorspace;
+  uint m_start, m_size, m_layer;
+};
+
+struct AstralPackedBrush
+{
+  uint m_image_and_image_transformation;
+  uint m_gradient_and_gradient_transformation;
+  uint m_color_rg;
+  uint m_color_ba;
+};
+
+struct AstralUnpackedBrush
+{
+  uint m_image;
+  uint m_image_transformation;
+  uint m_gradient;
+  uint m_gradient_transformation;
+  uint m_color_rg;
+  uint m_color_ba;
+
+  bool m_specify_colorspace;
+  uint m_colorspace;
+};
+
+struct AstralClipWindow
+{
+  float m_min_x;
+  float m_min_y;
+  float m_max_x;
+  float m_max_y;
+};
+
+struct AstralClipElement
+{
+  AstralScaleTranslate m_image_atlas_transformation_pixel;
+  AstralClipWindow m_pixel_clip_window;
+};
+
+struct AstralPackedHeader
+{
+  uint m_transformation_and_scale_translate;
+  uint m_material_brush_and_data;
+  uint m_item_data_and_material_transformation;
+  uint m_clip_window_and_framebuffer_copy;
+  uint m_material_shader;
+  uint m_item_shader;
+  uint m_bits;
+  uint m_clip_mask;
+};
+
+struct AstralUnpackedHeader
+{
+  uint m_transformation;
+  uint m_scale_translate;
+  uint m_material_brush;
+  uint m_material_data;
+  uint m_item_data;
+  uint m_material_transformation;
+  uint m_item_shader;
+  uint m_material_shader;
+  uint m_z;
+  uint m_blend_shader_id;
+  uint m_clip_window;
+  uint m_framebuffer_copy;
+  uint m_clip_mask;
+
+  /* not unpacked directly from AstralPackedHeader,
+   * but instead packed as part of the header ID;
+   * value is to be 6-bits wide at most.
+   */
+  uint m_emit_color_space;
+};
+
+vec2
+astral_apply_matrix(in AstralMatrix matrix, vec2 p)
+{
+  return p.x * matrix.m_value.xy + p.y * matrix.m_value.zw;
+}
+
+AstralMatrix
+astral_concat(in AstralMatrix lhs, in AstralMatrix rhs)
+{
+  AstralMatrix return_value;
+
+  return_value.m_value.xy = astral_apply_matrix(lhs, rhs.m_value.xy);
+  return_value.m_value.zw = astral_apply_matrix(lhs, rhs.m_value.zw);
+
+  return return_value;
+}
+
+AstralMatrix
+astral_concat(in vec2 lhs, in AstralMatrix rhs)
+{
+  AstralMatrix return_value;
+
+  return_value.m_value.xz = lhs.x * rhs.m_value.xz;
+  return_value.m_value.yw = lhs.y * rhs.m_value.yw;
+
+  return return_value;
+}
+
+float
+astral_det_matrix(in AstralMatrix matrix)
+{
+  return matrix.m_value.x * matrix.m_value.w - matrix.m_value.y * matrix.m_value.z;
+}
+
+vec2
+astral_apply_scale_translate(in AstralScaleTranslate sc_tr, in vec2 p)
+{
+  return sc_tr.m_scale * p + sc_tr.m_translate;
+}
+
+vec2
+astral_apply_transformation(in AstralTransformation tr, in vec2 p)
+{
+  return astral_apply_matrix(tr.m_matrix, p) + tr.m_translation;
+}
+
+vec2
+astral_apply_transformation(in AstralEmulateFramebufferFetch tr, in vec2 p)
+{
+  return astral_apply_matrix(tr.m_matrix, p) + tr.m_translation;
+}
+
+void
+astral_init_matrix_identity(out AstralMatrix tr)
+{
+  tr.m_value = vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+void
+astral_init_transformation_identity(out AstralTransformation tr)
+{
+  tr.m_translation = vec2(0.0, 0.0);
+  tr.m_matrix.m_value = vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+AstralMatrix
+astral_compute_inverse_matrix(in AstralMatrix tr)
+{
+  float det, inv_det;
+  AstralMatrix return_value;
+
+  det = astral_det_matrix(tr);
+
+  inv_det = 1.0 / det;
+  return_value.m_value.x = inv_det * tr.m_value.w;
+  return_value.m_value.w = inv_det * tr.m_value.x;
+  return_value.m_value.y = -inv_det * tr.m_value.y;
+  return_value.m_value.z = -inv_det * tr.m_value.z;
+
+  return return_value;
+}
+
+AstralMatrix
+astral_compute_transpose_matrix(in AstralMatrix tr)
+{
+  AstralMatrix return_value;
+
+  return_value.m_value = tr.m_value.xzyw;
+  return return_value;
+}
+
+AstralMatrix
+astral_compute_inverse_transpose_matrix(in AstralMatrix tr)
+{
+  return astral_compute_transpose_matrix(astral_compute_inverse_matrix(tr));
+}
+
+float
+astral_matrix_row0_col0(in AstralMatrix tr)
+{
+  return tr.m_value.x;
+}
+
+float
+astral_matrix_row1_col0(in AstralMatrix tr)
+{
+  return tr.m_value.y;
+}
+
+float
+astral_matrix_row0_col1(in AstralMatrix tr)
+{
+  return tr.m_value.z;
+}
+
+float
+astral_matrix_row1_col1(in AstralMatrix tr)
+{
+  return tr.m_value.w;
+}
+
+/*!
+ * Returns the derivative in x-direction of the function
+ * f(p) = astral_apply_matrix(tr, p)
+ */
+vec2
+astral_matrix_dx(in AstralMatrix tr)
+{
+  return tr.m_value.xy;
+}
+
+/*!
+ * Returns the derivative in y-direction of the function
+ * f(p) = astral_apply_matrix(tr, p)
+ */
+vec2
+astral_matrix_dy(in AstralMatrix tr)
+{
+  return tr.m_value.zw;
+}
+
+vec2
+astral_compute_singular_values_squared(in AstralMatrix M)
+{
+  float a, b, c, d, ad_bc;
+  float B, C, desc;
+  vec2 return_value;
+
+  /* Given a matrix M, the singular value decomposition of
+   * M is given by:
+   *
+   *   M = U * D * transpose(V)
+   *
+   * where D is a diagnol matrix, U and V are orthonormal
+   * matrices. This, the inverse of U is transpose(U)
+   * and the inverse of transpose(V) is V.
+   *
+   * Let
+   *
+   *  N = M * transpose(M)
+   *
+   * Then,
+   *
+   *  N = U * (D * D) * transpose(U)
+   *
+   * Thus, the eigenvalue of N are the squares of the
+   * singular values of M. Since N is 2x2 we can use the
+   * quadratic formula to get the eigen values of N
+   * easily.
+   */
+  a = astral_matrix_row0_col0(M);
+  b = astral_matrix_row0_col1(M);
+  c = astral_matrix_row1_col0(M);
+  d = astral_matrix_row1_col1(M);
+
+  /* get the coefficients of the quadratic to solve */
+
+  B = dot(M.m_value, M.m_value); // same as a * a + b * b + c * c + d * d
+  ad_bc = (a * d - b * c);
+  C = ad_bc * ad_bc;
+
+  /* max with 0 is to fight numerical round-off;
+   * in exact arithmatic, B * B >= 4 * C.
+   */
+  desc = sqrt(max(0.0, B * B - 4.0 * C));
+
+  /* max with 0 is to fight numerical round-off;
+   * in exact arithmatic, B >= desc.
+   */
+  return 0.5 * vec2(B + desc, max(0.0, B - desc));
+}
+
+vec2
+astral_compute_singular_values(in AstralMatrix tr)
+{
+  vec2 R;
+
+  R = astral_compute_singular_values_squared(tr);
+  return sqrt(R);
+}
+
+float
+astral_operator_norm(in AstralMatrix tr)
+{
+  return sqrt(astral_compute_singular_values_squared(tr).x);
+}
+
+float
+astral_inverse_operator_norm(in AstralMatrix tr)
+{
+  return inversesqrt(astral_compute_singular_values_squared(tr).x);
+}
+
+float
+astral_fast_operator_norm(in AstralMatrix tr)
+{
+  return sqrt(abs(astral_det_matrix(tr)));
+}
+
+float
+astral_fast_inverse_operator_norm(in AstralMatrix tr)
+{
+  return inversesqrt(abs(astral_det_matrix(tr)));
+}
+
+AstralMatrix
+astral_compose_scale_and_matrix(in vec2 scale, in AstralMatrix matrix)
+{
+  matrix.m_value.xz *= scale.x;
+  matrix.m_value.yw *= scale.y;
+
+  return matrix;
+}
+
+AstralMatrix
+astral_compose_matrix_and_scale(in AstralMatrix matrix, in vec2 scale)
+{
+  matrix.m_value.xy *= scale.x;
+  matrix.m_value.zw *= scale.y;
+
+  return matrix;
+}
+
+AstralTransformation
+astral_compute_inverse(in AstralTransformation tr)
+{
+  AstralTransformation return_value;
+
+  return_value.m_matrix = astral_compute_inverse_matrix(tr.m_matrix);
+  return_value.m_translation = -astral_apply_matrix(return_value.m_matrix, tr.m_translation);
+
+  return return_value;
+}
+
+AstralTransformation
+astral_concat(in AstralTransformation lhs, in AstralTransformation rhs)
+{
+  AstralTransformation return_value;
+
+  return_value.m_translation = astral_apply_transformation(lhs, rhs.m_translation);
+  return_value.m_matrix = astral_concat(lhs.m_matrix, rhs.m_matrix);
+
+  return return_value;
+}
+
+void
+astral_load(in uint, out AstralTransformation);
+
+void
+astral_load(in uint, out AstralEmulateFramebufferFetch);
+
+void
+astral_load(in uint, out AstralShadowMap);
+
+void
+astral_load(in uint, out AstralScaleTranslate);
+
+void
+astral_load(in uint, out AstralGradientTransformation);
+
+void
+astral_load(in uint, out AstralPackedGradient);
+
+void
+astral_load(in uint, out AstralPackedBrush);
+
+void
+astral_load(in uint, out AstralClipWindow);
+
+void
+astral_load(in uint, out AstralPackedHeader);
+
+void
+astral_load(in uint, out AstralPackedImage);
+
+void
+astral_load(in uint, out AstralClipElement);
+
+void
+astral_unpack_header(in AstralPackedHeader packed_header, out AstralUnpackedHeader header);
+
+void
+astral_unpack_image(in AstralPackedImageWithoutMipmaps packed_image,
+                    out AstralUnpackedImageWithoutMipmaps image);
+
+void
+astral_unpack_image(in AstralPackedImage packed_image, out AstralUnpackedImage image);
+
+void
+astral_unpack_gradient(in AstralPackedGradient packed_gradient, out AstralUnpackedGradient gradient);
+
+void
+astral_unpack_header(in uint header_idx, out AstralUnpackedHeader header);
+
+void
+astral_unpack_gradient(uint gradient_idx, out AstralUnpackedGradient gradient);
+
+void
+astral_unpack_brush(in AstralPackedBrush packed_brush, out AstralUnpackedBrush brush);
+
+void
+astral_unpack_brush(in uint brush_idx, out AstralUnpackedBrush brush);
+
+float
+astral_apply_tile_mode(in float t, in float begin, in float end, in uint tile_mode);
+
+vec2
+astral_apply_image_transformation_mapping(in AstralGradientTransformation image_transformation, in vec2 p);
+
+vec2
+astral_apply_image_transformation_window(in AstralGradientTransformation image_transformation, in vec2 p);
+
+vec2
+astral_apply_image_transformation_window(in AstralGradientTransformationWindow image_transformation, in vec2 p);
+
+uint //returns a 6-bit value, we do this to allow to merge multiple flags together
+astral_pack_image_transformation_window(in AstralGradientTransformationWindow w, out uvec4 image_transformation0);
+
+void
+astral_unpack_image_transformation_window(in uvec4 image_transformation0, in uint ret, out AstralGradientTransformationWindow w);
+
+uint
+astral_pack_image_transformation_window(in AstralGradientTransformation image_transformation, out uvec4 image_transformation0);
+
+void
+astral_pack_gradient(in AstralPackedGradient gr, out uvec4 packed_value0, out uvec4 packed_value1);
+
+void
+astral_unpack_gradient(in uvec4 packed_value0, in uvec4 packed_value1, out AstralPackedGradient gr);
+
+void
+astral_unpack_gradient(in uvec4 packed_value0, in uvec4 packed_value1, out AstralUnpackedGradient gr);
+
+void
+astral_unpack_header(in AstralPackedHeader packed_header, out AstralUnpackedHeader header)
+{
+  uvec2 tmp;
+
+  tmp = astral_unpack_pair(packed_header.m_transformation_and_scale_translate);
+  header.m_transformation = tmp.x;
+  header.m_scale_translate = tmp.y;
+
+  tmp = astral_unpack_pair(packed_header.m_material_brush_and_data);
+  header.m_material_brush = tmp.x;
+  header.m_material_data = tmp.y;
+
+  tmp = astral_unpack_pair(packed_header.m_item_data_and_material_transformation);
+  header.m_item_data = tmp.x;
+  header.m_material_transformation = tmp.y;
+
+  header.m_clip_mask = packed_header.m_clip_mask;
+
+  header.m_item_shader = packed_header.m_item_shader;
+  header.m_material_shader = packed_header.m_material_shader;
+
+  tmp = astral_unpack_pair(packed_header.m_clip_window_and_framebuffer_copy);
+  header.m_clip_window = tmp.x;
+  header.m_framebuffer_copy = tmp.y;
+
+  header.m_z
+    = astral_unpack_bits(ASTRAL_HEADER_Z_BIT0,
+                         ASTRAL_HEADER_Z_NUM_BITS,
+                         packed_header.m_bits);
+
+  header.m_blend_shader_id
+    = astral_unpack_bits(ASTRAL_HEADER_BLEND_SHADER_ID_BIT0,
+                         ASTRAL_HEADER_BLEND_SHADER_ID_NUM_BITS,
+                         packed_header.m_bits);
+}
+
+void
+astral_unpack_image(in AstralPackedImageWithoutMipmaps packed_image,
+                    out AstralUnpackedImageWithoutMipmaps image)
+{
+  image.m_root_min_corner.x = astral_unpack_bits(ASTRAL_TILED_IMAGE_X_BIT0,
+                                                 ASTRAL_TILED_IMAGE_X_NUMBITS,
+                                                 packed_image.m_root_tile);
+
+  image.m_root_min_corner.y = astral_unpack_bits(ASTRAL_TILED_IMAGE_Y_BIT0,
+                                                 ASTRAL_TILED_IMAGE_Y_NUMBITS,
+                                                 packed_image.m_root_tile);
+
+  image.m_root_layer = astral_unpack_bits(ASTRAL_TILED_IMAGE_LAYER_BIT0,
+                                          ASTRAL_TILED_IMAGE_LAYER_ROOT_TILE_NUMBITS,
+                                          packed_image.m_root_tile);
+
+  image.m_number_levels = astral_unpack_bits(ASTRAL_TILED_IMAGE_NUM_LEVELS_BIT0,
+                                             ASTRAL_TILED_IMAGE_NUM_LEVELS_NUMBITS,
+                                             packed_image.m_root_tile);
+
+  image.m_sub_image_min_corner = astral_unpack_pair(packed_image.m_min_corner);
+
+  image.m_size = astral_unpack_pair(packed_image.m_size);
+  image.m_sampler = packed_image.m_sampler;
+}
+
+void
+astral_unpack_image(in AstralPackedImage packed_image, out AstralUnpackedImage image)
+{
+  astral_unpack_image(packed_image.m_base, image.m_base);
+  image.m_mips_x_low_bits = packed_image.m_mips_x_low_bits;
+  image.m_mips_y_low_bits = packed_image.m_mips_y_low_bits;
+  image.m_mips_layers = packed_image.m_mips_layers;
+  image.m_mips_xy_high_and_num_index_levels = packed_image.m_mips_xy_high_and_num_index_levels;
+}
+
+void
+astral_unpack_gradient(in AstralPackedGradient packed_gradient, out AstralUnpackedGradient gradient)
+{
+  uvec2 tmp;
+
+  gradient.m_data = packed_gradient.m_data;
+  gradient.m_start_radius = packed_gradient.m_start_radius;
+  gradient.m_end_radius = packed_gradient.m_end_radius;
+
+  tmp = astral_unpack_pair(packed_gradient.m_packed_bits.x);
+  gradient.m_start = tmp.x;
+  gradient.m_size = tmp.y;
+
+  tmp = astral_unpack_pair(packed_gradient.m_packed_bits.y);
+  gradient.m_type = astral_unpack_bits(ASTRAL_GRADIENT_TYPE_BIT0,
+                                       ASTRAL_GRADIENT_TYPE_NUM_BITS,
+                                       tmp.x);
+  gradient.m_tile_mode = astral_unpack_bits(ASTRAL_GRADIENT_INTERPOLATE_TILE_MODE_BIT0,
+                                            ASTRAL_GRADIENT_INTERPOLATE_TILE_MODE_NUM_BITS,
+                                            tmp.x);
+  gradient.m_colorspace = astral_unpack_bits(ASTRAL_GRADIENT_COLORSPACE_BIT0,
+                                             ASTRAL_GRADIENT_COLORSPACE_NUM_BITS,
+                                             tmp.x);
+  gradient.m_layer = tmp.y;
+}
+
+void
+astral_unpack_brush(in AstralPackedBrush packed_brush, out AstralUnpackedBrush brush)
+{
+  uvec2 tmp;
+
+  tmp = astral_unpack_pair(packed_brush.m_image_and_image_transformation);
+  brush.m_image = tmp.x;
+  brush.m_image_transformation = tmp.y;
+
+  tmp = astral_unpack_pair(packed_brush.m_gradient_and_gradient_transformation);
+  brush.m_gradient = tmp.x;
+  brush.m_gradient_transformation = tmp.y;
+
+  /* the sign bits are used to encode additional information, so mask them off */
+  brush.m_color_rg = packed_brush.m_color_rg & ~ASTRAL_FP16_SIGN_BIT_MASK;
+  brush.m_color_ba = packed_brush.m_color_ba & ~ASTRAL_FP16_SIGN_BIT_MASK;
+
+  brush.m_specify_colorspace = (ASTRAL_PACKED_BRUSH_COLORSPACE_SPECIFIED_MASK & packed_brush.m_color_rg) != 0u;
+  brush.m_colorspace = astral_unpack_bits(ASTRAL_PACKED_BRUSH_COLORSPACE_BIT, 1u, packed_brush.m_color_rg);
+}
+
+void
+astral_unpack_header(in uint header_idx, out AstralUnpackedHeader header)
+{
+  AstralPackedHeader v;
+  astral_load(header_idx, v);
+  astral_unpack_header(v, header);
+}
+
+void
+astral_unpack_gradient(uint gradient_idx, out AstralUnpackedGradient gradient)
+{
+  AstralPackedGradient v;
+
+  astral_load(gradient_idx, v);
+  astral_unpack_gradient(v, gradient);
+}
+
+void
+astral_unpack_brush(in uint brush_idx, out AstralUnpackedBrush brush)
+{
+  AstralPackedBrush v;
+  astral_load(brush_idx, v);
+  astral_unpack_brush(v, brush);
+}
+
+float
+astral_apply_tile_mode(in float t, in float begin, in float end, in uint tile_mode)
+{
+  float range;
+
+  t -= begin;
+  range = end - begin;
+
+  if (tile_mode == ASTRAL_TILE_MODE_CLAMP)
+    {
+      t = clamp(t, 0.0, range);
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_MIRROR)
+    {
+      t = min(abs(t), range);
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_REPEAT)
+    {
+      t = mod(t, range);
+    }
+  else if (tile_mode == ASTRAL_TILE_MODE_MIRROR_REPEAT)
+    {
+      t = range - abs(mod(t, 2.0 * range) - range);
+    }
+
+  return t + begin;
+}
+
+vec2
+astral_apply_image_transformation_mapping(in AstralGradientTransformation image_transformation, in vec2 p)
+{
+  p = astral_apply_matrix(image_transformation.m_matrix, p) + image_transformation.m_translation;
+  return p;
+}
+
+vec2
+astral_apply_image_transformation_window(in AstralGradientTransformation image_transformation, in vec2 p)
+{
+  if (image_transformation.m_x_tile_mode != ASTRAL_TILE_MODE_DECAL)
+    {
+      p.x = astral_apply_tile_mode(p.x, image_transformation.m_x_tile_begin, image_transformation.m_x_tile_end, image_transformation.m_x_tile_mode);
+    }
+
+  if (image_transformation.m_y_tile_mode != ASTRAL_TILE_MODE_DECAL)
+    {
+      p.y = astral_apply_tile_mode(p.y, image_transformation.m_y_tile_begin, image_transformation.m_y_tile_end, image_transformation.m_y_tile_mode);
+    }
+
+  return p;
+}
+
+vec2
+astral_apply_image_transformation_window(in AstralGradientTransformationWindow image_transformation, in vec2 p)
+{
+  if (image_transformation.m_x_tile_mode != ASTRAL_TILE_MODE_DECAL)
+    {
+      p.x = astral_apply_tile_mode(p.x, image_transformation.m_x_tile_begin, image_transformation.m_x_tile_end, image_transformation.m_x_tile_mode);
+    }
+
+  if (image_transformation.m_y_tile_mode != ASTRAL_TILE_MODE_DECAL)
+    {
+      p.y = astral_apply_tile_mode(p.y, image_transformation.m_y_tile_begin, image_transformation.m_y_tile_end, image_transformation.m_y_tile_mode);
+    }
+
+  return p;
+}
+
+uint //returns a 6-bit value, we do this to allow to merge multiple flags together
+astral_pack_image_transformation_window(in AstralGradientTransformationWindow w, out uvec4 image_transformation0)
+{
+  image_transformation0 = floatBitsToUint(vec4(w.m_x_tile_begin,
+                                               w.m_x_tile_end,
+                                               w.m_y_tile_begin,
+                                               w.m_y_tile_end));
+
+  // each of the tile modes is one of 5 values, so only need 3 bits each.
+  return (w.m_y_tile_mode << ASTRAL_TILE_MODE_NUMBER_BITS) | w.m_x_tile_mode;
+}
+
+void
+astral_unpack_image_transformation_window(in uvec4 image_transformation0, in uint ret, out AstralGradientTransformationWindow w)
+{
+  w.m_x_tile_begin = uintBitsToFloat(image_transformation0.x);
+  w.m_x_tile_end = uintBitsToFloat(image_transformation0.y);
+  w.m_y_tile_begin = uintBitsToFloat(image_transformation0.z);
+  w.m_y_tile_end = uintBitsToFloat(image_transformation0.w);
+  w.m_x_tile_mode = 0x7u & ret;
+  w.m_y_tile_mode = 0x7u & (ret >> ASTRAL_TILE_MODE_NUMBER_BITS);
+}
+
+uint
+astral_pack_image_transformation_window(in AstralGradientTransformation image_transformation, out uvec4 image_transformation0)
+{
+  AstralGradientTransformationWindow w;
+
+  w.m_x_tile_begin = image_transformation.m_x_tile_begin;
+  w.m_x_tile_end = image_transformation.m_x_tile_end;
+  w.m_y_tile_begin = image_transformation.m_y_tile_begin;
+  w.m_y_tile_end = image_transformation.m_y_tile_end;
+  w.m_x_tile_mode = image_transformation.m_x_tile_mode;
+  w.m_y_tile_mode = image_transformation.m_y_tile_mode;
+  return astral_pack_image_transformation_window(w, image_transformation0);
+}
+
+void
+astral_pack_image(in AstralPackedImageWithoutMipmaps im,
+                        out uvec4 packed_value0)
+{
+  packed_value0.x = im.m_root_tile;
+  packed_value0.y = im.m_min_corner;
+  packed_value0.z = im.m_size;
+  packed_value0.w = im.m_sampler.m_bits;
+}
+
+void
+astral_pack_image(in AstralPackedImage im,
+                        out uvec4 packed_value0,
+                        out uvec4 packed_value1)
+{
+  astral_pack_image(im.m_base, packed_value0);
+  packed_value1.x = im.m_mips_x_low_bits;
+  packed_value1.y = im.m_mips_y_low_bits;
+  packed_value1.z = im.m_mips_layers;
+  packed_value1.w = im.m_mips_xy_high_and_num_index_levels;
+}
+
+uvec2
+astral_read_image_size_from_packed(in uvec4 packed_value0,
+                                   in uvec4 packed_value1)
+{
+  return astral_unpack_pair(packed_value0.z);
+}
+
+void
+astral_pack_null_image(out uvec4 packed_value)
+{
+  packed_value = uvec4(~0u);
+}
+
+void
+astral_unpack_image(in uvec4 packed_value0,
+                    out AstralPackedImageWithoutMipmaps im)
+{
+  im.m_root_tile = packed_value0.x;
+  im.m_min_corner = packed_value0.y;
+  im.m_size = packed_value0.z;
+  im.m_sampler.m_bits = packed_value0.w;
+}
+
+void
+astral_unpack_image(in uvec4 packed_value0,
+                    out AstralUnpackedImageWithoutMipmaps im)
+{
+  AstralPackedImageWithoutMipmaps tmp;
+
+  astral_unpack_image(packed_value0, tmp);
+  astral_unpack_image(tmp, im);
+}
+
+void
+astral_unpack_image(in uvec4 packed_value0,
+                    in uvec4 packed_value1,
+                    out AstralPackedImage im)
+{
+  astral_unpack_image(packed_value0, im.m_base);
+  im.m_mips_x_low_bits = packed_value1.x;
+  im.m_mips_y_low_bits = packed_value1.y;
+  im.m_mips_layers = packed_value1.z;
+  im.m_mips_xy_high_and_num_index_levels = packed_value1.w;
+}
+
+bool
+astral_is_null_image(in uvec4 packed_value)
+{
+  return packed_value.z == ~0u;
+}
+
+void
+astral_unpack_image(in uvec4 packed_value0,
+                    in uvec4 packed_value1,
+                    out AstralUnpackedImage im)
+{
+  AstralPackedImage tmp;
+  astral_unpack_image(packed_value0, packed_value1, tmp);
+  astral_unpack_image(tmp, im);
+}
+
+void
+astral_pack_gradient(in AstralPackedGradient gr, out uvec4 packed_value0, out uvec4 packed_value1)
+{
+  packed_value0  = floatBitsToUint(gr.m_data);
+  packed_value1  = uvec4(floatBitsToUint(gr.m_start_radius),
+                         floatBitsToUint(gr.m_end_radius),
+                         gr.m_packed_bits);
+}
+
+void
+astral_unpack_gradient(in uvec4 packed_value0, in uvec4 packed_value1, out AstralPackedGradient gr)
+{
+  gr.m_data = uintBitsToFloat(packed_value0);
+  gr.m_start_radius = uintBitsToFloat(packed_value1.x);
+  gr.m_end_radius = uintBitsToFloat(packed_value1.y);
+  gr.m_packed_bits = packed_value1.zw;
+}
+
+void
+astral_unpack_gradient(in uvec4 packed_value0, in uvec4 packed_value1, out AstralUnpackedGradient gr)
+{
+  AstralPackedGradient tmp;
+  astral_unpack_gradient(packed_value0, packed_value1, tmp);
+  astral_unpack_gradient(tmp, gr);
+}
+
+/*! @} */

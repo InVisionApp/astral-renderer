@@ -1,0 +1,273 @@
+// -*- C++ -*-
+/*!
+ * \file atral_main_ubo.vert.glsl.resource_string
+ * \brief atral_main_ubo.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/* expect to have defined:
+ *  - ASTRAL_GPU_VERTEX_SURFACE_LOG2_WIDTH is so that 2^ASTRAL_GPU_VERTEX_SURFACE_LOG2_WIDTH is width of astral_vertex_surface
+ *  - ASTRAL_GPU_VERTEX_SURFACE_X_MASK  = (1u << ASTRAL_GPU_VERTEX_SURFACE_LOG2_WIDTH) - 1
+ *  - ASTRAL_GPU_VERTEX_SURFACE_Y_SHIFT = ASTRAL_GPU_VERTEX_SURFACE_LOG2_WIDTH
+ */
+
+#ifdef ASTRAL_VERTEX_BACKING_TEXTURE_2D_ARRAY
+
+  /* RenderEngineGL3::VertexBacking is backed by a TEXTURE_2D_ARRAY */
+  uniform usampler2DArray astral_vertex_backing;
+
+  vec4
+  astral_read_vertex(in uint v)
+  {
+    uvec3 xyz;
+
+    xyz.x = v & ASTRAL_VERTEX_BACKING_X_MASK;
+    xyz.y = (v >> ASTRAL_VERTEX_BACKING_Y_SHIFT) & ASTRAL_VERTEX_BACKING_Y_MASK;
+    xyz.z = v >> ASTRAL_VERTEX_BACKING_Z_SHIFT;
+
+    return uintBitsToFloat(texelFetch(astral_vertex_backing, ivec3(xyz), 0));
+  }
+
+#else
+
+  /* RenderEngineGL3::VertexBacking is backed by a TEXTURE_BUFFER */
+  uniform samplerBuffer astral_vertex_backing;
+
+  vec4
+  astral_read_vertex(in uint v)
+  {
+    return texelFetch(astral_vertex_backing, int(v));
+  }
+
+#endif
+
+#if defined(GL_ES)
+  uniform highp usampler2D astral_vertex_surface;
+#else
+  uniform usampler2D astral_vertex_surface;
+#endif
+
+
+#ifdef ASTRAL_ATTRIBUTELESS_RENDERING
+  #define astral_vertex_id gl_VertexID
+#else
+  in uint astral_vertex_id;
+#endif
+
+void
+astral_get_attribute_and_header_idx(out vec4 A, out uint H)
+{
+  uint vid;
+  uvec2 v, surface_value;
+
+  vid = uint(astral_vertex_id);
+  v.x = vid & ASTRAL_GPU_VERTEX_SURFACE_X_MASK;
+  v.y = vid >> ASTRAL_GPU_VERTEX_SURFACE_Y_SHIFT;
+
+  surface_value = texelFetch(astral_vertex_surface, ivec2(v), 0).xy;
+
+  A = astral_read_vertex(surface_value.x);
+  H = surface_value.y;
+}
+
+#ifdef ASTRAL_COLOR_ITEM_SHADER
+void
+astral_run_material_vert_shader(in uint material_shader,
+                                in uint material_data_location,
+                                in uint material_brush,
+                                in vec2 item_p,
+                                in AstralTransformation tr);
+#endif
+
+void
+main(void)
+{
+  vec4 attribute_value;
+  vec2 p;
+  uint H, header_idx, z, header_flags;
+  AstralUnpackedHeader header;
+  AstralTransformation pixel_transformation_item;
+
+  astral_get_attribute_and_header_idx(attribute_value, H);
+
+  /* The value H contains more than just what header, it also has
+   * the color space and if to permute the (x, y) coordinates after
+   * clipping and performing the scale-translate
+   */
+  header_idx = astral_unpack_bits(ASTRAL_HEADER_LOCATION_ID_BIT0,
+                                  ASTRAL_HEADER_LOCATION_ID_NUM_BITS,
+                                  H);
+  astral_unpack_header(header_idx, header);
+
+  header.m_emit_color_space = astral_unpack_bits(ASTRAL_HEADER_LOCATION_COLOR_SPACE_BIT0,
+                                                 ASTRAL_HEADER_LOCATION_COLOR_SPACE_NUM_BITS,
+                                                 H);
+
+  if (header.m_transformation != ASTRAL_INVALID_INDEX)
+    {
+      astral_load(header.m_transformation, pixel_transformation_item);
+    }
+  else
+    {
+      astral_init_transformation_identity(pixel_transformation_item);
+    }
+
+  #ifndef ASTRAL_SHADOW_GENERATOR_SHADER
+    {
+      float clip_z;
+      vec2 render_translate;
+
+      z = header.m_z;
+
+      /* apply the render-scale-translate */
+      if (header.m_scale_translate != ASTRAL_INVALID_INDEX)
+        {
+          AstralScaleTranslate surface_transformation_pixel;
+
+          astral_load(header.m_scale_translate, surface_transformation_pixel);
+          astral_render_scale_value = surface_transformation_pixel.m_scale;
+          render_translate = surface_transformation_pixel.m_translate;
+        }
+      else
+        {
+          astral_render_scale_value = vec2(1.0, 1.0);
+        }
+
+      #ifdef ASTRAL_COLOR_ITEM_SHADER
+        {
+          vec2 item_p, material_p;
+          AstralTransformation pixel_transformation_material;
+
+          p = astral_run_vert_shader(header.m_item_shader,
+                                     header.m_item_data,
+                                     attribute_value,
+                                     pixel_transformation_item,
+                                     item_p);
+
+          if (header.m_material_transformation != ASTRAL_INVALID_INDEX)
+            {
+              AstralTransformation material_transformation_item;
+
+              astral_load(header.m_material_transformation, material_transformation_item);
+              pixel_transformation_material = astral_concat(pixel_transformation_item,
+                                                            astral_compute_inverse(material_transformation_item));
+              material_p = astral_apply_transformation(material_transformation_item, item_p);
+            }
+          else
+            {
+              pixel_transformation_material = pixel_transformation_item;
+              material_p = item_p;
+            }
+
+          astral_run_material_vert_shader(header.m_material_shader,
+                                          header.m_material_data,
+                                          header.m_material_brush,
+                                          material_p,
+                                          pixel_transformation_material);
+        }
+      #else
+        {
+          p = astral_run_vert_shader(header.m_item_shader,
+                                     header.m_item_data,
+                                     attribute_value,
+                                     pixel_transformation_item);
+        }
+      #endif
+
+      /* The clip-widow must be initialized before astral_pack_main_varyings()
+       * because it performs clipping against the clipping-rect by intersecting
+       * against the clip-window
+       */
+      if (header.m_clip_window != ASTRAL_INVALID_INDEX)
+        {
+          AstralClipWindow clip;
+
+          astral_load(header.m_clip_window, clip);
+          astral_init_clipping(p, clip);
+        }
+      else
+        {
+          astral_init_clipping();
+        }
+
+      astral_pack_main_varyings(header, p);
+
+      /* apply the render-scale-translate */
+      if (header.m_scale_translate != ASTRAL_INVALID_INDEX)
+        {
+          p *= astral_render_scale_value;
+          p += render_translate;
+        }
+
+      if ((H & ASTRAL_HEADER_LOCATION_PERMUTE_XY_MASK) != 0u)
+        {
+          p.xy = p.yx;
+        }
+
+      clip_z = clamp(1.0 - ASTRAL_Z_COEFF * float(z), 0.0, 1.0);
+
+      /* convert to normalized coordinates */
+      gl_Position = vec4(astral_recip_half_viewport_width * p.x - 1.0,
+                         (astral_recip_half_viewport_height * p.y - 1.0) * astral_clip_y_coeff,
+                         clip_z,
+                         1.0);
+    }
+  #else
+    {
+      AstralScaleTranslate sc_tr;
+      astral_load(header.m_scale_translate, sc_tr);
+
+      p = astral_run_vert_shader(header.m_item_shader,
+                                 header.m_item_data,
+                                 attribute_value,
+                                 pixel_transformation_item);
+
+      /* the value of p does not matter because there is
+       * no clip mask and there is no blending.
+       */
+      astral_pack_main_varyings(header, p);
+
+      /* vertex shader already deliver in range vertices */
+      astral_init_clipping();
+
+      /* AstralScaleTranslate::m_translate gives where
+       * in the destination buffer to place the shadow map.
+       * AstralScaleTranslate::m_scale.x gives the width
+       * of the shadow map. The output of the vertex shader
+       * in x is a value that is normalized to [-1, 1].
+       */
+
+      /* Lastly, we do NOT need to flip the normalized device
+       * y-coordinate:
+       *   1) when rendering to the shadowmap directly because
+       *      the texel y = 0 corresponds to normalized y = -1.
+       *   2) the blitter when acting on the shadow map also
+       *      does not flip it.
+       */
+      p.x = 0.5 * (p.x + 1.0) * sc_tr.m_scale.x;
+      p += sc_tr.m_translate;
+
+      /* convert to normalized coordinates.
+       *
+       * Death trap awaiting the unwary. We do not need to
+       * flip because we are rendering directly to the texture.
+       */
+      gl_Position = vec4(astral_recip_half_viewport_width * p.x - 1.0,
+                         astral_recip_half_viewport_height * p.y - 1.0,
+                         0.0,
+                         1.0);
+    }
+  #endif
+
+}

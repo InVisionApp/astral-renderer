@@ -1,0 +1,43 @@
+// -*- C++ -*-
+/*!
+ * \file astral_item_path_common.vert.glsl.resource_string
+ * \brief astral_item_path_common.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+vec2
+astral_item_path_vert_shader_common(in uint item_data_location,
+                                    in vec4 a0,
+                                    in AstralTransformation tr)
+{
+  vec2 S, tmp, norm_xy, signed_norm_xy, p;
+  vec4 min_max_bb;
+
+  norm_xy = a0.xy;
+  min_max_bb = astral_read_item_dataf(item_data_location);
+  p = mix(min_max_bb.xy, min_max_bb.zw, norm_xy);
+
+  /* for conveniance, it is -1 at the min-edge and +1 on the max-edge */
+  signed_norm_xy = 2.0 * norm_xy - vec2(1.0, 1.0);
+
+  /* we need to compute by how much to fatten by one pixel in each dimension */
+  tmp = astral_apply_matrix(tr.m_matrix, vec2(2.0, 0.0));
+  S.x = inversesqrt(dot(tmp, tmp));
+
+  tmp = astral_apply_matrix(tr.m_matrix, vec2(0.0, 2.0));
+  S.y = inversesqrt(dot(tmp, tmp));
+
+  p += signed_norm_xy * S;
+
+  return p;
+}

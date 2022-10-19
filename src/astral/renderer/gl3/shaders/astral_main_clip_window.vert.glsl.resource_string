@@ -1,0 +1,106 @@
+// -*- C++ -*-
+/*!
+ * \file astral_main_clip_window.vert.glsl.resource_string
+ * \brief astral_main_clip_window.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/* Clipping either by faking (which can be done
+ * in various ways with selective color writes
+ * or discard) or by using HW clip-planes
+ *
+ * The shader builder defines one of three macros:
+ *  - ASTRAL_ENFORCE_CLIP_WINDOW --> clipping enforced by shader
+ *  - ASTRAL_CLIP_WINDOW_PRESENT_DO_NOT_ENFORCE -> clipping present but not enforced by shader, use for early out
+ *  - ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW -> clip window not provided
+ *
+ * In addition, the macro ASTRAL_USE_HW_CLIP_PLANES is defined exactly when
+ * hw-clip planes are active. One issue is that it is quite possible for
+ * ASTRAL_USE_HW_CLIP_PLANES and ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW to be
+ * both defined and when this happens, then gl_ClipDistance[] needs to be set.
+ */
+
+#ifdef ASTRAL_USE_HW_CLIP_PLANES
+  #define astral_clip_distance_min_x gl_ClipDistance[0]
+  #define astral_clip_distance_min_y gl_ClipDistance[1]
+  #define astral_clip_distance_max_x gl_ClipDistance[2]
+  #define astral_clip_distance_max_y gl_ClipDistance[3]
+#else
+  #ifndef ASTRAL_DOES_NOT_HAVE_CLIP_WINDOW
+    out vec4 astral_clip_distance;
+    #define astral_clip_distance_min_x astral_clip_distance.x
+    #define astral_clip_distance_min_y astral_clip_distance.y
+    #define astral_clip_distance_max_x astral_clip_distance.z
+    #define astral_clip_distance_max_y astral_clip_distance.w
+  #else
+    #define ASTRAL_CLIP_DISTANCE_NOT_DEFINED
+  #endif
+#endif
+
+/* Init clipping against a clipping window
+ * \param pixel_p location in pixel coordinates
+ * \param clip clipping window in pixel coordinates
+ */
+void
+astral_init_clipping(in vec2 pixel_p, in AstralClipWindow clip)
+{
+  #ifndef ASTRAL_CLIP_DISTANCE_NOT_DEFINED
+    {
+      astral_clip_distance_min_x = pixel_p.x - clip.m_min_x;
+      astral_clip_distance_min_y = pixel_p.y - clip.m_min_y;
+      astral_clip_distance_max_x = clip.m_max_x - pixel_p.x;
+      astral_clip_distance_max_y = clip.m_max_y - pixel_p.y;
+    }
+  #endif
+}
+
+/* Init clipping as no clipping */
+void
+astral_init_clipping(void)
+{
+  #ifndef ASTRAL_CLIP_DISTANCE_NOT_DEFINED
+    {
+      /* the pure perfect way would be to have a boolean to indicate
+       * that the clipping was initid as "nothing", but carying an
+       * extra global bool sounds icky; so instead we initialize then
+       * with such a large value that nothing should be beat. We need
+       * to make sure we do this becaue the intersect_clipping() is
+       * a simple take min-values and it is critical that if clipping
+       * is inited as empty, then these will take over; the below then
+       * assumes that the render target size will not exceed 65,000 in
+       * any dimension which is a pretty safe assumption.
+       */
+      astral_clip_distance_min_x = 65000.0;
+      astral_clip_distance_min_y = 65000.0;
+      astral_clip_distance_max_x = 65000.0;
+      astral_clip_distance_max_y = 65000.0;
+    }
+  #endif
+}
+
+/* Clip against an additional clipping window
+ * \param pixel_p must be the -exact- same value as passed to astral_init_clipping()
+ * \param clip clipping window in pixel coordinates
+ */
+void
+astral_intersect_clipping(in vec2 pixel_p, in AstralClipWindow clip)
+{
+  #ifndef ASTRAL_CLIP_DISTANCE_NOT_DEFINED
+    {
+      astral_clip_distance_min_x = min(astral_clip_distance_min_x, pixel_p.x - clip.m_min_x);
+      astral_clip_distance_min_y = min(astral_clip_distance_min_y, pixel_p.y - clip.m_min_y);
+      astral_clip_distance_max_x = min(astral_clip_distance_max_x, clip.m_max_x - pixel_p.x);
+      astral_clip_distance_max_y = min(astral_clip_distance_max_y, clip.m_max_y - pixel_p.y);
+    }
+  #endif
+}

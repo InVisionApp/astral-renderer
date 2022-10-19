@@ -1,0 +1,46 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_quad_tri.vert.glsl.resource_string
+ * \brief astral_stc_quad_tri.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  float t;
+  uint static_data_offset;
+  vec2 p;
+  vec4 p0_p1;
+
+  t = astral_read_item_dataf(item_data_location).x;
+
+  static_data_offset = floatBitsToUint(a0.x);
+
+  p0_p1 = astral_read_static_data32f(static_data_offset);
+  p = mix(p0_p1.xy, p0_p1.zw, t);
+
+  astral_stc_quad_tri_tex_x = a0.y;
+  astral_stc_quad_tri_tex_y = a0.z;
+
+  return astral_apply_transformation(tr, p);
+}

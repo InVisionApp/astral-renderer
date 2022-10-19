@@ -1,0 +1,82 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_line_biarc_common.frag.glsl.resource_string
+ * \brief astral_chain_stroke_line_biarc_common.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_line_biarc_frag_shader(in uint sub_shader, in uint item_data_location,
+                              out vec4 base_color)
+{
+  float signed_distance, dx, dy;
+
+  /* distance in item coordinate to the curve */
+  signed_distance = astral_chain_stroke_radius - astral_chain_stroke_perp_distance_to_curve;
+
+  /* convert to distance in pixels */
+  dx = astral_chain_stroke_perp_distance_to_curve_gradient_x;
+  dy = astral_chain_stroke_perp_distance_to_curve_gradient_y;
+  signed_distance *= inversesqrt(dx * dx + dy * dy);
+
+  /* A value of <= 0.0 indicates a hairline stroke */
+  if (astral_chain_stroke_radius <= 0.0)
+    {
+      signed_distance += ASTRAL_STROKE_HARILINE_PIXEL_RADIUS;
+    }
+
+  #ifdef ASTRAL_STROKING_WITH_DASHING
+    {
+      astral_capped_dash_query query;
+      astral_dash_pattern_header header;
+      astral_dash_pattern dash;
+      astral_capped_dash_anti_alias_params aa_params;
+
+      header.m_xz_factor = astral_chain_stroke_dash_xz_draw_factor;
+      header.m_yw_factor = astral_chain_stroke_dash_yw_draw_factor;
+      header.m_dash_corner = astral_chain_stroke_dash_corner;
+      header.m_end_length = astral_chain_stroke_dash_end_length;
+      header.m_total_length = astral_chain_stroke_dash_total_length;
+
+      astral_load_dash_pattern(item_data_location, header, dash);
+
+      query.m_subshader = sub_shader;
+      query.m_stroke_radius = astral_chain_stroke_radius;
+      query.m_distance_to_curve = astral_chain_stroke_perp_distance_to_curve;
+      query.m_begin_curve = astral_chain_stroke_distance_along_contour_start;
+      query.m_end_curve = astral_chain_stroke_distance_along_contour_end;
+      query.m_boundary_flags = astral_chain_stroke_boundary_flags;
+      query.m_dash_distance = astral_compute_dash_distance(astral_chain_stroke_distance_along_contour, dash, query.m_dash_result);
+
+      aa_params.m_gradient_dash_distance.x = astral_chain_stroke_distance_along_contour_gradient_x;
+      aa_params.m_gradient_dash_distance.y = astral_chain_stroke_distance_along_contour_gradient_y;
+      aa_params.m_gradient_distance_to_curve.x = astral_chain_stroke_perp_distance_to_curve_gradient_x;
+      aa_params.m_gradient_distance_to_curve.y = astral_chain_stroke_perp_distance_to_curve_gradient_y;
+      signed_distance = astral_compute_dash_distance_capped(query, aa_params, signed_distance);
+    }
+  #endif
+
+  /* Combine signed_distance with distance from open edge.
+   * This value is pushed down from the vertex shader and
+   * the vertex shader guarantees that it is already in
+   * pixel-units. This value is severe postive if there is
+   * no need to anti-alias against the start or end of an
+   * open contour.
+   */
+  if (astral_stroke_cap_style(sub_shader) == ASTRAL_STROKE_CAP_STYLE_FLAT_CAP)
+    {
+      signed_distance = astral_combine_signed_distances_intersect(astral_chain_stroke_pixel_distance_from_end, signed_distance);
+    }
+
+  base_color = astral_compute_mask_emit_value(signed_distance, astral_chain_stroke_coverage_multiplier);
+}

@@ -1,0 +1,114 @@
+// -*- C++ -*-
+/*!
+ * \file astral_dynamic_rect_bo.frag.glsl.resource_string
+ * \brief astral_dynamic_rect_bo.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader,
+                   in uint color_space,
+                   in uint item_data_location,
+                   out float coverage,
+                   out vec4 base_color)
+{
+  vec2 daax, daay;
+
+  daax = vec2(dFdx(astral_rect_texel_x), dFdy(astral_rect_texel_x));
+  daay = vec2(dFdx(astral_rect_texel_y), dFdy(astral_rect_texel_y));
+
+  if (sub_shader == ASTRAL_MASKED_RECT_SHADER)
+    {
+      uint mask_filter, layer, sampling;
+      vec4 mask_sample;
+      vec2 texel, texel_dx, texel_dy;
+
+      sampling = astral_unpack_bits(ASTRAL_MASKED_RECT_SHADER_SAMPLING_BIT0,
+                                    ASTRAL_MASKED_RECT_SHADER_SAMPLING_NUM_BITS,
+                                    astral_mask_sampling_and_layer);
+
+      layer = astral_unpack_bits(ASTRAL_MASKED_RECT_SHADER_Z_BIT0,
+                                 ASTRAL_MASKED_RECT_SHADER_Z_NUM_BITS,
+                                 astral_mask_sampling_and_layer);
+
+      mask_filter = astral_unpack_bits(ASTRAL_FILTER_BIT0,
+                                       ASTRAL_FILTER_NUM_BITS,
+                                       sampling);
+
+      texel = vec2(astral_rect_texel_x, astral_rect_texel_y);
+      texel_dx = vec2(daax.x, daay.x);
+      texel_dy = vec2(daax.y, daay.y);
+
+      if (mask_filter == ASTRAL_FILTER_CUBIC)
+        {
+          /* some obscene value since we know we stay inside the tile */
+          vec2 texel_min = texel - vec2(10000.0);
+          vec2 texel_max = texel + vec2(10000.0);
+
+          mask_sample = astral_sample_cubic(astral_image_color_atlas,
+                                            astral_image_color_atlas_inverse_size,
+                                            vec3(texel, layer),
+                                            texel_min, texel_max);
+        }
+      else if (mask_filter == ASTRAL_FILTER_LINEAR)
+        {
+          texel *= astral_image_color_atlas_inverse_size;
+          mask_sample = textureLod(astral_image_color_atlas,
+                                   vec3(texel, layer), 0.0);
+        }
+      else
+        {
+          mask_sample = texelFetch(astral_image_color_atlas,
+                                   ivec3(texel, layer),
+                                   0);
+        }
+
+      uint post_samping_mode, mask_type, mask_channel;
+      float sharpness_factor;
+
+      post_samping_mode = astral_unpack_bits(ASTRAL_MASK_POST_SAMPLING_MODE_BIT0, ASTRAL_MASK_POST_SAMPLING_MODE_NUM_BITS, sampling);
+      mask_type = astral_unpack_bits(ASTRAL_MASK_TYPE_BIT0, ASTRAL_MASK_TYPE_NUM_BITS, sampling);
+      mask_channel = astral_unpack_bits(ASTRAL_MASK_CHANNEL_BIT0, ASTRAL_MASK_CHANNEL_NUM_BITS, sampling);
+
+      coverage = astral_apply_mask_parameters(mask_sample, texel_dx, texel_dy,
+                                              post_samping_mode,
+                                              mask_type,
+                                              mask_channel);
+    }
+  else if (sub_shader != 0u)
+    {
+      float sx, sy, vx, vy, qx, qy, cx, cy;
+
+      vx = inversesqrt(dot(daax, daax));
+      vy = inversesqrt(dot(daay, daay));
+
+      sx = 1.0 - abs(astral_rect_texel_x);
+      sy = 1.0 - abs(astral_rect_texel_y);
+
+      qx = sx * vx;
+      qy = sy * vy;
+
+      cx = ((0u != (sub_shader & ASTRAL_MAXX_AA) && astral_rect_texel_x > 0.0)
+            || (0u != (sub_shader & ASTRAL_MINX_AA) && astral_rect_texel_x < 0.0)) ? qx : 1.0;
+
+      cy = ((0u != (sub_shader & ASTRAL_MAXY_AA) && astral_rect_texel_y > 0.0)
+            || (0u != (sub_shader & ASTRAL_MINY_AA) && astral_rect_texel_y < 0.0)) ? qy : 1.0;
+
+      coverage = clamp(min(cx, cy), 0.0, 1.0);
+    }
+  else
+    {
+      coverage = 1.0;
+    }
+
+  base_color = vec4(1.0);
+}

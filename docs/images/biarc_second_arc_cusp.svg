@@ -1,0 +1,92 @@
+<svg width="800" height="890" version="1.1" viewBox="0 0 211.67 235.48" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <marker id="marker5700-2-89-3" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-2-8-2-0-9-03" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-2-89-22-6" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-66-8" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+ </defs>
+ <g font-family="sans-serif">
+  <text font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38140);white-space:pre" xml:space="preserve"/>
+  <text font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38146);white-space:pre" xml:space="preserve"/>
+  <text font-size="10.584px" style="line-height:1.05;shape-inside:url(#rect51021);white-space:pre" xml:space="preserve"/>
+  <text font-size="10.584px" style="line-height:1.05;shape-inside:url(#rect51027);white-space:pre" xml:space="preserve"/>
+ </g>
+ <rect width="100%" height="100%" fill="white"/>
+ <text x="112.78023" y="212.59647" fill="#003fef" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459" style="line-height:1.05" xml:space="preserve"><tspan x="112.78023" y="212.59647" dy="0 0 -2.0278313" fill="#003fef" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">C<tspan dy="2.0278313" fill="#003fef" font-family="'Cambria Math'" font-size="4.2922px" stroke-width=".26459">1</tspan> </tspan></text>
+ <g fill="none">
+  <path d="m111.35 208.44v-26.519" stroke="#bf3fef" stroke-dasharray="1.05835, 1.05835" stroke-width=".26458"/>
+  <g>
+   <path d="m17.592 46.084a187.52 187.52 0 0 1 93.759-25.123" stop-color="#000000" stroke="#003fef" stroke-width=".26457" style="font-variation-settings:normal"/>
+   <path d="m111.35 20.961a160.69 160.69 0 0 1 80.345 21.528" stop-color="#000000" stroke="#bf3fef" stroke-width=".26459" style="font-variation-settings:normal"/>
+   <path d="m98.072 185.48a26.558 26.558 0 0 1 13.279-3.5581" stop-color="#000000" stroke="#003fef" stroke-width=".26459" style="font-variation-settings:normal"/>
+   <ellipse cx="165.69" cy="244.53" rx=".0003761" ry=".010138" stop-color="#000000" stroke="#000" stroke-width=".0096292" style="font-variation-settings:normal"/>
+  </g>
+  <g stroke="#3fbf3f">
+   <path d="m98.072 185.48-80.48-139.39" stroke-width=".26459px"/>
+   <path d="m111.62 181.92 39.837-69.733 40.24-69.697" stroke-width=".26459px"/>
+   <path d="m111.35 181.92v-160.96" stroke-width=".26458"/>
+  </g>
+ </g>
+ <path d="m111.35 208.44-13.279-22.96" fill="#bf3fef" stroke="#003fef" stroke-dasharray="1.05835, 1.05835" stroke-width=".26459"/>
+ <g fill="none" stroke="#3fbf3f" stroke-width=".26459px">
+  <path d="m98.072 185.48 13.279-3.5581"/>
+  <path d="m17.592 46.084 22.11-12.555"/>
+  <path d="m191.69 42.499-18.853-10.846"/>
+  <path d="m132.49 20.961h-45.179"/>
+  <path d="m39.702 33.528 47.606-12.567"/>
+  <path d="m132.49 20.961 40.349 10.692"/>
+  <path d="m111.62 181.92 61.217-150.27"/>
+  <path d="m111.35 181.92 21.136-160.96"/>
+ </g>
+ <g fill="#000000" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">
+  <text x="26.902798" y="28.753109" style="line-height:1.05" xml:space="preserve"><tspan x="26.902798" y="28.753109" dy="0 0 0 2.0278313" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">top<tspan font-size="4.2922px" stroke-width=".26459">1A</tspan></tspan></text>
+  <text x="172.62039" y="28.456854" style="line-height:1.05" xml:space="preserve"><tspan x="172.62039" y="28.456854" dy="0 0 0" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">top<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">2B</tspan></tspan></text>
+  <text x="70.91217" y="17.071388" style="line-height:1.05" xml:space="preserve"><tspan x="70.91217" y="17.071388" dy="0 0 0 2.0278313" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">top<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan></tspan></text>
+  <text x="3.5866034" y="41.3778" style="line-height:1.05" xml:space="preserve"><tspan x="3.5866034" y="41.3778" dy="0 0 0 2.0278313" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">afc<tspan font-size="4.2922px" stroke-width=".26459">1A</tspan></tspan></text>
+  <text x="90.278061" y="8.9591408" style="line-height:1.05" xml:space="preserve"><tspan x="90.278061" y="8.9591408" dy="0 0 0 2.0278313" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459"><tspan dx="0 0 0 0 0" dy="0 0 0 2.0278313 0 0 0 0 0 0 0 2.0278313">afc<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan><tspan dy="-2.0278313" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459"> = afc</tspan><tspan font-size="4.2922px" stroke-width=".26459">2A </tspan></tspan></tspan></text>
+  <text x="133.59991" y="18.228552" style="line-height:1.05" xml:space="preserve"><tspan x="133.59991" y="18.228552" dy="0 0 0" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">top<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">2A</tspan></tspan></text>
+  <text x="194.09766" y="42.954971" style="line-height:1.05" xml:space="preserve"><tspan x="194.09766" y="42.954971" dy="0 0 0" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">afc<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">2B</tspan></tspan></text>
+  <text x="43.779659" y="118.19894" style="line-height:1.05" xml:space="preserve"><tspan x="43.779659" y="118.19894" dy="0 0 2.0278313" fill="#000000" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">bp<tspan font-size="4.2922px" stroke-width=".26459">1A</tspan></tspan></text>
+  <text x="153.85576" y="117.54625" style="line-height:1.05" xml:space="preserve"><tspan x="153.85576" y="117.54625" dy="0 0" fill="#000000" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459">bp<tspan dy="2.0278313" fill="#000000" font-size="4.2922px" stroke-width=".26459">2B</tspan></tspan></text>
+  <text x="26.923281" y="229.14299" style="line-height:1.05" xml:space="preserve"><tspan x="26.923281" y="229.14299" dy="0 0 2.0278313 0 -2.0278313 0 0 0 0 2.0278313 0 -2.0278313 0 0 0 0 0 0 0 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313 0 -2.0278313 0 0 0 2.0278313" rotate="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" font-family="'Cambria Math'" font-size="7.1538px">tc<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan> = tc<tspan font-size="4.2922px" stroke-width=".26459">2A</tspan> = tc<tspan dy="2.0278313 0 -2.0278313" font-size="7.1538px" stroke-width=".26459"><tspan font-size="4.2922px" stroke-width=".26459">2B</tspan> </tspan>= ω<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan> = ω<tspan font-size="4.2922px" stroke-width=".26459">2A</tspan> = ω<tspan font-size="4.2922px" stroke-width=".26459">2B</tspan> = ζ<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan> = ζ<tspan font-size="4.2922px" stroke-width=".26459">2A</tspan> = ζ<tspan font-size="4.2922px" stroke-width=".26459">2B</tspan> = <tspan fill="#bf3fef" stroke-width=".26459">C</tspan><tspan fill="#bf3fef" font-size="4.2922px" stroke-width=".26459">2</tspan></tspan></text>
+  <text x="141.67404" y="149.27477" style="line-height:1.05" xml:space="preserve"><tspan x="141.67404" y="149.27477" dy="0 0 2.0278313" fill="#000000" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459"><tspan dx="0 0 0 0" dy="0 0 2.0278313 0 0 0 0 0 0 2.0278313" fill="#000000">bp<tspan font-size="4.2922px" stroke-width=".26459">1B</tspan><tspan dy="-2.0278313" fill="#000000" font-family="'Cambria Math'" font-size="7.1538px" stroke-width=".26459"> = bp</tspan><tspan font-size="4.2922px" stroke-width=".26459">2A</tspan> </tspan></tspan></text>
+ </g>
+ <g fill="none">
+  <path d="m158.41 143.43c-1.3123-18.074-41.133-13.193-46.116-39.154" marker-end="url(#marker5700-2-89-3)" stroke="#000" stroke-opacity=".5" stroke-width=".26458"/>
+  <path d="m39.702 33.528 58.37 151.95-10.764-164.52 24.043 160.96" stroke="#3fbf3f" stroke-width=".26459px"/>
+  <path d="m44.386 193.53c0.19852-17.192 28.413-12.283 50.609-8.2389" marker-end="url(#marker5700-2-8-2-0-9-03)" stroke="#000" stroke-opacity=".5" stroke-width=".26459"/>
+ </g>
+ <text x="39.537689" y="200.21359" fill="#000000" font-family="sans-serif" font-size="7.1538px" stroke-width=".26459" style="line-height:1.05" xml:space="preserve"><tspan x="39.537689" y="200.21359" dy="0 0 0 0 -2.0278313 0 0 0 0 0 -2.0278313" font-family="'Cambria Math'">tc<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">1A</tspan> = ζ<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">1A</tspan> = ω<tspan dy="2.0278313" font-size="4.2922px" stroke-width=".26459">1A</tspan></tspan></text>
+ <g fill="none">
+  <path d="m191.96 221.47c-2e-3 -21.657-60.458-22.813-78.123-38.346" marker-end="url(#marker5700-2-89-22-6)" stroke="#000" stroke-opacity=".5" stroke-width=".26458"/>
+  <path d="m108.46 8.9156c-0.22106 5.4817 3.7694 3.4953 3.1088 9.7262" marker-end="url(#marker5700-66-8)" stroke="#000" stroke-opacity=".5" stroke-width=".26459"/>
+  <g>
+   <path d="m57.832 115.78s47.252-29.455 93.625-3.5941" stroke="#ffef00" stroke-width=".79376"/>
+   <path d="m111.35 101.44a80.211 80.211 0 0 1 40.106 10.746" stop-color="#000000" stroke="#bf3fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+   <path d="m57.832 115.78a107.04 107.04 0 0 1 53.519-14.34" stop-color="#000000" stroke="#003fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+  </g>
+ </g>
+ <circle cx="111.35" cy="208.48" r=".53653" fill="#003fef" fill-rule="evenodd" stop-color="#000000" stroke="#003fef" stroke-width=".56004" style="font-variation-settings:normal"/>
+ <circle cx="111.35" cy="181.92" r=".53653" fill="#bf3fef" fill-rule="evenodd" stop-color="#000000" stroke="#bf3fef" stroke-width=".56004" style="font-variation-settings:normal"/>
+ <g fill-rule="evenodd" stroke="#000" stroke-width=".26459">
+  <circle cx="17.642" cy="46.061" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="39.718" cy="33.551" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="87.299" cy="20.932" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="111.35" cy="20.978" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="132.5" cy="20.961" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="172.84" cy="31.658" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="191.67" cy="42.478" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="151.45" cy="112.19" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="111.35" cy="101.57" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="57.875" cy="115.75" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="98.072" cy="185.49" r=".53653" stop-color="#000000" style="font-variation-settings:normal"/>
+ </g>
+</svg>

@@ -1,0 +1,90 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image_glyph.vert.glsl.resource_string
+ * \brief astral_image_glyph.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr,
+                   out vec2 item_p)
+{
+  vec2 p, pen_position;
+  uvec2 image_size, image_location_and_flags;
+  uint corner, offset;
+  uvec4 packed_image0, packed_image1;
+  float line_start_x, scale_x, skew_x;
+
+  p = a0.xy;
+  corner = floatBitsToUint(a0.z);
+  offset = floatBitsToUint(a0.w);
+
+  if (item_data_location != ASTRAL_INVALID_INDEX)
+    {
+      vec4 v;
+
+      v = astral_read_item_dataf(item_data_location);
+      line_start_x = v.x;
+      scale_x = v.y;
+      skew_x = v.z;
+    }
+  else
+    {
+      line_start_x = 0.0;
+      scale_x = 1.0;
+      skew_x = 0.0;
+    }
+
+  pen_position = astral_read_static_data32f(offset).xy;
+  image_location_and_flags = astral_read_static_data32u(offset + 1u).xy;
+
+  packed_image0 = astral_read_static_data32u(image_location_and_flags.x);
+  packed_image1 = astral_read_static_data32u(image_location_and_flags.x + 1u);
+
+  astral_glyph_packed_image0_x = packed_image0.x;
+  astral_glyph_packed_image0_y = packed_image0.y;
+  astral_glyph_packed_image0_z = packed_image0.z;
+  astral_glyph_packed_image0_w = packed_image0.w;
+
+  astral_glyph_packed_image1_x = packed_image1.x;
+  astral_glyph_packed_image1_y = packed_image1.y;
+  astral_glyph_packed_image1_z = packed_image1.z;
+  astral_glyph_packed_image1_w = packed_image1.w;
+
+  image_size = astral_read_image_size_from_packed(packed_image0, packed_image1);
+  astral_glyph_x = ((corner & ASTRAL_GLYPH_MAX_X_MASK) != 0u) ? float(image_size.x - 1u) : 1.0;
+  astral_glyph_y = ((corner & ASTRAL_GLYPH_MAX_Y_MASK) != 0u) ? float(image_size.y - 1u) : 1.0;
+  astral_glyph_flags = image_location_and_flags.y;
+
+  if (sub_shader == ASTRAL_SUB_SHADER_COLOR_GLYPHS_OBSERVE_MATERIAL_RGB)
+    {
+      astral_glyph_flags &= ~ASTRAL_GLYPH_SHADER_IS_COLORED_GLYPH;
+    }
+
+  pen_position.x = line_start_x + scale_x * (pen_position.x - line_start_x);
+  p.x = pen_position.x + p.x * scale_x - p.y * skew_x;
+  p.y = pen_position.y + p.y;
+
+  item_p = p;
+
+  return astral_apply_transformation(tr, p);
+}

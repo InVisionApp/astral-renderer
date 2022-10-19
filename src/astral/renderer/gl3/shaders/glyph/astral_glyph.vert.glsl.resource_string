@@ -1,0 +1,135 @@
+// -*- C++ -*-
+/*!
+ * \file astral_glyph.vert.glsl.resource_string
+ * \brief astral_glyph.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr,
+                   out vec2 item_p)
+{
+  vec4 static_data;
+  vec2 glyph_size, pen_position, p, D, S, F, tmp;
+  uint corner, offset;
+  float line_start_x, scale_x, skew_x, widen, x, y;
+
+  p = a0.xy;
+  corner = floatBitsToUint(a0.z);
+  offset = floatBitsToUint(a0.w);
+
+  if (item_data_location != ASTRAL_INVALID_INDEX)
+    {
+      vec4 v;
+
+      v = astral_read_item_dataf(item_data_location);
+      line_start_x = v.x;
+      scale_x = v.y;
+      skew_x = v.z;
+      widen = max(0.0, v.w);
+    }
+  else
+    {
+      line_start_x = 0.0;
+      scale_x = 1.0;
+      skew_x = 0.0;
+      widen = 0.0;
+    }
+
+  static_data = astral_read_static_data32f(offset).xyzw;
+  pen_position = static_data.xy;
+  glyph_size = static_data.zw;
+
+  D.x = ((corner & ASTRAL_GLYPH_MAX_X_MASK) != 0u) ? 1.0 : -1.0;
+  D.y = ((corner & ASTRAL_GLYPH_MAX_Y_MASK) != 0u) ? 1.0 : -1.0;
+
+  /* We need to compute how much in local coordinates to move
+   * in order to move one one pixel in pixel coordinates.
+   */
+  tmp = astral_apply_matrix(tr.m_matrix, vec2(1.0, 0.0));
+  S.x = inversesqrt(dot(tmp, tmp));
+
+  tmp = astral_apply_matrix(tr.m_matrix, vec2(0.0, 1.0));
+  S.y = inversesqrt(dot(tmp, tmp));
+
+  x = (widen + 1.0) * D.x;
+  y = D.y;
+
+  uvec2 glyph_data_and_flags;
+
+  glyph_data_and_flags = astral_read_static_data32u(offset + 1u).xy;
+
+  astral_glyph_data = glyph_data_and_flags.x;
+  astral_glyph_flags = glyph_data_and_flags.y;
+
+  if (sub_shader == ASTRAL_SUB_SHADER_COLOR_GLYPHS_OBSERVE_MATERIAL_RGB)
+    {
+      astral_glyph_flags &= ~ASTRAL_GLYPH_SHADER_IS_COLORED_GLYPH;
+    }
+
+  /* We need to widen the glyph by 1-pixel on each side;
+   * this means to adjust p.x, p.y to enlarge by a single
+   * pixel and to also tweak the astral_glyph_x and
+   * astral_glyph_y.
+   *
+   * Let D.x be -1 if on x-min side and +1 if x-max side.
+   * Let D.y be -1 if on y-min side and +1 if y-max side.
+   *
+   * Let S.x = amount to move in x to move an entire pixel
+   * Let S.y = amount to move in y to move an entire pixel
+   *
+   * We want to simply do: item_p = p + S * D for the
+   * positioning of the vertex. The next part is that we
+   * want to keep the varying have the same value at the
+   * original p. This means we do:
+   *
+   *   x *= F.x
+   *   y *= F.y
+   *
+   * where F is the the original size of the glyph
+   * divided by the size after the stretching.
+   */
+
+  /* stretch the glyph positions out by a pixel */
+  p += S * D;
+
+  /* compute the ratio of the new size against the old size */
+  F = vec2(1.0) / glyph_size;
+  F *= (2.0 * S + glyph_size);
+
+  /* stretch x and y by the needed ratios */
+  x *= F.x;
+  y *= F.y;
+
+  /* after doing the stretch, then apply the slanting */
+  pen_position.x = line_start_x + scale_x * (pen_position.x - line_start_x);
+  p.x = pen_position.x + p.x * scale_x - p.y * skew_x;
+  p.y = pen_position.y + p.y;
+
+  astral_glyph_x = 0.5 * x + 0.5;
+  astral_glyph_y = 0.5 * y + 0.5;
+  astral_glyph_widen = widen;
+
+  item_p = p;
+
+  return astral_apply_transformation(tr, p);
+}

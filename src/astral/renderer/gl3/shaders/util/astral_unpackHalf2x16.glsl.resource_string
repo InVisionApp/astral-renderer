@@ -1,0 +1,85 @@
+// -*- C++ -*-
+/*!
+ * \file astral_unpackHalf2x16.glsl.resource_string
+ * \brief astral_unpackHalf2x16.glsl.resource_string
+ *
+ * Adapted from: fastuidraw_unpackHalf2x16.glsl.resource_string of FastUIDraw:
+ *
+ * Copyright 2016 by Intel.
+ *
+ * Contact: kevin.rogovin@gmail.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ * \author Kevin Rogovin <kevin.rogovin@gmail.com>
+ *
+ */
+
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+float
+astral_unpack_fp16(uint u)
+{
+  /* extract the sign, exponent and mantissa
+   * from the 16-bit value
+   */
+  uint sign = (u & 0x8000u) << 16u;
+  uint exponent = (u & 0x7C00u) >> 10u;
+  uint mantissa = u & 0x03FFu;
+
+  if (exponent == 31u)
+    {
+      /* an fp16-infinity, generate an fp32 infinity */
+      return uintBitsToFloat(sign | 0x7F800000u | mantissa);
+    }
+  else if (exponent == 0u)
+    {
+      /* denormalized-number, thus the number stored the value
+       * in the mantissa / 2^24
+       */
+      float v;
+
+      v = float(mantissa) * 5.96046448e-8;
+      return (sign == 0u) ? v : -v;
+    }
+
+  //bias exponent from fp16 to fp32
+  exponent += (127u - 15u);
+
+  // shift exponent to location in fp32
+  exponent = exponent << 23u;
+
+  //shift matissa from fp16's 10-bits to fp32's 23-bits
+  mantissa = mantissa << 13u;
+
+  return uintBitsToFloat(sign | exponent | mantissa);
+}
+
+/* TODO: document that astral_unpackHalf2x16()
+ *       should be used instead of GLSL's built-in
+ *       unpackHalf2x16() to keep code portable
+ *       between GL3.3 and GLES 3.0; it reduces
+ *       to the GLSL built-in if it is available.
+ */
+
+#ifdef ASTRAL_GLSL_HAS_UNPACK_HALF_2x16
+  #define astral_unpackHalf2x16(u) unpackHalf2x16(u)
+#else
+  vec2
+  astral_unpackHalf2x16(uint u)
+  {
+    uint y = (u >> 16u);
+    uint x = (u & 0xFFFFu);
+    return vec2(astral_unpack_fp16(x),
+                astral_unpack_fp16(y));
+  }
+#endif
+
+/*! @} */

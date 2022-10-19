@@ -1,0 +1,150 @@
+<svg width="800" height="900" version="1.1" viewBox="0 0 211.67 238.13" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <marker id="marker5700-2-89-2-5" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-97-6-3-5" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".5" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".5" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-96-9" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-0-4-5" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-9-45-85" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-9-45-3-98" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-9-45-8-2" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-9-45-8-8-6" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-9-45-3-9-2" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+  <marker id="marker5700-6-4-96-7-5" overflow="visible" orient="auto">
+   <path transform="scale(-.6)" d="m8.7186 4.0337-10.926-4.0177 10.926-4.0177c-1.7455 2.3721-1.7354 5.6175-6e-7 8.0354z" fill-opacity=".50201" fill-rule="evenodd" stroke="#000" stroke-linejoin="round" stroke-opacity=".50201" stroke-width=".625"/>
+  </marker>
+ </defs>
+ <g font-family="sans-serif">
+  <text font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38140);white-space:pre" xml:space="preserve"/>
+  <text font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect38146);white-space:pre" xml:space="preserve"/>
+  <text font-size="10.583px" style="line-height:1.05;shape-inside:url(#rect46429);white-space:pre" xml:space="preserve"/>
+ </g>
+ <rect width="100%" height="100%" fill="white"/>
+ <g fill="none">
+  <g>
+   <path d="m110.65 178.6v-166.46" stroke="#3fbf3f" stroke-width=".26458"/>
+   <path d="m17.174 37.389a186.95 186.95 0 0 1 93.474-25.046" stop-color="#000000" stroke="#003fef" stroke-width=".26457" style="font-variation-settings:normal"/>
+   <path d="m110.65 219.88a41.382 41.382 0 0 1-20.691-5.5442" stop-color="#000000" stroke="#bf3fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+   <path d="m110.65 12.343a166.15 166.15 0 0 1 83.076 22.26" stop-color="#000000" stroke="#bf3fef" stroke-width=".26459" style="font-variation-settings:normal"/>
+   <path d="m120.94 217.12a20.587 20.587 0 0 1-10.294 2.7581" stop-color="#000000" stroke="#003fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+  </g>
+  <path d="m110.62 178.73 83.109-144.12" stroke="#3fbf3f" stroke-width=".26458px"/>
+  <path d="m120.94 217.12-10.259-17.771" stroke="#f36" stroke-width=".26458"/>
+  <path d="m104.64 188.89-87.468-151.5" stroke="#3fbf3f" stroke-width=".26458px"/>
+  <path d="m104.64 188.89 6.0403 10.461" stroke="#3fbf3f" stroke-dashoffset=".34396" stroke-width=".26458"/>
+  <g stroke="#f36">
+   <path d="m110.62 178.73-5.9813 10.156" stroke-dashoffset=".079375" stroke-width=".26458"/>
+   <path d="m89.957 214.33 14.685-25.445" stroke-width=".26458px"/>
+   <path d="m110.65 199.5v20.379" stroke-dashoffset=".15875" stroke-width=".26458"/>
+  </g>
+  <g stroke="#3fbf3f">
+   <path d="m110.65 178.73 0.025 20.767" stroke-width=".26458px"/>
+   <path d="m17.176 37.391 21.332-12.31" stroke-width=".26458px"/>
+   <path d="m193.74 34.587-18.151-10.509" stroke-width=".26458px"/>
+   <g stroke-width=".26458px">
+    <path d="m110.65 12.135h22.587"/>
+    <path d="m110.65 12.135h-24.86"/>
+    <path d="m133.24 12.135 42.35 11.943"/>
+    <path d="m38.508 25.081 47.279-12.947"/>
+   </g>
+  </g>
+  <g stroke="#f36">
+   <path d="m89.959 214.33 5.9933 3.4533" stroke-width=".26458px"/>
+   <path d="m110.65 219.88h-6.7727l-7.9229-2.0938" stroke-width=".26458px"/>
+   <g stroke-width=".26458px">
+    <path d="m110.65 219.88h3.7951"/>
+    <path d="m120.94 217.12-3.2659 1.8855"/>
+    <path d="m114.44 219.88 3.2327-0.87256"/>
+    <path d="m114.44 219.88-3.795-20.379 7.0276 19.507"/>
+    <path d="m95.952 217.78 14.671-39.052-6.7478 41.146"/>
+   </g>
+  </g>
+  <path d="m38.508 25.081 72.14 174.42-24.861-187.36" stroke="#3fbf3f" stroke-width=".26458px"/>
+  <path d="m133.24 12.135-22.612 166.6 64.962-154.65" stroke="#3fbf3f" stroke-width=".26458px"/>
+ </g>
+ <g fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">
+  <text x="27.656437" y="22.013662" style="line-height:1.05" xml:space="preserve"><tspan x="27.656437" y="22.013662" dy="0 0 0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">top<tspan font-size="3.3272px" stroke-width=".26458">1A</tspan></tspan></text>
+  <text x="175.52893" y="22.877281" style="line-height:1.05" xml:space="preserve"><tspan x="175.52893" y="22.877281" dy="0 0 0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">top<tspan dy="1.5719087" font-size="3.3272px" stroke-width=".26458">2B</tspan></tspan></text>
+  <text x="74.232246" y="9.3536453" style="line-height:1.05" xml:space="preserve"><tspan x="74.232246" y="9.3536453" dy="0 0 0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">top<tspan font-size="3.3272px" stroke-width=".26458">1B</tspan></tspan></text>
+  <text x="5.9881973" y="34.087353" style="line-height:1.05" xml:space="preserve"><tspan x="5.9881973" y="34.087353" dy="0 0 0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">afc<tspan font-size="3.3272px" stroke-width=".26458">1A</tspan></tspan></text>
+  <text x="96.573418" y="9.3266745" style="line-height:1.05" xml:space="preserve"><tspan x="96.573418" y="9.3266745" dy="0 0 0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dx="0 0 0 0 0" dy="0 0 0 1.5719087 0 0 0 0 0 0 0 1.5719087">afc<tspan font-size="3.3272px" stroke-width=".26458">1B</tspan><tspan dy="-1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"> = afc</tspan><tspan font-size="3.3272px" stroke-width=".26458">2A</tspan> </tspan></tspan></text>
+  <text x="133.89703" y="9.5228271" style="line-height:1.05" xml:space="preserve"><tspan x="133.89703" y="9.5228271" dy="0 0 0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">top<tspan dy="1.5719087" font-size="3.3272px" stroke-width=".26458">2A</tspan></tspan></text>
+  <text x="195.0199" y="36.059925" style="line-height:1.05" xml:space="preserve"><tspan x="195.0199" y="36.059925" dy="0 0 0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">afc<tspan dy="1.5719087" font-size="3.3272px" stroke-width=".26458">2B</tspan></tspan></text>
+  <text x="57.680046" y="129.30853" style="line-height:1.05" xml:space="preserve"><tspan x="57.680046" y="129.30853" dy="0 0 1.5719087" fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">bp<tspan font-size="3.3272px" stroke-width=".26458">1A</tspan></tspan></text>
+  <text x="143.00742" y="128.80258" style="line-height:1.05" xml:space="preserve"><tspan x="143.00742" y="128.80258" dy="0 0" fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">bp<tspan dy="1.5719087" fill="#000000" font-size="3.3272px" stroke-width=".26458">2B</tspan></tspan></text>
+  <text x="155.42816" y="149.91898" style="line-height:1.05" xml:space="preserve"><tspan x="155.42816" y="149.91898" dy="0 0 1.5719087" fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dx="0 0 0 0" dy="0 0 1.5719087 0 0 0 0 0 0 1.5719087" fill="#000000">bp<tspan font-size="3.3272px" stroke-width=".26458">1B</tspan><tspan dy="-1.5719087" fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"> = bp</tspan><tspan font-size="3.3272px" stroke-width=".26458">2A</tspan> </tspan></tspan></text>
+ </g>
+ <path d="m168.33 145.55c-0.31626-15.778-44.931 10.135-56.217-26.998" fill="none" marker-end="url(#marker5700-2-89-2-5)" stroke="#000" stroke-opacity=".5" stroke-width=".26458"/>
+ <g fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">
+  <text x="118.24972" y="173.59319" style="line-height:1.05" xml:space="preserve"><tspan x="118.24972" y="173.59319" dy="0 0 1.5719087 0 -1.5719087 0 0 0 0" font-family="'Cambria Math'" font-size="5.5454px">tc<tspan font-size="3.3272px" stroke-width=".26458">2A</tspan> = tc<tspan dy="1.5719087 0 -1.5719087" font-size="5.5454px" stroke-width=".26458"><tspan font-size="3.3272px" stroke-width=".26458">2B</tspan> </tspan>= <tspan fill="#bf3fef" stroke-width=".26458">C</tspan><tspan dy="1.5719087" fill="#bf3fef" font-size="3.3272px" stroke-width=".26458">2</tspan></tspan></text>
+  <text x="118.5891" y="191.20041" style="line-height:1.05" xml:space="preserve"><tspan x="118.5891" y="191.20041" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dy="0 0 1.5719087 0 -1.5719087 0 0 0 0 1.5719087 0 -1.5719087" font-family="'Cambria Math'">tc<tspan font-size="3.3272px" stroke-width=".26458">1A</tspan> = tc<tspan font-size="3.3272px" stroke-width=".26458">1B</tspan> </tspan>= <tspan fill="#003fef" stroke-width=".26458">C</tspan><tspan dy="1.5719087" fill="#003fef" font-size="3.3272px" stroke-width=".26458">1</tspan> </tspan></text>
+  <text x="66.293167" y="207.52385" style="line-height:1.05" xml:space="preserve"><tspan x="66.293167" y="207.52385" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dy="0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ζ<tspan dy="1.5719087" font-family="'Cambria Math'" font-size="3.3272px" stroke-width=".26458">2B</tspan></tspan> </tspan></text>
+  <text x="64.758385" y="227.0909" style="line-height:1.05" xml:space="preserve"><tspan x="64.758385" y="227.0909" dy="0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ω<tspan font-size="3.3272px" stroke-width=".26458">2A</tspan></tspan></text>
+  <text x="64.354424" y="217.01961" style="line-height:1.05" xml:space="preserve"><tspan x="64.354424" y="217.01961" dy="0 1.5719087" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ω<tspan font-size="3.3272px" stroke-width=".26458">2B</tspan></tspan></text>
+  <text x="100.90216" y="229.65518" style="line-height:1.05" xml:space="preserve"><tspan x="100.90216" y="229.65518" dy="0 0 0 0 0 0 0 0 0 -3.1438174" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dy="0 0 0 -1.5719087 0 0 0 1.5719087" font-family="'Cambria Math'">ζ<tspan dy="1.5719087 0 -1.5719087 0 0 0 0 0 -1.5719087" font-family="'Cambria Math'" font-size="3.3272px" stroke-width=".26458">2A</tspan> = ζ<tspan font-size="3.3272px" stroke-width=".26458">1B</tspan></tspan> </tspan></text>
+  <text x="145.46233" y="218.13893" style="line-height:1.05" xml:space="preserve"><tspan x="145.46233" y="218.13893" dy="0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ω<tspan dy="1.5719087" font-size="3.3272px" stroke-width=".26458">1A</tspan></tspan></text>
+  <text x="146.6024" y="209.06155" style="line-height:1.05" xml:space="preserve"><tspan x="146.6024" y="209.06155" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458"><tspan dy="0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ζ<tspan dx="0" dy="1.5719087" font-size="3.3272px" stroke-width=".26458">1A</tspan></tspan> </tspan></text>
+ </g>
+ <path d="m109.66 226.28 0.64523-4.5881" fill="none" marker-end="url(#marker5700-6-4-97-6-3-5)" stroke="#000" stroke-opacity=".5" stroke-width=".26458"/>
+ <text x="145.42303" y="228.29213" fill="#000000" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458" style="line-height:1.05" xml:space="preserve"><tspan x="145.42303" y="228.29213" dy="0" font-family="'Cambria Math'" font-size="5.5454px" stroke-width=".26458">ω<tspan dy="1.5719087" font-size="3.3272px" stroke-width=".26458">1B</tspan></tspan></text>
+ <g fill="none">
+  <g stroke="#000" stroke-opacity=".50201">
+   <path d="m73.87 207.93c10.304-1.7092 6.9237 3.5915 14.438 6.2451" marker-end="url(#marker5700-6-4-96-9)" stroke-width=".26458"/>
+   <path d="m74.06 216.6c8.3787-0.0975 9.7064 6.606 19.878 2.2928" marker-end="url(#marker5700-6-4-0-4-5)" stroke-width=".26458"/>
+   <path d="m73.58 225.73c10.633 0.17407 20.086 4.6455 28.956-4.4888" marker-end="url(#marker5700-6-4-9-45-85)" stroke-width=".26458"/>
+   <path d="m144.63 227.37c-9.918 0.15091-14.537 6.5758-29.012-5.7857" marker-end="url(#marker5700-6-4-9-45-3-98)" stroke-width=".26458"/>
+   <path d="m149.36 176.11c0.31839 6.7236-18.671 7.306-36.458 3.0137" marker-end="url(#marker5700-6-4-9-45-8-2)" stroke-width=".26458"/>
+   <path d="m149.52 193.72c0.0866 9.2431-20.647-1.0471-36.839 4.909" marker-end="url(#marker5700-6-4-9-45-8-8-6)" stroke-width=".26458"/>
+   <path d="m144.95 218.89c-3.8469 4.4714-17.652 5.1447-25.481 0.95593" marker-end="url(#marker5700-6-4-9-45-3-9-2)" stroke-width=".26458"/>
+   <path d="m145 207.92c-9.5779 0.0711-10.196 7.648-22.356 9.0269" marker-end="url(#marker5700-6-4-96-7-5)" stroke-width=".26458"/>
+  </g>
+  <g>
+   <path d="m110.75 178.6 0.025 20.767" stroke="#f36" stroke-width=".13229"/>
+   <g>
+    <path d="m69.134 127.44s36.629-22.833 72.575-2.786" stroke="#ffef00" stroke-width=".79375"/>
+    <path d="m110.62 116.32a62.177 62.177 0 0 1 31.089 8.3302" stop-color="#000000" stroke="#bf3fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+    <path d="m69.134 127.44a82.972 82.972 0 0 1 41.486-11.116" stop-color="#000000" stroke="#003fef" stroke-width=".26458" style="font-variation-settings:normal"/>
+   </g>
+  </g>
+ </g>
+ <circle cx="110.65" cy="199.5" r=".4159" fill="#003fef" fill-rule="evenodd" stop-color="#000000" stroke="#003fef" stroke-width=".56003" style="font-variation-settings:normal"/>
+ <g fill-rule="evenodd" stroke="#000" stroke-width=".26458">
+  <circle cx="89.967" cy="214.32" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="95.938" cy="217.8" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="103.87" cy="219.87" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="114.46" cy="219.91" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="117.68" cy="219.02" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="120.88" cy="217.12" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="110.66" cy="219.93" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+ </g>
+ <circle cx="110.65" cy="178.7" r=".4159" fill="#bf3fef" fill-rule="evenodd" stop-color="#000000" stroke="#bf3fef" stroke-width=".56004" style="font-variation-settings:normal"/>
+ <g fill-rule="evenodd" stroke="#000" stroke-width=".26458">
+  <circle cx="141.76" cy="124.68" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="110.63" cy="116.42" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="69.188" cy="127.4" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="17.2" cy="37.375" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="38.508" cy="25.07" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="85.785" cy="12.122" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="110.64" cy="12.227" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="133.25" cy="12.14" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="175.58" cy="24.082" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+  <circle cx="193.7" cy="34.6" r=".4159" stop-color="#000000" style="font-variation-settings:normal"/>
+ </g>
+</svg>

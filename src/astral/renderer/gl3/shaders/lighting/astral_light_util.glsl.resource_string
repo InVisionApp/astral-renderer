@@ -1,0 +1,308 @@
+// -*- C++ -*-
+/*!
+ * \file astral_light_util.glsl.resource_string
+ * \brief astral_light_util.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/* Computes the texel_coordinate and comparison value for shadowmapping
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \returns a vec3() where .xy holds the texel coordinate and .z holds the comparison value
+ */
+vec3
+astral_compute_shadow_texel(in AstralShadowMap shadow_map,
+                            in vec2 v)
+{
+  vec2 texel_coordinate, texture_coordinate;
+  float raw_signed_distance, virtual_texel_coordinate;
+  float virtual_texture_coordinate, p_depth;
+  float return_value;
+
+  /* compute the texel_coordinate location */
+  texel_coordinate = shadow_map.m_atlas_location;
+  if (abs(v.x) > abs(v.y))
+    {
+      /* min-x and max-x side are at +2 and +3 */
+      texel_coordinate.y += 2.0;
+      raw_signed_distance = v.x;
+      virtual_texel_coordinate = v.y;
+    }
+  else
+    {
+      raw_signed_distance = v.y;
+      virtual_texel_coordinate = v.x;
+    }
+
+  // adjust for if on the max-side
+  if (raw_signed_distance > 0.0)
+    {
+      texel_coordinate.y += 1.0;
+    }
+
+  // divide by the projection coordinate to get a value in [-1, 1]
+  virtual_texel_coordinate /= abs(raw_signed_distance);
+
+  /* normalize virtual_texel_coordinate from [-1, 1] to [0, shadow_map.m_dimensions - 1]
+   * Note that the multiplier is to shadow_map.m_dimensions - 1.0, this is because if
+   * we hit exactly shadow_map.m_dimensions it would be a texel outside of the shadow map.
+   */
+  virtual_texel_coordinate = 0.5 * (shadow_map.m_dimensions - 1.0) * (virtual_texel_coordinate + 1.0);
+
+  // add to texel_coordinate.x the value of virtual_texel_coordinate
+  texel_coordinate.x += virtual_texel_coordinate;
+
+  // compute the depth of the pixel from the raw signed distance
+  p_depth = astral_compute_shadow_map_depth(abs(raw_signed_distance));
+
+  return vec3(texel_coordinate, p_depth);
+}
+
+/* Returns 0.0 or 1.0 where 0.0 indicates that the pixel
+ * is inside a shadow and 1.0 if a pixel is outside of a
+ * shadow. When performing the distance lookup, it does
+ * not filter the distance values.
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ */
+float
+astral_compute_shadow_unfiltered(in AstralShadowMap shadow_map,
+                                 in vec2 v)
+{
+  vec3 S;
+  float o_depth;
+
+  S = astral_compute_shadow_texel(shadow_map, v);
+  S.xy += vec2(0.25);
+
+  o_depth = texelFetch(astral_shadow_map_atlas, ivec2(S.xy), 0).r;
+  return step(S.z, o_depth); //i.e. visible exactly when p_depth < o_depth
+}
+
+/* Returns 0.0 or 1.0 where 0.0 indicates that the pixel
+ * is inside a shadow and 1.0 if a pixel is outside of a
+ * shadow. When performing the distance lookup, it filters
+ * the distance values from the shadowmap texture before
+ * performing the comparison.
+ *
+ * DANGER: if ASTRAL_EMSCRIPTEN is defined, this function
+ *         returns unfiltered distance values.
+ *
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ */
+float
+astral_compute_shadow_distance_filtered(in AstralShadowMap shadow_map, in vec2 v)
+{
+  vec3 S;
+  float o_depth;
+
+  S = astral_compute_shadow_texel(shadow_map, v);
+
+  // perform the texture fetch to get the depth of the closest occluder
+  S.xy += vec2(0.5);
+  S.xy *= vec2(astral_shadow_map_inverse_width, astral_shadow_map_inverse_height);
+
+  o_depth = textureLod(astral_shadow_map_atlas, S.xy, 0.0).r;
+  return step(S.z, o_depth); //i.e. visible exactly when p_depth < o_depth
+}
+
+
+/*!
+ * "Default" function that returns 0.0 or 1.0 where 0.0
+ * indicates that the pixel is inside a shadow and 1.0
+ * if a pixel is outside of a shadow.
+ *
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ */
+float
+astral_compute_shadow(in AstralShadowMap shadow_map, in vec2 v)
+{
+  return astral_compute_shadow_distance_filtered(shadow_map, v);
+}
+
+///@cond
+
+
+/* Sample positions are the same as D3D11_STANDARD_MULTISAMPLE_PATTERN,
+ * see https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels
+ * The values in the D3D API are integers [-8, +8] where 8 means the "boundary of the pixel" which is 0.5
+ */
+#define ASTRAL_AA_HELPER_OFFSET_VALUE(A, B) (v + (float(A) * 0.0625) * dv_dx + (float(B) * 0.0625) * dv_dy)
+
+#define ASTRAL_COMPUTE_SHADOW_4XAA(from_function, new_function)         \
+  float new_function(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy) \
+  {                                                                       \
+    float return_value;                                                   \
+    return_value  = from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-2, -6)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 6, -2)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-6,  2)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 2,  6)); \
+                                                                        \
+    return 0.25 * return_value;                                         \
+  }
+
+#define ASTRAL_COMPUTE_SHADOW_8XAA(from_function, new_function)         \
+  float new_function(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy) \
+  {                                                                       \
+    float return_value;                                                   \
+    return_value  = from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 1, -3)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-1,  3)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 5,  1)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-3, -5)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-5,  5)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-7, -1)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 3,  7)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 7, -7)); \
+                                                                        \
+    return 0.125 * return_value;                                         \
+  }
+
+#define ASTRAL_COMPUTE_SHADOW_16XAA(from_function, new_function)         \
+  float new_function(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy) \
+  {                                                                       \
+    float return_value;                                                   \
+    return_value  = from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 1,  1)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-1, -3)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-3,  2)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 4, -1)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-5, -2)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 2,  5)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 5,  3)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 3, -5)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-2,  6)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 0, -7)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-4, -6)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-6,  4)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-8,  0)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 7, -4)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE( 6,  7)); \
+    return_value += from_function(shadow_map, ASTRAL_AA_HELPER_OFFSET_VALUE(-7, -8)); \
+                                                                        \
+    return 0.0625 * return_value;                                       \
+  }
+
+///@endcond
+
+/*!
+ * Performs astral_compute_shadow_unfiltered() four times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_unfiltered_4xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_4XAA(astral_compute_shadow_unfiltered, astral_compute_shadow_unfiltered_4xAA)
+
+/*!
+ * Performs astral_compute_shadow_unfiltered() eight times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_unfiltered_8xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_8XAA(astral_compute_shadow_unfiltered, astral_compute_shadow_unfiltered_8xAA)
+
+/*!
+ * Performs astral_compute_shadow_unfiltered() sixteen times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_unfiltered_16xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_16XAA(astral_compute_shadow_unfiltered, astral_compute_shadow_unfiltered_16xAA)
+
+/*!
+ * Performs astral_compute_shadow_distance_filtered() four times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_distance_filtered_4xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_4XAA(astral_compute_shadow_distance_filtered, astral_compute_shadow_distance_filtered_4xAA)
+
+/*!
+ * Performs astral_compute_shadow_distance_filtered() eight times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_distance_filtered_8xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_8XAA(astral_compute_shadow_distance_filtered, astral_compute_shadow_distance_filtered_8xAA)
+
+/*!
+ * Performs astral_compute_shadow_distance_filtered() sixteen times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_distance_filtered_16xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_16XAA(astral_compute_shadow_distance_filtered, astral_compute_shadow_distance_filtered_16xAA)
+
+/*!
+ * Performs astral_compute_shadow() four times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_4xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_4XAA(astral_compute_shadow, astral_compute_shadow_4xAA)
+
+/*!
+ * Performs astral_compute_shadow() eight times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_8xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_8XAA(astral_compute_shadow, astral_compute_shadow_8xAA)
+
+/*!
+ * Performs astral_compute_shadow() sixteen times to give an
+ * anti-aliased shadow value
+ * \param shadow_map locaiton within atlas of shadow map
+ * \param v vector from the light to the pixel
+ * \param dv_dx the value of dFdx(v)
+ * \param dv_dy the value of dFdy(v)
+ */
+float
+astral_compute_shadow_16xAA(in AstralShadowMap shadow_map, in vec2 v, in vec2 dv_dx, in vec2 dv_dy);
+ASTRAL_COMPUTE_SHADOW_16XAA(astral_compute_shadow, astral_compute_shadow_16xAA)
+
+#undef ASTRAL_COMPUTE_SHADOW_4XAA
+#undef ASTRAL_COMPUTE_SHADOW_8XAA
+#undef ASTRAL_AA_HELPER_OFFSET_VALUE

@@ -1,0 +1,69 @@
+/*!
+ * \file spacing.glsl.resource_string
+ * \brief spacing.glsl.resource_string
+ *
+ * Copyright 2019 InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+struct graph_stroke_properties
+{
+  float m_count;
+  float m_line_width;
+  float m_spacing;
+};
+
+void
+load_graph_stroke_properties(in uint data_location, out graph_stroke_properties G)
+{
+  vec3 raw_data;
+
+  raw_data = astral_read_item_dataf(data_location).xyz;
+  G.m_count = raw_data.x;
+  G.m_line_width = raw_data.y;
+  G.m_spacing = raw_data.z;
+}
+
+float
+unpack_signed_distance(float f)
+{
+  return f * 2.0 - 1.0;
+}
+
+float
+pack_signed_distance(float f)
+{
+  return f * 0.5 + 0.5;
+}
+
+float
+compute_signed_distance(float distance, float line_width, float count, float total_length)
+{
+  /* First compute the space left over from removing the start and end. */
+  float total_length_minus_first_line, V, R, mid, C, spacing;
+
+  total_length_minus_first_line = total_length - 0.5 * line_width;
+  V = distance - 0.5 * line_width;
+
+  spacing = total_length_minus_first_line / count;
+  R = mod(V, spacing);
+
+  /* the line is on the range [spacing - line_width, spacing],
+   * we want to take the signed distance to the boundary, we
+   * get this by computing the distance from the middle of the
+   * interval and then differencing that with half the line width
+   */
+  mid = spacing - 0.5 * line_width;
+  C = abs(R - mid);
+
+  return max(line_width * 0.5 - C,
+             line_width * 0.5 - distance);
+}

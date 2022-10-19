@@ -1,0 +1,77 @@
+// -*- C++ -*-
+/*!
+ * \file astral_light_material.vert.glsl.resource_string
+ * \brief astral_light_material.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_vert_shader(in uint sub_shader, in uint shader_data,
+                                in uint brush_idx, in vec2 material_p,
+                                in AstralTransformation tr)
+{
+}
+
+void
+astral_material_vert_shader(in uint sub_shader, in uint shader_data,
+                            in uint brush_idx, in vec2 material_p,
+                            in AstralTransformation tr)
+{
+  vec4 item_data;
+  vec2 light_position, light_direction, pixel_p, tmp;
+  uint raw_color, raw_shadow_color;
+  uint shadow_map_loc, tr_loc;
+  float cos_thresh, light_z;
+  AstralShadowMap shadow_map;
+
+  item_data = astral_read_item_dataf(shader_data);
+  light_position.xy = item_data.xy;
+  light_direction = item_data.zw;
+
+  item_data = astral_read_item_dataf(shader_data + 1u);
+  raw_color = floatBitsToUint(item_data.x);
+  raw_shadow_color = floatBitsToUint(item_data.y);
+  cos_thresh = item_data.z;
+  light_z = item_data.w;
+
+  item_data = astral_read_item_dataf(shader_data + 2u);
+  shadow_map_loc = floatBitsToUint(item_data.x);
+  tr_loc = floatBitsToUint(item_data.y);
+  astral_light_shadow_fall_off = item_data.z;
+  astral_light_shadow_fall_off_length_sq = item_data.w * item_data.w;
+
+  tmp = material_p - light_position;
+
+  astral_light_vector_x = tmp.x;
+  astral_light_vector_y = tmp.y;
+  astral_light_z = light_z;
+  astral_light_material_dot = dot(tmp, light_direction);
+  astral_light_directional_cos_thresh = cos_thresh;
+  astral_light_color = raw_color;
+  astral_light_shadow_color = raw_shadow_color;
+
+  astral_load(shadow_map_loc, shadow_map);
+  astral_light_shadow_map_atlas_location_x = shadow_map.m_atlas_location.x;
+  astral_light_shadow_map_atlas_location_y = shadow_map.m_atlas_location.y;
+  astral_light_shadow_map_size = shadow_map.m_dimensions;
+
+  if (tr_loc != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation tr;
+
+      astral_load(tr_loc, tr);
+      tmp = astral_apply_matrix(tr.m_matrix, tmp);
+    }
+  astral_light_vector_shadow_map_x = tmp.x;
+  astral_light_vector_shadow_map_y = tmp.y;
+}

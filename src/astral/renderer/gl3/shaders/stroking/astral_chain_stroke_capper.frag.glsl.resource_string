@@ -1,0 +1,71 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_capper.frag.glsl.resource_string
+ * \brief astral_chain_stroke_capper.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  float signed_distance;
+
+  #ifdef ASTRAL_STROKE_CAPPER_ROUNDED
+    {
+      vec2 v, dvdx, dvdy;
+      float r, dx, dy;
+
+      v = vec2(astral_chain_stroke_pt_x, astral_chain_stroke_pt_y);
+      r = length(v);
+      signed_distance = astral_chain_stroke_radius - r;
+
+      dvdx = dFdx(v);
+      dvdy = dFdy(v);
+
+      dx = dot(v, dvdx);
+      dy = dot(v, dvdy);
+      signed_distance *= r * inversesqrt(dx * dx + dy * dy);
+    }
+  #else
+    {
+      /* It might be tempting to use the same logic used in
+       * astral_chain_stroke_square_cap.vert.glsl.resource_string
+       * and astral_chain_stroke_square_cap.frag.glsl.resource_string,
+       * but cappers have a tendency to render very slim pieces when
+       * a path is scaled down and the quality of the derivative
+       * of a single scalar seems to suffer; so we replicate the
+       * logic as found in astral_compute_dash_distance_capped().
+       */
+      vec2 v, f, u1, u2;
+
+      v = vec2(astral_chain_stroke_pt_x, astral_chain_stroke_pt_y);
+      f = vec2(astral_chain_stroke_radius, astral_chain_stroke_radius) - abs(v);
+
+      u1 = vec2(dFdx(astral_chain_stroke_pt_x), dFdy(astral_chain_stroke_pt_x));
+      u2 = vec2(dFdx(astral_chain_stroke_pt_y), dFdy(astral_chain_stroke_pt_y));
+
+      f.x *= inversesqrt(dot(u1, u1));
+      f.y *= inversesqrt(dot(u2, u2));
+
+      signed_distance = min(f.x, f.y);
+    }
+  #endif
+
+  base_color = astral_compute_mask_emit_value(signed_distance, astral_chain_stroke_coverage_multiplier);
+}

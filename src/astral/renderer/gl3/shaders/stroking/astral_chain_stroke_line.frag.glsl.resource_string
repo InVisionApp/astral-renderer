@@ -1,0 +1,46 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_line.frag.glsl.resource_string
+ * \brief astral_chain_stroke_line.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  float dx, dy;
+
+  dx = dFdx(astral_chain_stroke_perp_distance_to_curve);
+  dy = dFdy(astral_chain_stroke_perp_distance_to_curve);
+  astral_chain_stroke_perp_distance_to_curve_gradient_x = dx;
+  astral_chain_stroke_perp_distance_to_curve_gradient_y = dy;
+
+  /* the distance to curve is signed, make it unsigned for the callers */
+  astral_chain_stroke_perp_distance_to_curve = abs(astral_chain_stroke_perp_distance_to_curve);
+
+  #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+    {
+      dx = dFdx(astral_chain_stroke_distance_along_contour);
+      dy = dFdy(astral_chain_stroke_distance_along_contour);
+      astral_chain_stroke_distance_along_contour_gradient_x = dx;
+      astral_chain_stroke_distance_along_contour_gradient_y = dy;
+    }
+  #endif
+}
+
+void
+astral_frag_shader(in uint sub_shader, in uint item_data_location,
+                   out vec4 base_color)
+{
+  astral_line_biarc_frag_shader(sub_shader, item_data_location, base_color);
+}

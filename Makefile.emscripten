@@ -1,0 +1,235 @@
+default: targets
+
+# overload where the build goes, if one wishes
+WASM ?= wasm
+
+# all other build artifacts land here.
+BUILD=$(WASM)/build
+
+TARGET_CC=emcc
+TARGET_CXX=em++
+# emscripten cheat sheet:
+#  1) cd emsdk && source emsdk_env.sh
+#  2) launch http_server from the directory one wishes to browser to launch content
+#  3) or use emrun for html pages linked with --emrun
+
+# number of threads allowed
+EMSCRIPTEN_NUMBER_THREADS ?= 4
+
+LEX=lex
+ECHO=$(shell which echo)
+STRING_RESOURCE_CC = shell-scripts/create-resource-cpp-file.sh
+
+# must be set before for make to gets its rules correct
+ASTRAL_GL_HPP=inc/astral/util/gl/astral_gl.hpp
+ASTRAL_GL_CPP=src/astral/util/gl/astral_gl.cpp
+
+# PTHREADS in Emscripten
+#  1. adding -s PROXY_TO_PTHREAD will make all demos die, the JavaScript
+#     console gives an error of the flavor "Screen not defined" which
+#     sounds like when main() is proxied to a thread, SDL_Init() freaks
+#     out.
+#  2. There is a performance loss, atleast for parallel glyph loading
+#     when using threads. The loss is quite large, for example loading
+#     glpygs of DejaVaSans.ttf in paralle across four threads takes
+#     1164 ms where as just using one thread takes 421 ms. This might
+#     be caused by that File IO is much slower on threads, but reading
+#     from a file and dumping the contents into a buffer fails and
+#     generates garbage under Emscripten builds too.
+#
+# Uncomment the below to add threading support in WASM builds
+#
+#ASTRAL_PTHREAD_FLAGS=-s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=$(EMSCRIPTEN_NUMBER_THREADS) -DEMSCRIPTEN_NUMBER_THREADS=$(EMSCRIPTEN_NUMBER_THREADS) -s WASM_MEM_MAX=1024MB
+
+# When building projects that use libAstral, these emscripten flags are
+# required; also add to one's compile flags -Isome/path where some/path is
+# the location of the incldue files from Astal; for example when building
+# the demos, the value -Iinc is added.
+ASTRAL_BASE_FLAGS=$(ASTRAL_LIBS_FLAGS) -std=c++11 -Iinc $(ASTRAL_PTHREAD_FLAGS)
+ASTRAL_LIBS_FLAGS=-s MAX_WEBGL_VERSION=2 -s MIN_WEBGL_VERSION=2 -s USE_FREETYPE=1 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=128MB
+ASTRAL_DEBUG_FLAGS=$(ASTRAL_BASE_FLAGS) -g -DASTRAL_DEBUG
+ASTRAL_RELEASE_FLAGS=$(ASTRAL_BASE_FLAGS) -O3 --llvm-lto 3
+
+DEMO_LIBS=
+DEMO_LIB_FLAGS=-s FORCE_FILESYSTEM=1 -s EXIT_RUNTIME=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s SDL2_IMAGE_FORMATS='["bmp","gif","lbm","pcx","png","pnm","svg","tga","tiff","xcf","xpm","xv", "jpg"]'  --emrun
+DEMO_COMMON_FLAGS = $(DEMO_LIB_FLAGS) -Idemos/common -Idemos/tutorial/common
+DEMO_DEBUG_FLAGS = $(DEMO_COMMON_FLAGS) $(ASTRAL_DEBUG_FLAGS)
+DEMO_RELEASE_FLAGS = $(DEMO_COMMON_FLAGS) $(ASTRAL_RELEASE_FLAGS)
+
+# The build of Astral scans a GL header to generate
+# its ngl-header file, this requires that the host tool-chain
+# is used to generate the scanner and header-file creator
+HOST_CC=cc
+HOST_CXX=c++
+
+# Location of demo-assets
+ASSET_FLAGS=--preload-file demo_data
+
+######################################
+# Reuse the Rules.mk system to collect the source files
+filelist = $(foreach filename,$(1),$(d)/$(filename))
+
+TARGETLIST:= all
+ASTRAL_SOURCES:=
+ASTRAL_SHADERS:=
+ASTRAL_DEMOS:=
+COMMON_DEMO_SOURCES:=
+COMMON_DEMO_SHADERS:=
+
+dir := src/astral
+include $(dir)/Rules.mk
+
+dir := demos
+include $(dir)/Rules.mk
+
+######################################
+# Recipe to build Astral libraries
+ASTRAL_OBJS = $(patsubst %.cpp, %.bc, $(ASTRAL_SOURCES))
+ASTRAL_SHADER_SRCS = $(patsubst %.resource_string, $(BUILD)/string_resources_cpp/%.resource_string.cpp, $(ASTRAL_SHADERS))
+
+ASTRAL_DEBUG_SHADER_OBJS = $(patsubst %.cpp, $(BUILD)/debug/%.bc, $(ASTRAL_SHADER_SRCS))
+ASTRAL_DEBUG_OBJS = $(addprefix $(BUILD)/debug/, $(ASTRAL_OBJS))
+ASTRAL_DEBUG_DEPS = $(patsubst %.bc, %.d, $(ASTRAL_DEBUG_OBJS))
+-include $(ASTRAL_DEBUG_DEPS)
+
+ASTRAL_RELEASE_SHADER_OBJS = $(patsubst %.cpp, $(BUILD)/release/%.bc, $(ASTRAL_SHADER_SRCS))
+ASTRAL_RELEASE_OBJS = $(addprefix $(BUILD)/release/, $(ASTRAL_OBJS))
+ASTRAL_RELEASE_DEPS = $(patsubst %.bc, %.d, $(ASTRAL_RELEASE_OBJS))
+-include $(ASTRAL_RELEASE_DEPS)
+
+$(BUILD)/string_resources_cpp/%.resource_string.cpp: %.resource_string $(STRING_RESOURCE_CC)
+	@mkdir -p $(dir $@)
+	$(STRING_RESOURCE_CC) $< $(notdir $<) $(dir $@)
+
+#######################################################
+## Debug library recipes
+$(BUILD)/debug/%.resource_string.bc: $(BUILD)/string_resources_cpp/%.resource_string.cpp
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_DEBUG_FLAGS) -c $< -o $@
+
+$(BUILD)/debug/%.bc: %.cpp $(BUILD)/debug/%.d $(ASTRAL_GL_HPP)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_DEBUG_FLAGS) -MT $@ -MMD -MP -MF $(BUILD)/debug/$*.d -c $< -o $@
+$(BUILD)/debug/%.d: ;
+.PRECIOUS: $(BUILD)/debug/%.d
+
+$(WASM)/libAstral_debug.so: $(ASTRAL_DEBUG_OBJS) $(ASTRAL_DEBUG_SHADER_OBJS)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_DEBUG_FLAGS) -shared $(ASTRAL_DEBUG_OBJS) $(ASTRAL_DEBUG_SHADER_OBJS) -o $@
+
+TARGETLIST += $(WASM)/libAstral_debug.so
+
+##############################################################
+## Release library recips
+$(BUILD)/release/%.bc: %.cpp $(BUILD)/release/%.d $(ASTRAL_GL_HPP)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_RELEASE_FLAGS) -MT $@ -MMD -MP -MF $(BUILD)/release/$*.d -c $< -o $@
+$(BUILD)/release/%.d: ;
+.PRECIOUS: $(BUILD)/release/%.d
+
+$(BUILD)/release/%.resource_string.bc: $(BUILD)/string_resources_cpp/%.resource_string.cpp
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_RELEASE_FLAGS) -c $< -o $@
+
+$(WASM)/libAstral_release.so: $(ASTRAL_RELEASE_OBJS) $(ASTRAL_RELEASE_SHADER_OBJS)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(ASTRAL_RELEASE_FLAGS) -shared $(ASTRAL_RELEASE_OBJS) $(ASTRAL_RELEASE_SHADER_OBJS)  -o $@
+
+TARGETLIST += $(WASM)/libAstral_release.so
+
+##########################################################
+## Debug Demo recipes
+$(BUILD)/debug/demo/%.bc: %.cpp $(BUILD)/debug/demo/%.d $(ASTRAL_GL_HPP)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(DEMO_DEBUG_FLAGS) -MT $@ -MMD -MP -MF $(BUILD)/debug/demo/$*.d -c $< -o $@
+$(BUILD)/debug/demo/%.d: ;
+.PRECIOUS: $(BUILD)/debug/demo/%.d
+
+$(BUILD)/demo/debug/%.resource_string.bc: $(BUILD)/string_resources_cpp/%.resource_string.cpp
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(DEMO_DEBUG_FLAGS) -c $< -o $@
+
+##################################################
+## Release demo recipes
+$(BUILD)/release/demo/%.bc: %.cpp $(BUILD)/release/demo/%.d $(ASTRAL_GL_HPP)
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(DEMO_RELEASE_FLAGS) -MT $@ -MMD -MP -MF $(BUILD)/release/demo/$*.d -c $< -o $@
+$(BUILD)/release/demo/%.d: ;
+.PRECIOUS: $(BUILD)/release/demo/%.d
+
+$(BUILD)/demo/release/%.resource_string.bc: $(BUILD)/string_resources_cpp/%.resource_string.cpp
+	@mkdir -p $(dir $@)
+	$(TARGET_CXX) $(DEMO_RELEASE_FLAGS) -c $< -o $@
+
+
+###############################
+## Rule to make demos
+COMMON_DEMO_OBJS = $(patsubst %.cpp, %.bc, $(COMMON_DEMO_SOURCES))
+
+COMMON_DEMO_SHADER_DEBUG_OBJS = $(patsubst %.resource_string, $(BUILD)/demo/debug/%.resource_string.bc, $(COMMON_DEMO_SHADERS))
+COMMON_DEMO_DEBUG_OBJS = $(addprefix $(BUILD)/debug/demo/, $(COMMON_DEMO_OBJS))
+COMMON_DEMO_DEBUG_DEPS = $(patsubst %.bc, %.d, $(COMMON_DEMO_DEBUG_OBJS))
+-include $(COMMON_DEMO_DEBUG_DEPS)
+
+COMMON_DEMO_SHADER_RELEASE_OBJS = $(patsubst %.resource_string, $(BUILD)/demo/release/%.resource_string.bc, $(COMMON_DEMO_SHADERS))
+COMMON_DEMO_RELEASE_OBJS = $(addprefix $(BUILD)/release/demo/, $(COMMON_DEMO_OBJS))
+COMMON_DEMO_RELEASE_DEPS = $(patsubst %.bc, %.d, $(COMMON_DEMO_RELEASE_OBJS))
+-include $(COMMON_DEMO_RELEASE_DEPS)
+
+define demorule
+$(eval THISDEMO_$(1)_SHADER_DEBUG_OBJS:=$$(patsubst %.resource_string, $(BUILD)/demo/debug/%.resource_string.bc, $$($(1)_SHADERS))
+THISDEMO_$(1)_DEBUG_OBJS:=$$(addprefix $(BUILD)/debug/demo/, $$(patsubst %.cpp, %.bc, $$($(1)_SOURCES)))
+THISDEMO_$(1)_DEBUG_DEPS:= $$(patsubst %.bc, %.d, $$(THISDEMO_$(1)_DEBUG_OBJS))
+-include $$(THISDEMO_$(1)_DEBUG_DEPS)
+$(WASM)/$(1)-debug.html: $(WASM)/libAstral_debug.so $$(COMMON_DEMO_DEBUG_OBJS) $$(COMMON_DEMO_SHADER_DEBUG_OBJS) $$(THISDEMO_$(1)_DEBUG_OBJS) $$(THISDEMO_$(1)_SHADER_DEBUG_OBJS)
+	@mkdir -p $(dir $$@)
+	$(TARGET_CXX) $(ASSET_FLAGS) $(DEMO_DEBUG_FLAGS) $$(THISDEMO_$(1)_DEBUG_OBJS) $$(COMMON_DEMO_DEBUG_OBJS) $(COMMON_DEMO_SHADER_DEBUG_OBJS) $$(THISDEMO_$(1)_SHADER_DEBUG_OBJS) $(WASM)/libAstral_debug.so -o $$@ $(DEMO_LIBS)
+
+THISDEMO_$(1)_SHADER_RELEASE_OBJS:=$$(patsubst %.resource_string, $(BUILD)/demo/release/%.resource_string.bc, $$($(1)_SHADERS))
+THISDEMO_$(1)_RELEASE_OBJS:=$$(addprefix $(BUILD)/release/demo/, $$(patsubst %.cpp, %.bc, $$($(1)_SOURCES)))
+THISDEMO_$(1)_RELEASE_DEPS:= $$(patsubst %.bc, %.d, $$(THISDEMO_$(1)_RELEASE_OBJS))
+-include $$(THISDEMO_$(1)_RELEASE_DEPS)
+$(WASM)/$(1)-release.html: $(WASM)/libAstral_release.so $$(COMMON_DEMO_RELEASE_OBJS) $$(COMMON_DEMO_SHADER_RELEASE_OBJS) $$(THISDEMO_$(1)_RELEASE_OBJS) $$(THISDEMO_$(1)_SHADER_RELEASE_OBJS)
+	@mkdir -p $(dir $$@)
+	$(TARGET_CXX) $(ASSET_FLAGS) $(DEMO_RELEASE_FLAGS)  $$(THISDEMO_$(1)_RELEASE_OBJS) $$(COMMON_DEMO_RELEASE_OBJS) $$(COMMON_DEMO_SHADER_RELEASE_OBJS) $$(THISDEMO_$(1)_SHADER_RELEASE_OBJS) $(WASM)/libAstral_release.so -o $$@ $(DEMO_LIBS)
+
+$(1)-debug: $(WASM)/$(1)-debug.html
+$(1)-release: $(WASM)/$(1)-release.html
+$(1): $(1)-debug $(1)-release
+demos-debug: $(1)-debug
+demos-release: $(1)-release
+demos: $(1)
+.PHONY: $(1) demos demos-debug demos-release $(1)-debug $(1)-release
+TARGETLIST += $(1) $(1)-debug $(1)-release
+)
+endef
+
+
+$(foreach demoname,$(ASTRAL_DEMOS),$(call demorule,$(demoname)))
+
+
+targets:
+	@echo
+	@echo "Individual Demos available:"
+	@echo "=============================="
+	@printf "%s\n" $(ASTRAL_DEMOS)
+	@echo
+	@echo "Targets available:"
+	@echo "=============================="
+	@printf "%s\n" $(TARGETLIST)
+	@echo
+	@echo "Emscripten cheat sheet:"
+	@echo "=============================="
+	@echo "  1) Enable environment: cd emsdk && source emsdk_env.sh"
+	@echo "  2) Launch http server for testing: http-server from directory holding content"
+	@echo "  3) Use emrun to run on local browsers to pass command line arguments"
+.PHONY: targets
+
+all:demos
+.PHONE:all
+
+demos: demos-debug demos-release
+.PHONY: demos demos-debug demos-release
+
+clean:
+	rm -rf $(WASM) $(ASTRAL_GL_CPP) $(ASTRAL_GL_HPP)

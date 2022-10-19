@@ -1,0 +1,212 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image_atlas_blitter.frag.glsl.resource_string
+ * \brief astral_image_atlas_blitter.frag.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+in vec2 ftexel_coord;
+flat in ivec4 post_process_window;
+
+uniform int LOD;
+
+ivec2 texel_coord;
+
+#ifdef BLITTER_RGBA_FLOAT
+
+  #define TYPE vec4
+  #define SAMPLER2D sampler2D
+  #define SAMPLER2DARRAY sampler2DArray
+  #define EXT xyzw
+
+  flat in uint mode;
+
+#elif defined(BLITTER_DEPTH)
+
+  #define TYPE float
+  #define SAMPLER2D sampler2D
+  #define SAMPLER2DARRAY sampler2DArray
+  #define EXT x
+
+#else
+
+  #define TYPE uvec4
+  #define SAMPLER2D usampler2D
+  #define SAMPLER2DARRAY usampler2DArray
+  #define EXT xyzw
+
+#endif
+
+#ifdef BLITTER_SRC_SAMPLER2D
+  uniform SAMPLER2D astral_surface_src;
+  #ifdef BLITTER_RGBA_FLOAT
+    uniform SAMPLER2D astral_surface_src_filtered;
+  #endif
+#else
+  uniform SAMPLER2DARRAY astral_surface_src;
+  #ifdef BLITTER_RGBA_FLOAT
+    uniform SAMPLER2DARRAY astral_surface_src_filtered;
+  #endif
+  uniform int SRC_LAYER;
+#endif
+
+#if defined(BLITTER_DEPTH)
+  #define out_color gl_FragDepth
+#else
+  out TYPE out_color;
+#endif
+
+TYPE
+fetch_from_src(in ivec2 offset)
+{
+  ivec2 xy;
+
+  xy = offset + texel_coord;
+  xy = clamp(xy, post_process_window.xy, post_process_window.zw);
+
+  #ifdef BLITTER_SRC_SAMPLER2D
+    {
+      return texelFetch(astral_surface_src, xy, LOD).EXT;
+    }
+  #else
+    {
+      return texelFetch(astral_surface_src, ivec3(xy, SRC_LAYER), LOD).EXT;
+    }
+  #endif
+}
+
+vec4
+combine_mask_values(in vec2 F, in vec2 M_complement)
+{
+  vec2 M;
+  vec4 return_value;
+
+  /* .r --> coverage of M intersect F
+   * .g --> distance of M intersect F
+   * .b --> coverage of M \ F
+   * .a --> distance of M \ F
+   */
+  M = vec2(1.0) - M_complement;
+  return_value.r = M.r * F.r;
+  return_value.g = min(M.g, F.g);
+  return_value.b = M.r * (1.0 - F.r);
+  return_value.a = min(M.r, 1.0 - F.g);
+
+  return return_value;
+}
+
+void
+main(void)
+{
+  TYPE C;
+
+  texel_coord = ivec2(ftexel_coord);
+
+  #ifdef BLITTER_RGBA_FLOAT
+    {
+      if (mode == ASTRAL_BLIT_DOWNSAMPLE_SIMPLE)
+        {
+          /* ISSUES:
+           *   1. We are performing the filtering in premuliplied-by-alpha values;
+           *      however when it comes to transparency this is usually a good thing.
+           *
+           *   2. we are filtering in the image space that the texel are in. Typically,
+           *      it is better to filter in linear space ALWAYS. In an ideal world,
+           *      the caller could use glTextureView to alias the image to have GL
+           *      peform the filtering in linear space in the case that ColorBuffer data
+           *      is sRGB data. However, glTextureView is not available in WebGL2 (even
+           *      as an extension) and also missing from MacOS's OpenGL as well.
+           *
+           * We could avoid issue (2) by performing the filtering ourselves, but (2)
+           * is not worth the trouble since the brush filters in whatever image space
+           * the texels are in anyways (because brush image filtering has the same
+           * issues as (2) above).
+           */
+          #ifdef BLITTER_SRC_SAMPLER2D
+            {
+              C = textureLod(astral_surface_src_filtered, ftexel_coord, float(LOD)).EXT;
+            }
+          #else
+            {
+              C = textureLod(astral_surface_src_filtered, vec3(ftexel_coord, SRC_LAYER), float(LOD)).EXT;
+            }
+          #endif
+        }
+      else
+        {
+          C = fetch_from_src(ivec2(0, 0));
+        }
+    }
+  #else
+    {
+      C = fetch_from_src(ivec2(0, 0));
+    }
+  #endif
+
+  #ifdef BLITTER_RGBA_FLOAT
+    {
+      if (mode == ASTRAL_BLIT_STC_MASK_PROCESSING)
+        {
+          float v_0_m1, v_0_1, v_m1_0, v_0_0, v_1_0;
+          float raw_distance, is_covered;
+          vec2 F;
+
+          v_0_0 = C.r;
+
+          v_m1_0 = fetch_from_src(ivec2(-1, 0)).r;
+          v_1_0 = fetch_from_src(ivec2(1, 0)).r;
+          v_0_m1 = fetch_from_src(ivec2(0, -1)).r;
+          v_0_1 = fetch_from_src(ivec2(0, 1)).r;
+
+          is_covered = sign(C.r - 0.5);
+          raw_distance = 1.0 - C.g;
+
+          /* The current pixel gets a partial coverage value if
+           * its covered is different than its left, right, above
+           * or below neighbor. The motivation is that if all
+           * the neighbors match, then chances are the pixel does
+           * need partial coverage. Note that we do not check the
+           * diagonal neighbors; if only a diagonal neighbor is
+           * different then that means it is likely an isolate
+           * partially covered pixel.
+           */
+          if (v_0_0 != v_m1_0
+              || v_0_0 != v_1_0
+              || v_0_0 != v_0_m1
+              || v_0_0 != v_0_1)
+            {
+              F.r = smoothstep(-0.5, 0.5, is_covered * raw_distance);
+              F.g = 0.5 + 0.5 * is_covered * raw_distance;
+            }
+          else
+            {
+              F.rg = C.rr;
+            }
+
+          out_color = combine_mask_values(F, C.ba);
+        }
+      else if (mode == ASTRAL_BLIT_DIRECT_MASK_PROCESSING)
+        {
+          out_color = combine_mask_values(C.rg, C.ba);
+        }
+      else
+        {
+          out_color = C;
+        }
+    }
+  #else
+    {
+      out_color = C;
+    }
+  #endif
+}

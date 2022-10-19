@@ -1,0 +1,551 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stroke_biarc_util.glsl.resource_string
+ * \brief astral_stroke_biarc_util.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+struct astral_circle
+{
+  vec2 m_center;
+  float m_radius;
+};
+
+struct astral_biarc
+{
+  astral_circle m_first, m_second;
+  vec2 m_start, m_end;
+  vec2 m_G, m_NG;
+  vec2 m_N0, m_N1;
+};
+
+struct astral_arc_from_biarc
+{
+  vec2 m_start_pt, m_end_pt, m_center, m_ES, m_J, m_start_N, m_end_N;
+  float m_ES_length, m_lambda, m_radius;
+};
+
+float
+astral_angle_between_unit_vectors(in vec2 v, in vec2 d)
+{
+  vec2 r;
+
+  r.x = v.x * d.x + v.y * d.y;
+  r.y = v.y * d.x - v.x * d.y;
+
+  return abs(atan(r.y, r.x));
+}
+
+void
+astral_compute_arc_lengths(in astral_biarc biarc, out float length_first, out float length_second)
+{
+  length_first = astral_angle_between_unit_vectors(biarc.m_NG, biarc.m_N0) * biarc.m_first.m_radius;
+  length_second = astral_angle_between_unit_vectors(biarc.m_NG, biarc.m_N1) * biarc.m_second.m_radius;
+}
+
+void
+astral_compute_arc_from_biarc(in uint role, in astral_biarc biarc, out astral_arc_from_biarc cooked)
+{
+  if (0u == (role & ASTRAL_STROKE_SHADER_BIARC_SECOND_ARC_MASK))
+    {
+      cooked.m_start_pt = biarc.m_start;
+      cooked.m_end_pt = biarc.m_G;
+      cooked.m_center = biarc.m_first.m_center;
+      cooked.m_start_N = biarc.m_N0;
+      cooked.m_end_N = biarc.m_NG;
+      cooked.m_radius = biarc.m_first.m_radius;
+    }
+  else
+    {
+      cooked.m_start_pt = biarc.m_G;
+      cooked.m_end_pt = biarc.m_end;
+      cooked.m_center = biarc.m_second.m_center;
+      cooked.m_start_N = biarc.m_NG;
+      cooked.m_end_N = biarc.m_N1;
+      cooked.m_radius = biarc.m_second.m_radius;
+    }
+
+  float omega, abs_lambda;
+  vec2 M;
+
+  cooked.m_ES = cooked.m_end_pt - cooked.m_start_pt;
+  cooked.m_ES_length = length(cooked.m_ES);
+  cooked.m_J = vec2(-cooked.m_ES.y, cooked.m_ES.x);
+
+  M = 0.5 * (cooked.m_end_pt + cooked.m_start_pt);
+  omega = cooked.m_radius / cooked.m_ES_length;
+  abs_lambda = 0.25 / (omega + sqrt(max(0.0, omega * omega - 0.25)));
+  cooked.m_lambda = abs_lambda * sign(dot(M - cooked.m_center, cooked.m_J));
+}
+
+bool // return false if flat
+astral_compute_biarc(in vec2 B0, in vec2 B1, in vec2 B2, out astral_biarc biarc)
+{
+  const float theta_small = 1e-5;
+
+  /* We follow closely the notation used in the paper from 1992
+   * "Approximation of quadratic Bezier curves by arc splines" by
+   * D.J. Walton and D.S. Meek. However, we use the symbol TT
+   * to denoted the unit vector from the start to end point
+   *
+   * We modify the formula from the paper as follows:
+   *  1. We adjust to that we work with the non-unit vector. The
+   *     pairing is
+   *        - T0 of the paper is the unit vector from code's V0 = B1 - B0
+   *        - N0 of the paper is the unit vector from code's J0
+   *        - T1 of the paper is the unit vector from code's V1 = B2 - B1
+   *        - N1 of the paper is the unit vector from code's J1
+   *        - TT of the paper is the unit vector from code's VV = B2 - B0
+   *  2. When working with the non-unit vector, in many cases additional
+   *     algebraic simplication becomes possible. When done, it is noted
+   *     heavily in the comments
+   */
+  vec2 V0, V1, VV, J0, J1;
+  float s, r_mV0, r_mV1;
+
+  V0 = B1 - B0;
+  V1 = B2 - B1;
+  VV = B2 - B0;
+
+  J0 = vec2(-V0.y, V0.x);
+  J1 = vec2(-V1.y, V1.x);
+
+  /* make sure that
+   *  -the vector J0 at B0 points away from the control point
+   *  -the vector J1 at B2 points away from the control point
+   *
+   * Let M be the midpoint of the line segment [B0, B2]. Then,
+   *
+   *    M = 0.5 * (B0 + B2)
+   *
+   * The vector from B1 to M is then given by
+   *
+   *   Y = M - B1
+   *     = 0.5 * (B0 - B1) + 0.5 * (B2 - B1)
+   *     = 0.5 * (V1 - V0)
+   *
+   * We wish to make sure that V0 at B0 points away from B1.
+   * That mean that J0 points in the same direction as the Y.
+   * Using that dot(J0, V0) = dot(J1, V1) = 0 and that
+   * dot(J1, V0) = -dot(J0, V1) we have:
+   *
+   *   dot(J0, Y) >= 0  <===> dot(J0, V1 - V0) >= 0
+   *                    <===> dot(J0, V1) - dot(J0, V0) >= 0
+   *                    <===> dot(J0, V1) >= 0
+   *                    <===> -dot(J1, V0) >= 0
+   *                    <===> -dot(J1, V0) + dot(J1, V1) >= 0
+   *                    <===> dot(J1, -V0 + V1) >= 0
+   *                    <===> dot(J1, Y) >= 0
+   *
+   * thus what we require is that dot(J0, V1) > 0. Note that
+   * either both vectors get negated or neither vector is negated.
+   */
+  if (dot(J0, V1) < 0.0)
+    {
+      J0 = -J0;
+      J1 = -J1;
+    }
+
+  /* instead of computing
+   *
+   *   mV0 = ||V0||
+   *   mV1 = ||V1||
+   *
+   * we compute
+   *
+   *  r_mV0 = 1.0 / ||V0||
+   *  r_mV1 = 1.0 / ||V1||
+   */
+  r_mV0 = inversesqrt(dot(V0, V0));
+  r_mV1 = inversesqrt(dot(V1, V1));
+
+  biarc.m_N0 = r_mV0 * J0;
+  biarc.m_N1 = r_mV1 * J1;
+
+  /* Declare as flat if the 3 points are close
+   * to colinear.
+   */
+  if (abs(dot(biarc.m_N0, biarc.m_N1)) >= 1.0 - theta_small)
+    {
+      return false;
+    }
+
+  /* The paper solves for s for the equation
+   *
+   *  f2 * s^2 + f1 * s + f0 = 0
+   *
+   * where
+   *
+   *   f2 = 1.0 - dot(N0, N1);
+   *   f1 = dot(T1, N0) * dot(TT, T0) / dot(TT, N0) + dot(T0, N1) * dot(TT, T1) / dot(TT, N1);
+   *   f0 = -0.5 * dot(T0, N1) * dot(T1, N0) / (dot(TT, N0) * dot(TT, N1));
+   *
+   * by multiplying by dot(TT, N0) * dot(TT, N1) we get
+   *
+   *   f2 = (1.0 - dot(N0, N1)) * dot(TT, N0) * dot(TT, N1);
+   *   f1 = dot(T1, N0) * dot(TT, T0) * dot(TT, N1) + dot(T0, N1) * dot(TT, T1) * dot(TT, N0);
+   *   f0 = -0.5 * dot(T0, N1) * dot(T1, N0);
+   *
+   * and then multipling by dot(VV, VV) * dot(V0, V0) * dot(V1, V1) we get
+   *
+   *   f2 = (1.0 - dot(N0, N1)) * dot(VV, J0) * dot(VV, J1) * ||V0|| * ||V1||;
+   *   f1 = dot(V1, J0) * dot(VV, V0) * dot(VV, J1) + dot(V0, J1) * dot(VV, J1) * dot(VV, J0);
+   *   f0 = -0.5 * dot(V0, J1) * dot(V1, J0);
+   *
+   * multiplying by r_mV0 * r_mV1 gives (because r_mV0 = 1 / ||V0|| and r_mV1 = 1 / ||V1||)
+   *
+   *   f2 = (1.0 - dot(N0, N1)) * dot(VV, J0) * dot(VV, J1)
+   *   f1 = r_mV0 * r_mV1 * (dot(V1, J0) * dot(VV, V0) * dot(VV, J1) + dot(V0, J1) * dot(VV, V1) * dot(VV, J0))
+   *   f0 = -0.5 * r_mV0 * r_mV1 * dot(V0, J1) * dot(V1, J0) * dot(VV, VV)
+   *
+   * Note that
+   *
+   *   dot(V1, J0) = -dot(V0, J1)
+   *
+   * Thus,
+   *
+   *  f1 = r_mV0mV1 * dot(V0, J1) * (dot(VV, V1) * dot(VV, J0) - dot(VV, V0) * dot(VV, J1))
+   *  f2 = 0.5 * r_mV0mV1 * dot(V0, J1) * dot(V0, J1) * dot(VV, VV)
+   *
+   * where
+   *
+   *   r_mV0mV1 = r_mV0 * r_mV1
+   *
+   */
+  float V0_dot_J1, VV_dot_J1, VV_dot_J0, VV_dot_VV;
+  float r_mV0mV1, f2, f1, f0;
+
+  r_mV0mV1 = r_mV0 * r_mV1;
+  V0_dot_J1 = dot(V0, J1);
+  VV_dot_J1 = dot(VV, J1);
+  VV_dot_J0 = dot(VV, J0);
+  VV_dot_VV = dot(VV, VV);
+
+  /* Comments:
+   *   a. f2 = 0 <===> VV_dot_J0 = 0 or VV_dot_J1 = 0 or mV0 * mV1 = dot(V0, V1) <===> (B0, B1, B2) are collinear
+   *   b. (B0, B1, B2) are collinear ==> V0_dot_J1 = 0 ==> f1 = 0
+   *
+   * which means that the check we did for colinear is sufficient and we can assume
+   * that f2 is non-zero.
+   */
+  f2 = (1.0 - dot(biarc.m_N0, biarc.m_N1)) * VV_dot_J0 * VV_dot_J1;
+  f1 = r_mV0mV1 * V0_dot_J1 * (dot(VV, V1) * VV_dot_J0 - dot(VV, V0) * VV_dot_J1);
+  f0 = 0.5 * r_mV0mV1 * V0_dot_J1 * V0_dot_J1 * VV_dot_VV;
+    {
+      float s1, s2, g1, g2, descr, half_recip_f2, twice_f0, m, sgn;
+
+      /* Solve for s in (0, 1)
+       *
+       *  0 = f2 * s^2 + f1 * s + f0 * s
+       *
+       * in exact arithematic there is a guaranteed solution,
+       * and only one such solution, but we need to make the
+       * code is tolerant to round off error.
+       */
+      descr = f1 * f1 - 4.0 * f0 * f2;
+      descr = max(descr, 0.0);
+
+      /* The quadratic formula gives the roots
+       *
+       *  s1 = (-f1 + sqrt(f1^2 - 4 * f0 * f2)) / (2 * f2)
+       *  s2 = (-f1 + sqrt(f1^2 - 4 * f0 * f2)) / (2 * f2)
+       *
+       * however, we wish to make the roots more numerically
+       * robust which means we use the trick
+       *
+       *  -X + sqrt(X^2 + Y) = -Y / (-X - sqrt(X^2 + Y)
+       *                     =  Y / (+X + sqrt(X^2 + Y)
+       *
+       * and
+       *
+       *  -X - sqrt(X^2 + Y) = -Y / (-X + sqrt(X^2 + Y)
+       *                     =  Y / (+X - sqrt(X^2 + Y)
+       *
+       * we use the above identities to avoid cancellation
+       * on the roots. Plugging in X = f1, Y = 4.0 * f2 * f1
+       * we get for the alternative forms of s1, s2:
+       *
+       *  s1 = -2 * f0 / (-f1 + sqrt(descr))
+       *  s2 = -2 * f0 / (-f1 - sqrt(descr))
+       *
+       * We can optimize further by noting that
+       *
+       * for f1 < 0, use
+       *
+       *    s1 = (-f1 + sqrt(descr)) / (2 * f2)
+       *       = (abs(f1) + sqrt(descr)) / (2 * f2)
+       *
+       *    s2 = 2 * f0 / (-f1 + sqrt(descr))
+       *       = 2 * f0 / (abs(f1) + sqrt(descr))
+       *
+       * for f1 > 0, use
+       *
+       *   s1 = 2 * f0 / (-f1 - sqrt(descr))
+       *      = -2 * f0 / (abs(f1) + sqrt(descr))
+       *
+       *   s2 = (-f1 - sqrt(descr)) / (2 * f2)
+       *      = -(abs(f1) + sqrt(descr)) / (2 * f2)
+       *
+       * Since we do not care about the order of the roots,
+       * this can be realized as
+       *
+       *   s1 = -sign(f1) * (abs(f1) + sqrt(descr)) / (2 * f2)
+       *   s2 = -sign(f1) * 2 * f0 / (abs(f1) + sqrt(descr))
+       */
+      descr = sqrt(descr);
+      half_recip_f2 = 0.5 / f2;
+      twice_f0 = 2.0 * f0;
+      sgn = -sign(f1);
+      m = abs(f1) + descr;
+
+      s1 = sgn * half_recip_f2 * m;
+      s2 = sgn * twice_f0 / m;
+
+      /* in exact arithmatic exactly one of s1 and s2 are in
+       * (0, 1), but we need to fortify against round off error;
+       * the below values are how far outside of [0, 1] s1 and
+       * s2 are. We take whichever one is less outside (ideally
+       * exactly one of g1 and g2 are zero).
+       */
+      g1 = max(0.0, -s1) + max(0.0, s1 - 1.0);
+      g2 = max(0.0, -s2) + max(0.0, s2 - 1.0);
+
+      s = (g1 < g2) ? s1 : s2;
+    }
+
+  /* get the lambda and mu of the paper from s
+   *
+   *  lambda = s * dot(VV, N1) / dot(T0, N1)
+   *         = s * dot(V0 + V1, N1) / dot(T0, N1)
+   *         = s * dot(V0, N1) / dot(T0, N1)
+   *         = s * ||V0|| * dot(T0, N1) / dot(T0, N1)
+   *         = s * ||V0||
+   *
+   *  mu = s * dot(VV, N0) / dot(T1, N0)
+   *     = s * dot(V0 + V1, N0) / dot(T1, N0)
+   *     = s * dot(V1, N0) / dot(T1, N0)
+   *     = s * ||V1|| * dot(T1, N0) / dot(T1, N0)
+   *     = s * ||V1||
+   *
+   *
+   * get the points V and W of the paper from lambda and mu
+   *
+   *  V = B0 + lambda * T0
+   *    = B0 + s * ||V0|| * T0
+   *    = B0 + s * V0
+   *    = B0 + s * (B1 - B0)
+   *    = s * B1 + (1 - s) * B0
+   *
+   *  W = B2 - mu * T1
+   *    = B2 - s * ||V1|| * T1
+   *    = B2 - s * V1
+   *    = B2 - s * (B2 - B1)
+   *    = s * B1 + (1 - s) * B2
+   *
+   * Note that
+   *
+   *   W - V = (1 - s) * (B2 - B0)
+   *         = (1 - s) * VV
+   *
+   * The paper does not give a closed formula for G,
+   * but it is only a few steps to get it.
+   *
+   * From the contruction in the paper one has
+   *
+   *  G = mix(V, W, alpha) for some 0 <= alpha <= 1
+   *  V = B0 + lambda * T0
+   *  ||G - V|| = ||V - B0||
+   *
+   * Note that
+   *
+   *  G - V = (1 - alpha) * V + alpha * W - V
+   *        = alpha * (W - V)
+   *
+   * which gives
+   *
+   *            ||G - V||
+   *  alpha =  -----------
+   *            ||W - V||
+   *
+   *            ||V - B0||
+   *        =  ------------
+   *            ||W - V||
+   *
+   *             lambda
+   *        =  -----------
+   *            ||W - V||
+   *
+   *               s * ||V0||
+   *        =  ------------------
+   *            (1 - s) * ||VV||
+   *
+   *
+   * Then,
+   *
+   *     G = (1 - alpha) * V + alpha * W
+   *
+   *       = V + alpha * (W - V)
+   *
+   *              s * ||V0|| * (1 - s) * VV
+   *       = V + ---------------------------
+   *                (1 - s) * ||VV||
+   *
+   *              s * ||V0|| * VV
+   *       = V + -----------------
+   *                 ||VV||
+   *
+   *                                  s * ||V0|| * VV
+   *       = s * B1 + (1 - s) * B0 + -----------------
+   *                                      ||VV||
+   *
+   *                  /               ||V0|| * VV   \
+   *       = B0 + s * | (B1 - B0) + --------------  |
+   *                  \                  ||VV||     /
+   *
+   *                  /        ||V0|| * VV   \
+   *       = B0 + s * | V1 + --------------  |
+   *                  \           ||VV||     /
+   *
+   * This expression looks un-symmetric, however the computation of
+   * alpha was using the difference with V. If we set beta = 1 - alpha,
+   * then G = mix(W, V, beta) and ||G - W|| = ||W - B2|| which will
+   * yeild
+   *
+   *          ||G - W||        s * ||V1||
+   *  beta = ----------- = ------------------
+   *          ||W - V||      (1 - s) * ||VV||
+   *
+   * which in turn will give
+   *
+   *               /        ||V1|| * VV   \
+   *  G = B2 + s * | V0 + --------------  |
+   *               \           ||VV||     /
+   *
+   */
+  float ftmp;
+  vec2 G_B0, G_B2, C;
+
+  /* We have r_mV0, not mV0, so place (r_mV0 * r_mV0)
+   * inside of the inversesqrt() to get the multiply
+   * by mV0
+   */
+  ftmp = inversesqrt(r_mV0 * r_mV0 * VV_dot_VV);
+
+  G_B0 = s * (V0 + ftmp * VV);
+  G_B2 = G_B0 - VV;
+  biarc.m_G = B0 + G_B0;
+
+  /* the two arcs meet at G tangentially
+   *
+   *   cL = B0 + rL * N0
+   *   rL = ||G - cL|| = ||B0 - cL||
+   *
+   * thus
+   *
+   *   rL^2 = ||G - B0 - rL * N0||^2
+   *        = ||G - B0||^2 - 2rL<G - B0, N0> + rL^2
+   *
+   * which becomes.
+   *
+   *  0 = ||G - B0||^2 - 2rL<G - B0, N0>
+   *
+   * i.e.
+   *
+   *  rL = ||G - B0||^2 / (2 * dot(G - B0, N0)
+   *
+   * Note that
+   *
+   *   G - B0 = s * (V0 + ftmp * VV) where both ftmp and s are positive
+   *
+   * Then,
+   *
+   *   dot(G - B0, N0) = dot(s * (V0 + ftmp * VV), N0)
+   *                   = dot(s * ftmp * VV, N0)
+   *                   = s * ftmp * dot(V0 + V1, N0)
+   *                   = s * ftmp * dot(V1, N0)
+   *
+   * We oriented N0 so that dot(V1, N0) > 0. Thus we know
+   * that dot(G - B0, N0) > 0, which in turn implies that
+   * our expression for rL guarnatees that rL > 0.
+   */
+  biarc.m_first.m_radius = dot(G_B0, G_B0) / (2.0 * dot(G_B0, biarc.m_N0));
+  biarc.m_first.m_center = B0 + biarc.m_first.m_radius * biarc.m_N0;
+
+  /* For rR and cR we have
+   *
+   *   cR = B2 + rR * N1
+   *   rR = ||G - cR|| = ||B2 - cR||
+   *
+   * thus,
+   *
+   *   rR^2 = ||G - B2 - rR * N1||^2
+   *        = ||G - B2||^2 - 2rR<G - B2, N1> + rR^2
+   *
+   * which becomes
+   *
+   *  0 = ||G - B2||^2 - 2rR<G - B2, N1>
+   *
+   * i.e.
+   *
+   *  rR = ||G - B2||^2 / (2 * dot(G - B2, N1)
+   *
+   * Note that
+   *
+   *  G - B2 = s * (V0 + q * VV)
+   *
+   * where both q and s are non-negative (q is given by ||V1||/||VV||)
+   *
+   * Then,
+   *
+   *   dot(G - B2, N1) = dot(s * (V1 + q * VV), N1)
+   *                   = dot(s * q * VV, N1)
+   *                   = s * q * dot(V0 + V1, N0)
+   *                   = s * q * dot(V1, N0)
+   *
+   * We oriented N0 so that dot(V1, N0) > 0. Thus we know
+   * that dot(G - B2, N1) > 0, which in turn implies that
+   * our expression for rR guarnatees that rR > 0.
+   */
+  biarc.m_second.m_radius = dot(G_B2, G_B2) / (2.0 * dot(G_B2, biarc.m_N1));
+  biarc.m_second.m_center = B2 + biarc.m_second.m_radius * biarc.m_N1;
+
+  /* The caller needs the vector FROM the center of the
+   * each of the circles, but N0 and N1 are the vectors
+   * to the center. Thus, we need to negate N0 and N1
+   */
+  biarc.m_N0 = -biarc.m_N0;
+  biarc.m_N1 = -biarc.m_N1;
+
+  /* we now need to give the normal vector of the two arcs
+   * at G; in exact arithmatic this is given by the unit
+   * vector from either center to G. However, we need to
+   * take the vector that is less prone to roundoff, which
+   * is given by whichever of the two has a larger radius.
+   */
+  C = (biarc.m_second.m_radius < biarc.m_first.m_radius) ?
+    biarc.m_first.m_center:
+    biarc.m_second.m_center;
+
+  biarc.m_NG = normalize(biarc.m_G - C);
+
+  biarc.m_start = B0;
+  biarc.m_end = B2;
+
+  return true;
+}
+
+/*! @} */

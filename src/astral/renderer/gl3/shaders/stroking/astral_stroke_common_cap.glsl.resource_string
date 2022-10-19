@@ -1,0 +1,104 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stroke_common_cap.glsl.resource_string
+ * \brief astral_stroke_common_cap.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/*!\addtogroup GLSLStroke
+ * @{
+ */
+
+struct astral_cap
+{
+  vec2 m_p;
+  vec2 m_neighbor_p;
+  float m_neighbor_lambda;
+  float m_cap_sign;
+  float m_contour_length;
+  float m_edge_length;
+};
+
+struct astral_cap_point
+{
+  astral_cap m_cap;
+  vec2 m_v, m_n;
+  astral_stroke_radius_info_as_ratio_t m_stroke_radius;
+  uint m_offset_type;
+};
+
+void
+astral_stroke_cap_common(in uint sub_shader, in uint item_data_location,
+                         in vec4 a0, in AstralTransformation tr,
+                         in vec2 render_scale,
+                         out astral_cap_point C)
+{
+  uint static_data_offset, role, path_transformation_location;
+  vec4 static_data, item_data;
+
+  static_data_offset = floatBitsToUint(a0.x);
+  role = astral_vertex_role(floatBitsToUint(a0.y));
+
+  item_data.xyz = astral_read_item_dataf(item_data_location).xyz;
+  C.m_stroke_radius = astral_stroke_radius_info_as_ratio(item_data.x, tr.m_matrix, render_scale);
+  path_transformation_location = floatBitsToUint(item_data.z);
+
+  static_data = astral_read_static_data32f(static_data_offset + 0u);
+  C.m_cap.m_p = static_data.xy;
+  C.m_cap.m_neighbor_p = static_data.zw;
+  if (astral_stroking_is_animated(sub_shader))
+    {
+      float t;
+      vec2 p1, neighbor_p1;
+      vec4 contour_lengths;
+
+      static_data = astral_read_static_data32f(static_data_offset + 1u);
+      p1 = static_data.xy;
+      neighbor_p1 = static_data.zw;
+
+      contour_lengths = astral_read_static_data32f(static_data_offset + 2u);
+
+      t = item_data.y;
+      C.m_cap.m_p = mix(C.m_cap.m_p, p1, t);
+      C.m_cap.m_neighbor_p = mix(C.m_cap.m_neighbor_p, neighbor_p1, t);
+      C.m_cap.m_contour_length = mix(contour_lengths.x, contour_lengths.y, t);
+      C.m_cap.m_edge_length = mix(contour_lengths.z, contour_lengths.w, t);
+    }
+  else
+    {
+      static_data.xy = astral_read_static_data32f(static_data_offset + 1u).xy;
+      C.m_cap.m_contour_length = static_data.x;
+      C.m_cap.m_edge_length = static_data.y;
+    }
+
+  C.m_offset_type = ASTRAL_STROKE_SHADER_CAP_OFFSET_TYPE_MASK & role;
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+
+      astral_load(path_transformation_location, P);
+      C.m_cap.m_p = astral_apply_transformation(P, C.m_cap.m_p);
+      C.m_cap.m_neighbor_p = astral_apply_transformation(P, C.m_cap.m_neighbor_p);
+    }
+
+  C.m_v = normalize(C.m_cap.m_p - C.m_cap.m_neighbor_p);
+  C.m_n = vec2(-C.m_v.y, C.m_v.x);
+
+  if ((ASTRAL_STROKE_SHADER_CAP_SIDE_MASK & role) != 0u)
+    {
+      C.m_n = -C.m_n;
+    }
+}
+
+/*! @} */

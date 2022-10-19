@@ -1,0 +1,54 @@
+// -*- C++ -*-
+/*!
+ * \file astral_gaussian_blur.vert.glsl.resource_string
+ * \brief astral_gaussian_blur.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_vert_shader(in uint sub_shader, in uint shader_data,
+                                in uint brush_idx, in vec2 material_p,
+                                in AstralTransformation tr)
+{
+}
+
+void
+astral_material_vert_shader(in uint sub_shader, in uint item_data_location,
+                            in uint brush_idx, in vec2 material_p,
+                            in AstralTransformation tr)
+{
+  uvec2 N_image;
+  uvec4 tmp;
+  AstralPackedImage packed_image;
+  AstralUnpackedImage unpacked_image;
+
+  N_image = astral_read_item_datau(item_data_location).xz;
+  astral_load(N_image.y, packed_image);
+  astral_unpack_image(packed_image, unpacked_image);
+
+  astral_gaussian_blur_x = material_p.x;
+  astral_gaussian_blur_y = material_p.y;
+
+  /* push the item_data_location to the fragment shader
+   */
+  astral_gaussian_data_location = item_data_location;
+
+  /* we only push to the fragment shader the information to
+   * source from Image::mip_chain()[0]
+   */
+  astral_pack_image(packed_image.m_base, tmp);
+  astral_gaussian_blur_image_x = tmp.x;
+  astral_gaussian_blur_image_y = tmp.y;
+  astral_gaussian_blur_image_z = tmp.z;
+  astral_gaussian_blur_image_w = tmp.w;
+}

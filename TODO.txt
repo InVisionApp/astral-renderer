@@ -1,0 +1,104 @@
+
+I. Text
+ A. Glyph OpenTypeSVG support. See the online refercence at
+    https://docs.microsoft.com/en-us/typography/opentype/spec/svg
+    for more details. The hope is that restricting to only
+    that which is required, especially no animation, we
+    can convert an SVG into layers by converting strokes
+    to fills. ItemPath::Layer will need to be expanded to
+    allow for a layer to have a brush.
+ B. Consider having another glyph renderer that uses bounding
+    boxes instead of bands. Likely will need to have a
+    StaticData allocator for scalar data.
+ C. When glyphs are small, render the glyphs as raw coverage
+    images to improve image quality. When scalable glyphs are
+    rendered small with the banded rays glyph shader, the render
+    results are quite poor (a really nasty example is from Noto,
+    NotoSansEgyptianHieroglyphs-Regular.ttf, which looks bad even
+    at pixel size 24). For such small rendered glyphs, we will
+    need coverage glyphs; ignoring scalable color glyphs, these
+    small scalable glyphs should then be on their own one-channel
+    atlas. The issue is how to make the atlas "work" and what is
+    the threshhold for when a glyph should be shader rendered or
+    atlas-blitted. The decision will be glyph by glyph; thus,
+    TextItem needs to have the attribute data for both styles and
+    the act of drawing a TextItem means creates two arrays of ranges:
+    one using glyph rendering and another using coverage lookup.
+    The next step is that we need to know when a glyph should be
+    rendered as coverage or not. We first decide on a maximum size
+    for coverage rendering, a value such as 32 or 64 seems reasonable.
+    We say a size S requires coverage as folows. For each "pixel box"
+    B, let P be the sample point at the center of the pixel box and
+    draw vertical and horizontal lines centered at P. Compute the
+    intersections of all curves against those lines. If the decision
+    to fill or not fill (from the winding number and fill rule) flips
+    more than once along those lines with the pixel box, then the size
+    S is not fine enough to use shader based rendering. With this test
+    (assuming it works), we can peform a binary search to figure out
+    the smallest size S that shader based rendering may be used.
+ D. For small glyph rendering, it may also be a good idea to add to
+    the element of C. the ability to generate distance fields up to
+    a certain size. The distance field glyphs can be used up to a
+    magnificaiton factor of 2 typically, thus they form a natural
+    mipmap pyramid.
+ E. Support COLRv1 glyphs (https://github.com/googlefonts/colr-gradients-spec).
+    Freetype since 2.11 as an API to fetch the data, the starting point
+    for a glyph to get the paint is FT_Get_Color_Glyph_Paint(). However,
+    this interface is still listed as experimental. The main feature that
+    COLRv1 color glyphs gives is linear gradients. However, because the
+    people writing it where thinking along the lines of render glyph and
+    cache the render (instead of render entire thing with GPU), the COLRv1
+    also has transformations, (thankfully 2D only) along with additional
+    compositing modes. To implement this in a glyph shader will be highly
+    non-trivial walk of the "command list". There is also sigificant danger
+    that it will require a stack for the layer grouping blending/composition.
+    It is worth noting that this is MUCH easier than the nightmare that is
+    OpenTypeSVG support.
+
+II. AnimatedPath
+ A. Add some flags for the contours added to an AnimatedPath
+   1. An entire animated contour should be marked as fading to/from
+      nothing when stroked (for when animated to/from a point)
+   2. The closing curve of an animated contour should be marked as
+      fading to/from nothing when stronked (this is for the case
+      where a single contour animates to multiple contours.
+   3. Implement the analogue of ItemPath for animated paths.
+      NOTE: this is really research and developing new techinques!
+
+III. Shadowmap generation
+ A. For shadow-map generation, emphasize that it is adding the
+    stroke of a path (with hairline stroking width) for the shadow.
+    As such, we need to NOT include the closing edge of open contours
+ B. Look into supporting that a -stroke- with a stroking width casts
+    a shadow. We can probably implement this with the caveat that the
+    light must be outside of the area covered by the stroke because
+    the geometry made from the stroke will self-intersect and do wierd
+    things inside.
+
+IV. "True" dashed stroking, i.e. given a path then generate a
+    path with the dash pattern applied. This means actually a
+    different geometry per level of detail of stroke path.
+
+V. Renderer
+ A. Design what to do on stroking text. We could stroke it
+    as a path (coming from glyph geometry) but we may want
+    to have an option to "fake it with a shader" if the stroke
+    width is not too wide.
+ B. Potentially add interface(s) for the drawing of text with
+    multiple inner-strokes, outer-strokes and boundary strokes
+    overlapping. Figure out the correct way to get the buffers
+    blitted to make it look right.
+ C. Heuristic and infrastucture for that heuristic to decide if
+    a render target should use or not use an uber-shader
+ D. Have an option for offscreen renders "align" on fixed boundaries.
+    The fixed boundaries will be a funcion of the rendering scale
+    factor. The motivation is to prevent "shimmering" from gaussian
+    blur with large blur radius as it drags across its region.
+
+VI. Infrastructure
+ A. GLSL identifiers
+   1. GLES3.0 and thus WebGL2 specify that the maximum length of an
+      identifier is 1024 characters. It is not clear if that rule
+      also applies to macros. Shader chaining gives long macro
+      names which map to short-ish identifier names. However, the
+      macro names can become long with shader chaining.

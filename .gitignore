@@ -1,0 +1,17 @@
+*.o
+*~
+*.so
+*-release
+*-debug
+*.exe
+*.dll
+*.dll.a
+astral_gl.cpp
+astral_gl.hpp
+.idea
+build
+wasm
+string_resources_cpp
+docs/doxy/
+astralGL-debug.pc
+astralGL-release.pc

@@ -1,0 +1,39 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_line.vert.glsl.resource_string
+ * \brief astral_stc_line.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  vec2 p0, p1, p;
+  float t;
+
+  t = astral_read_item_dataf(item_data_location).x;
+  p0 = a0.xy;
+  p1 = a0.zw;
+  p = mix(p0, p1, t);
+
+  return astral_apply_transformation(tr, p);
+}

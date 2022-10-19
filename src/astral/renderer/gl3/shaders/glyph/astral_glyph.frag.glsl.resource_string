@@ -1,0 +1,83 @@
+// -*- C++ -*-
+/*!
+ * \file astral_glyph.frag.glsl.resource_string
+ * \brief astral_glyph.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader,
+                   in uint color_space,
+                   in uint item_data_location,
+                   out float coverage,
+                   out vec4 base_color)
+{
+  vec2 coord, coord_fwidth;
+  bool more_to_go;
+  astral_banded_rays_layer layer;
+  uint current_layer;
+  float cvg;
+
+  coord = vec2(astral_glyph_x, astral_glyph_y);
+  coord_fwidth = fwidth(coord);
+  current_layer = astral_glyph_data;
+
+  more_to_go = astral_banded_rays_load_layer_from_static_data(current_layer, layer);
+  base_color = astral_banded_rays_process_layer_nearest_curve(coord, coord_fwidth, layer, astral_glyph_widen, cvg);
+
+  /* pre-multiply by alpha and then by coverage */
+  base_color.rgb *= base_color.a;
+
+  if (more_to_go)
+    {
+      base_color *= cvg;
+      while (more_to_go)
+        {
+          vec4 c;
+
+          more_to_go = astral_banded_rays_load_layer_from_static_data(current_layer, layer);
+          c = astral_banded_rays_process_layer_nearest_curve(coord, coord_fwidth, layer, astral_glyph_widen, cvg);
+
+          /* pre-multiply by alpha and then by coverage */
+          c.rgb *= c.a;
+          c *= cvg;
+
+          base_color = c + (1.0 - c.a) * base_color;
+        }
+
+      /* Hmm. The glyph processing of layers is not quite correct because
+       * alpha and coverage get tangled together. We will need to
+       * tweak the glyph layer processing to emit a coverage value
+       * and somehow respect the alpha layering nicely too.
+       * Perhaps the max across all layers gives the coverage?
+       */
+      coverage = 1.0;
+    }
+  else
+    {
+      coverage = cvg;
+    }
+
+  if ((astral_glyph_flags & ASTRAL_GLYPH_SHADER_IS_COLORED_GLYPH) != 0u)
+    {
+      astral_material_alpha_only = true;
+    }
+
+  /* TODO: covert from sRGB color space to requested color space */
+}

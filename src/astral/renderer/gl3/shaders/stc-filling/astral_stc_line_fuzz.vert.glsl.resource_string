@@ -1,0 +1,69 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_line_fuzz.vert.glsl.resource_string
+ * \brief astral_stc_line_fuzz.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 in_a0,
+                   in AstralTransformation tr)
+{
+  uint static_data_offset;
+  float p_q_picker, perp_sign, t;
+  vec2 pt, p, q, pixel, delta, inverse_scale_factor, L;
+  vec3 raw_item_data;
+  vec4 p0_p1, q0_q1;
+
+  raw_item_data = astral_read_item_dataf(item_data_location).xyz;
+  t = raw_item_data.x;
+  inverse_scale_factor = raw_item_data.yz;
+
+  static_data_offset = floatBitsToUint(in_a0.x);
+  p_q_picker = in_a0.y;
+  perp_sign = in_a0.z;
+
+  p0_p1 = astral_read_static_data32f(static_data_offset + 0u);
+  q0_q1 = astral_read_static_data32f(static_data_offset + 1u);
+
+  p = mix(p0_p1.xy, p0_p1.zw, t);
+  q = mix(q0_q1.xy, q0_q1.zw, t);
+  delta = q - p;
+
+  pt = mix(p, q, p_q_picker);
+
+  /* put into pixel coordinates */
+  pixel = astral_apply_transformation(tr, pt);
+  delta = astral_apply_matrix(tr.m_matrix, delta);
+
+  L = ASTRAL_STC_MAX_DISTANCE * inverse_scale_factor;
+  delta = L * normalize(vec2(-delta.y, delta.x));
+  pixel += perp_sign * delta;
+
+  /* assign varying that vary form -ASTRAL_STC_MAX_DISTANCE
+   * to ASTRAL_STC_MAX_DISTANCE so that on the original segment
+   * the value is 0 and the magnitude of the gradient with
+   * respect to sample-pixels is one.
+   */
+  astral_stc_contour_fuzz_aa_perp = ASTRAL_STC_MAX_DISTANCE * perp_sign;
+
+  return pixel;
+}

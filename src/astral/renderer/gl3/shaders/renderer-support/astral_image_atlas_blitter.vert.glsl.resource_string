@@ -1,0 +1,82 @@
+// -*- C++ -*-
+/*!
+ * \file astral_image_atlas_blitter.vert.glsl.resource_string
+ * \brief astral_image_atlas_blitter.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+/* Shader macro configurations.
+ *
+ * - One of to specify the texels processed
+ *    - BLITTER_RGBA_FLOAT : read/write RGBA uint8-normalized, fp16 or fp32 and optionally perform edge detection
+ *    - BLITTER_RGBA_UINT  : read/write RGBA uint values
+ *    - BLITTER_DEPTH      : blit depth values
+ *
+ * - One of to specify if sourcing from a [iu]sampler2D or [iu]sampler2DArray
+ *    - BLITTER_SRC_SAMPLER2D
+ *    - BLITTER_SRC_SAMPLER2D_ARRAY
+ */
+
+in vec2 astral_src;
+in vec2 astral_dst;
+in uint astral_mode;
+in ivec4 astral_post_process_window;
+
+out vec2 ftexel_coord;
+flat out ivec4 post_process_window;
+
+#ifdef BLITTER_RGBA_FLOAT
+  flat out uint mode;
+  #ifdef BLITTER_SRC_SAMPLER2D
+    uniform sampler2D astral_surface_src_filtered;
+  #else
+    uniform sampler2DArray astral_surface_src_filtered;
+  #endif
+#endif
+
+uniform float ASTRAL_PROJ_COEFF_X;
+uniform float ASTRAL_PROJ_COEFF_Y;
+
+#ifdef BLITTER_RGBA_FLOAT
+vec2
+astral_surface_inverse_src_size(void)
+{
+  ivec2 sz;
+
+  sz = textureSize(astral_surface_src_filtered, 0).xy;
+  return 1.0 / vec2(sz);
+}
+#endif
+
+void
+main(void)
+{
+  ftexel_coord = astral_src.xy;
+  post_process_window = astral_post_process_window;
+
+  #ifdef BLITTER_RGBA_FLOAT
+    {
+      mode = astral_mode;
+      if (mode == ASTRAL_BLIT_DOWNSAMPLE_SIMPLE)
+        {
+          /* when down sampling, the fragment shader uses normalized texture coordinates */
+          ftexel_coord *= astral_surface_inverse_src_size();
+        }
+    }
+  #endif
+
+  gl_Position = vec4(ASTRAL_PROJ_COEFF_X * astral_dst.x - 1.0,
+                     ASTRAL_PROJ_COEFF_Y * astral_dst.y - 1.0,
+                     0.0,
+                     1.0);
+}

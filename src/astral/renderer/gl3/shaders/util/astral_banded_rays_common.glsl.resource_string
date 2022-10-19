@@ -1,0 +1,530 @@
+// -*- C++ -*-
+/*!
+ * \file astral_banded_rays_common.glsl.resource_string
+ * \brief astral_banded_rays_common.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/*!\addtogroup GLSLItemPath
+ * @{
+ */
+
+struct astral_banded_rays_layer
+{
+  vec4 m_color;
+  vec2 m_scale;
+  vec2 m_translate;
+  uint m_header_offset;
+  uint m_fill_rule;
+};
+
+struct astral_banded_rays_header
+{
+  uint m_num_horizontal_bands;
+  uint m_num_vertical_bands;
+  uint m_horizontal_band_list;
+  uint m_vertical_band_list;
+};
+
+struct astral_banded_rays_bands
+{
+  uint m_horizontal_band;
+  uint m_number_curves_in_horizontal_band;
+  float m_horizontal_band_direction;
+
+  uint m_vertical_band;
+  uint m_number_curves_in_vertical_band;
+  float m_vertical_band_direction;
+};
+
+struct astral_banded_rays_curve
+{
+  vec2 m_p1, m_p2, m_p3;
+  float m_weight;
+  float m_early_out;
+};
+
+struct astral_banded_rays_process_curve_output
+{
+  bool m_use_t1, m_use_t2;
+  float m_x1, m_x2;
+};
+
+/* Load an astral_banded_rays_layer using astral_read_static_data32f(), i.e.
+ * from StaticData object at the named location.
+ * Returns true if there is another layer following it.
+ * Also modified location to be one unit past from where
+ * the layer occupies space.
+ */
+bool
+astral_banded_rays_load_layer_from_static_data(inout uint location, out astral_banded_rays_layer V)
+{
+  vec4 tmp;
+
+  tmp = astral_read_static_data32f(location + 0u);
+  V.m_color = tmp.xyzw;
+
+  tmp = astral_read_static_data32f(location + 1u);
+  V.m_scale = tmp.xy;
+  V.m_translate = tmp.zw;
+
+  tmp.xzw = astral_read_static_data32f(location + 2u).xzw;
+  V.m_header_offset = floatBitsToUint(tmp.x);
+  V.m_fill_rule = floatBitsToUint(tmp.z);
+
+  location += 3u;
+  return tmp.w > 0.0;
+}
+
+/* Load an astral_banded_rays_layer using astral_read_item_dataf(), i.e.
+ * from ItemData object at the named location.
+ * Returns true if there is another layer following it.
+ * Also modified location to be one unit past from where
+ * the layer occupies space.
+ */
+bool
+astral_banded_rays_load_layer_from_item_data(inout uint location, out astral_banded_rays_layer V)
+{
+  vec4 tmp;
+
+  tmp = astral_read_item_dataf(location + 0u);
+  V.m_color = tmp.xyzw;
+
+  tmp = astral_read_item_dataf(location + 1u);
+  V.m_scale = tmp.xy;
+  V.m_translate = tmp.zw;
+
+  tmp.xzw = astral_read_item_dataf(location + 2u).xzw;
+  V.m_header_offset = floatBitsToUint(tmp.x);
+  V.m_fill_rule = floatBitsToUint(tmp.z);
+
+  location += 3u;
+  return tmp.w > 0.0;
+}
+
+void
+astral_banded_rays_load_header(in uint location, out astral_banded_rays_header V)
+{
+  vec2 tmp;
+
+  tmp = astral_read_static_data32f(location + 0u).xy;
+  V.m_num_horizontal_bands = floatBitsToUint(tmp.x);
+  V.m_num_vertical_bands = floatBitsToUint(tmp.y);
+  V.m_horizontal_band_list = location + 1u;
+  V.m_vertical_band_list = V.m_horizontal_band_list + V.m_num_horizontal_bands;
+}
+
+void
+astral_banded_rays_compute_bands(in astral_banded_rays_header V, in vec2 normalized_p,
+                                 out astral_banded_rays_bands B)
+{
+  vec2 c, p01;
+  uvec2 uc;
+  uvec4 tmp;
+
+  /* normalized_p is normalized to [-1, 1], to get the
+   * which band we need it normalized to [0, 1].
+   */
+  p01 = 0.5 * normalized_p + vec2(0.5);
+  c = vec2(V.m_num_vertical_bands, V.m_num_horizontal_bands) * p01;
+  uc = uvec2(c);
+
+  /* it is critical to clamp the value because helper pixels
+   * can fall outside of the [-1, 1]x[-1, 1] and they still
+   * need to be executed. So to make sure we do not read
+   * bogust data which gives a huge value for the number of
+   * curves, we must clamp the band.
+   */
+  uc.x = min(uc.x, V.m_num_vertical_bands - 1u);
+  uc.y = min(uc.y, V.m_num_horizontal_bands - 1u);
+
+  tmp = astral_read_static_data32u(V.m_horizontal_band_list + uc.y);
+  if (normalized_p.x < 0.0)
+    {
+      B.m_horizontal_band = tmp.x;
+      B.m_number_curves_in_horizontal_band = tmp.y;
+      B.m_horizontal_band_direction = -1.0;
+    }
+  else
+    {
+      B.m_horizontal_band = tmp.z;
+      B.m_number_curves_in_horizontal_band = tmp.w;
+      B.m_horizontal_band_direction = 1.0;
+    }
+
+  tmp = astral_read_static_data32u(V.m_vertical_band_list + uc.x);
+  if (normalized_p.y < 0.0)
+    {
+      B.m_vertical_band = tmp.x;
+      B.m_number_curves_in_vertical_band = tmp.y;
+      B.m_vertical_band_direction = -1.0;
+    }
+  else
+    {
+      B.m_vertical_band = tmp.z;
+      B.m_number_curves_in_vertical_band = tmp.w;
+      B.m_vertical_band_direction = 1.0;
+    }
+}
+
+void
+astral_banded_rays_load_curve(in uint location, out astral_banded_rays_curve curve)
+{
+  vec4 tmp;
+
+  tmp = astral_read_static_data16f(location);
+  curve.m_p1 = tmp.xy;
+  curve.m_p2 = tmp.zw;
+
+  tmp = astral_read_static_data16f(location + 1u);
+  curve.m_p3 = tmp.xy;
+  curve.m_weight = tmp.z;
+  curve.m_early_out = tmp.w;
+}
+
+
+
+/* Compute the impact of a curve on the winding number and update the
+ * distance values if the curve processed is closer. NOTE: the return
+ * value is WITHOUT the winding multiplier applied. This is done as
+ * a micro-optimization since the caller can multiple it at the end
+ * of all curves in a band.
+ * \param curve to process to test against (0, 0) with the horizontal
+ *              ray to (infinity, 0).
+ * \param V output providing which (if any) of the curves affect the
+ *          winding number along with the x-value of where the curve
+ *          intersect the line y = 0.
+ */
+void
+astral_banded_rays_process_curve(in astral_banded_rays_curve curve,
+                                 out astral_banded_rays_process_curve_output V)
+{
+  /* We are handling -conics- which are paremetrically represented
+   * by
+   *
+   *          [p1, w * p2, p3](t)
+   *  p(t) = --------------------
+   *            [1, w, 1](t)
+   *
+   * When solving for p_x(t) = 0 (or p_y(t) = 0),
+   * we only care about the numerator. In addition,
+   * deciding if a root matters is the same as
+   * the case for [p1, w * p2, p3](t) = 0.
+   *
+   * Let A, B, C be so that
+   *
+   *   f(t) = At^2 - 2Bt + C = [p1, w * p2, p3](t)
+   *
+   * then
+   *
+   *  A = q1 - 2q2 + q3
+   *  B = q1 - q2
+   *  C = q1
+   *
+   * where q1 = p1, q2 = w * p2 and q3 = p3
+   *
+   * and solving for f(t) = 0 gives
+   *
+   *  t1 = (B - sqrt(B^2 - AC)) / A
+   *  t2 = (B + sqrt(B^2 - AC)) / A
+   *
+   * checking directly 0 <= t1, t2 <= 1 is numerically
+   * unstable, so we need to turn to algebra to figure
+   * in terms of q1, q2 and q3 when 0 <= t1, t2 <= 1.
+   *
+   * When A > 0 and the roots are real, it is pretty quick
+   * to get (via high school algebra) that
+   *
+   *  0 < t1 < 1 if and only if (q1 > q2 && q1 > 0 && (q3 > q2 || q3 < 0))
+   *  0 < t2 < 1 if and only if (q3 > q2 && q3 > 0 && (q1 > q2 || q1 < 0))
+   *
+   * Assuming apriori that A > 0 and the roots are real gives,
+   * the above can be transformed by high school algebra to
+   *
+   *  0 < t1 < 1 if and only if (q1 > 0 && (q2 < 0 || q3 < 0))
+   *  0 < t2 < 1 if and only if (q3 > 0 && (q2 < 0 || q1 < 0))
+   *
+   * The above is incorrect when A < 0. Assuming apriori that A < 0
+   * and the roots are real gives using the same manipulations
+   *
+   *  0 < t1 < 1 if and only if (q3 < 0 && (q2 > 0 || q1 > 0))
+   *  0 < t2 < 1 if and only if (q1 < 0 && (q2 > 0 || q3 > 0))
+   *
+   * Putting together gives when the roots are real,
+   *
+   * (1) 0 < t1 < 1 if and only if (q3 < 0 && (q2 > 0 || q1 > 0) && A < 0) || (q1 > 0 && (q2 < 0 || q3 < 0) && A > 0)
+   * (2) 0 < t2 < 1 if and only if (q1 < 0 && (q2 > 0 || q3 > 0) && A < 0) || (q3 > 0 && (q2 < 0 || q1 < 0) && A > 0)
+   *
+   * Examining (1) and breaking into three cases (q1 <= 0), (q3 >= 0) and (q1 > 0 && q3 < 0)
+   * leads to simplify (1) to
+   *
+   *  0 < t1 < 1 if and only if (q3 < 0 && (q2 > 0 || q1 > 0)) || (q1 > 0 && (q2 < 0 || q3 < 0))
+   *             if and only if (q3 < 0 && q1 > 0) || (q3 < 0 && q2 > 0) || (q1 > 0 && q2 < 0) || (q1 > 0 && q3 < 0)
+   *             if and only if (q3 < 0 && q1 > 0) || (q3 < 0 && q2 > 0) || (q1 > 0 && q2 < 0)
+   *
+   * The same logic gives that (2) is equivalent to
+   *
+   *  0 < t2 < 1 if and only if (q1 < 0 && q2 > 0) || (q1 < 0 && q3 > 0) || (q3 > 0 && q2 < 0)
+   *
+   * The last issue to handle is the end points. We use the
+   * following rules to count but avoid double counting:
+   *
+   *  (a) use 0 if and only if p(0) == 0 && (p'(0) > 0 || (p'(0) == 0 && p''(0) > 0))
+   *  (b) use 1 if and only if p(1) == 0 && (p'(1) < 0 || (p'(1) == 0 && p''(1) < 0))
+   *
+   * Now
+   *
+   *          f(t)
+   *  p(t) = ------
+   *          W(t)
+   *
+   * where W(t) = [1, w, 1](t).
+   *
+   *           f'(t) * W(t) - f(t) * W'(t)
+   *  p'(t) = -----------------------------
+   *                 W(t) * W(t)
+   *
+   * Now w > 0, thus W(t) > 0 when 0 <= t <= 1. For the case
+   * of (a), p(0) = 0 which happens exactly when f(0) = 0 and
+   * of (b), p(1) = 0 which happens exactly when f(1) = 0.
+   * Using that W > 0, the conditions (a) and (b) are equivalent
+   * to
+   *
+   *  (a') use 0 if and only if f(0) == 0 && (f'(0) > 0 || (f'(0) == 0 && f''(0) > 0))
+   *  (b') use 1 if and only if f(1) == 0 && (f'(1) < 0 || (f'(1) == 0 && f''(1) < 0))
+   *
+   * It is relatively straight forward to show that
+   * (a') and (b') are equivalent to
+   *
+   *  (a'') use 0 if and only if q1 == 0 && (q2 > 0 || (q2 == 0 && q3 > 0))
+   *  (b'') use 1 if and only if q3 == 0 && (q2 > 0 || (q2 == 0 && q1 > 0))
+   *
+   * Lets examine when q1 = 0, then
+   *
+   *   A = q3 - 2 * q2
+   *   B = -q2
+   *   C =  0
+   *
+   * thus,
+   *
+   *   B * B - A * C = p2.y * p2.y
+   *
+   * which gives
+   *
+   *   t2 = (-q2 + |q2|) / (q3 - 2 * q2)
+   *
+   * which implies that when q1 is 0, use t2 if and only
+   * q2 > 0 || (q2 == 0 && q3 > 0)
+   *
+   * The q3 = 0 case goes to:
+   *
+   *   A =  q1 - 2 * q2
+   *   B =  q1 - q2
+   *   C =  q1
+   *
+   * thus,
+   *
+   *   B * B - A * C = q2 * q2
+   *
+   * which gives
+   *
+   *   t1 = (q1.y - q2 - |q2|) / (q1 - 2 * q2)
+   *
+   * which implies that when q3 is 0, use t1 if and only
+   * q2 > 0 || (q2 == 0 && q1 > 0).
+   *
+   * Bringing all of this together gives:
+   *
+   * (1) use t1 if and only if (q3 <= 0 && q1 > 0) || (q3 <= 0 && q2 > 0) || (q1 > 0 && q2 < 0)
+   * (2) use t2 if and only if (q1 <= 0 && q2 > 0) || (q1 <= 0 && q3 > 0) || (q3 > 0 && q2 < 0)
+   *
+   * Since w > 0, q1 = p1, q2 = w * p2, and q3 = p3 the above then becomes
+   *
+   * (1) use t1 if and only if (p3 <= 0 && p1 > 0) || (p3 <= 0 && p2 > 0) || (p1 > 0 && p2 < 0)
+   * (2) use t2 if and only if (p1 <= 0 && p2 > 0) || (p1 <= 0 && p3 > 0) || (p3 > 0 && p2 < 0)
+   *
+   * which we can simplify a little more to
+   *
+   * (1) use t1 if and only if (p3 <= 0 && max(p1, p2) > 0) || (p1 > 0 && p2 < 0)
+   * (2) use t2 if and only if (p1 <= 0 && max(p2, p3) > 0) || (p3 > 0 && p2 < 0)
+   */
+
+  vec2 A, B, C, q2;
+  float t1, t2, www;
+
+  /* The value of Atiny needs to be handled with care;
+   * Our curve data is fp16, which has 11 bits of accuracy,
+   * which corresponds to 1 part in 2048. Making this too
+   * large will flatten the curve giving an incorrect render.
+   */
+  const float Atiny = 0.0005;
+
+  q2 = curve.m_weight * curve.m_p2;
+
+  A = curve.m_p1 - 2.0 * q2 + curve.m_p3;
+  B = curve.m_p1 - q2;
+  C = curve.m_p1;
+
+  V.m_use_t1 = (curve.m_p3.y <= 0.0 && max(curve.m_p1.y, curve.m_p2.y) > 0.0)
+    || (curve.m_p1.y > 0.0 && curve.m_p2.y < 0.0);
+
+  V.m_use_t2 = (curve.m_p1.y <= 0.0 && max(curve.m_p2.y, curve.m_p3.y)  > 0.0)
+    || (curve.m_p3.y > 0.0 && curve.m_p2.y < 0.0);
+
+  if (abs(A.y) > Atiny * max(abs(B.y), abs(C.y)))
+    {
+      float D;
+
+      D = B.y * B.y - A.y * C.y;
+      if (D < 0.0)
+        {
+          V.m_use_t1 = V.m_use_t2 = false;
+        }
+      else
+        {
+          /* There is catostrophic cancellation when
+           * B is much larger than A * C for one of the
+           * the roots. We do the following to prevent
+           * the catostrophic cancellation:
+           *
+           *       B - sqrt(B^2 - A * C)
+           * t1 = ----------------------
+           *               A
+           *
+           *               AC
+           *    = ----------------------------
+           *       A * (B + sqrt(B^2 - A * C))
+           *
+           *          C
+           *    = ----------
+           *       B + rootD
+           *
+           * and similairly,
+           *
+           *          C
+           * t2 = ----------
+           *       B - rootD
+           *
+           *
+           * We use the alternate form of t1 when B > 0
+           * and the alternate form of t2 when B < 0 which
+           * gives the following
+           *
+           *                     C                    C
+           * for B > 0, t1 = ----------- = --------------------------
+           *                  B + rootD     sgn(B) * (abs(B) + rootD)
+           *
+           *                  B + rootD     sgn(B) * (abs(B) + rootD)
+           *            t2 = ----------  = ---------------------------
+           *                     A                    A
+           *
+           *                  B - rootD     sgn(B) * (abs(B) + rootD)
+           * for B < 0, t1 = ----------- = --------------------------
+           *                     A                    A
+           *
+           *                     C                    C
+           *            t2 = ----------- = --------------------------
+           *                  B - rootD     sgn(B) * (abs(B) + rootD)
+           *
+           *
+           * Let:
+           *                       C
+           *       s1 = ---------------------------
+           *             sgn(B) * (abs(B) + rootD)
+           *
+           *
+           *             sgn(B) * (abs(B) + rootD)
+           *       s2 = ---------------------------
+           *                       A
+           *
+           * then for B > 0, t1 = s1, t2 = s2 and
+           * for B < 0, t1 = s2, t2 = s1.
+           */
+
+          #if 0
+            {
+              /* Tests on highly tessellated curves give render
+               * issues on this code path; which is odd since
+               * this should be more numerically stable.
+               */
+              float rootD, sgnB_absB_plus_rootD, s1, s2;
+
+              rootD = sqrt(D);
+              sgnB_absB_plus_rootD = sign(B.y) * (abs(B.y) + rootD);
+              s1 = C.y / sgnB_absB_plus_rootD;
+              s2 = sgnB_absB_plus_rootD / A.y;
+
+              if (B.y > 0.0)
+                {
+                  t1 = s1;
+                  t2 = s2;
+                }
+              else
+                {
+                  t1 = s2;
+                  t2 = s1;
+                }
+            }
+          #else
+            {
+              /* direct code which has fewer floating point operations */
+              float recipA, rootD;
+
+              recipA = 1.0 / A.y;
+              rootD = sqrt(D);
+              t1 = (B.y - rootD) * recipA;
+              t2 = (B.y + rootD) * recipA;
+            }
+          #endif
+
+        }
+    }
+  else if (B.y != 0.0)
+    {
+      t1 = t2 = 0.5 * C.y / B.y;
+    }
+  else
+    {
+      V.m_use_t1 = V.m_use_t2 = false;
+    }
+
+  /*
+   * w(t) = [1, w, 1](t) where w = curve.m_weight
+   *      = (1-t)^2 + 2wt(1-t) + t^2
+   *      = 2(1-w)t^2 - 2(1-w)t + 1
+   *      = 1 + 2(1-w)t(t - 1)
+   */
+
+  www = 2.0 * (1.0 - curve.m_weight);
+
+  if (V.m_use_t1)
+    {
+      float w1, x1;
+
+      w1 = 1.0 + www * t1 * (t1 - 1.0);
+      x1 = (A.x * t1 - B.x * 2.0) * t1 + C.x;
+      V.m_x1 = x1 / w1;
+    }
+
+  if (V.m_use_t2)
+    {
+      float w2, x2;
+
+      w2 = 1.0 + www * t2 * (t2 - 1.0);
+      x2 = (A.x * t2 - B.x * 2.0) * t2 + C.x;
+      V.m_x2 = x2 / w2;
+    }
+}
+
+/*! @} */

@@ -1,0 +1,120 @@
+// -*- C++ -*-
+/*!
+ * \file astral_stc_quad_tri_util.glsl.resource_string
+ * \brief astral_stc_quad_tri_util.glsl.resource_string
+ *
+ * Copyright 2021 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+struct astral_stc_quadratic_curve
+{
+  /* The points of the bezier curve in virtual pixel coordinates,
+   * i.e. after the transformation from logical to virtual pixel
+   * coordinates, but before the render scale factor is applied.
+   */
+  vec2 m_start, m_control, m_end;
+};
+
+#define ASTRAL_STC_POINT 0u
+#define ASTRAL_STC_LINE 1u
+#define ASTRAL_STC_QUAD 2u
+
+struct astral_stc_quadratic_curve_analysis
+{
+  /* Major axis of quadartic curve given by
+   * normalize(m_end - m_start)
+   */
+  vec2 m_major;
+
+  /* Minor axis, given as vec2(-m_major.y, m_major.x) */
+  vec2 m_minor;
+
+  /* length of the line connecting m_start to m_end */
+  float m_base_line_length;
+
+  /* Value of m_control - m_start */
+  vec2 m_control_start;
+
+  /* Value of m_end - m_start */
+  vec2 m_end_start;
+
+  /* Gives the distance along m_minor axis of the
+   * control point from the base line; given by
+   * dot(m_control - m_start, m_minor)
+   */
+  float m_mby;
+
+  /* determinant of the triangle setup matrix */
+  float m_det;
+
+  /* One of ASTRAL_STC_POINT, ASTRAL_STC_LINE, ASTRAL_STC_QUAD */
+  uint m_classification;
+};
+
+void
+astral_compute_analysis(in astral_stc_quadratic_curve curve,
+                        in vec2 render_scale_factor,
+                        out astral_stc_quadratic_curve_analysis analysis)
+{
+  /* if the height of the conic triangle is less than
+   * a half of REAL pixel, regard it as flat.
+   */
+  const float tol_real_pixels_mby = 0.5;
+
+  /* if the base line is less than half a pixel wide,
+   * regard the curve as degenerate and to be dropped.
+   */
+  const float tol_real_pixels_base_line = 0.5;
+
+  /* if the height of the triangle is less than 1/1000
+   * of the length of the base line, regard it as flat
+   */
+  const float tol_rel_mby = 1e-4;
+
+  /* if the determinant of the triangle setup is
+   * too small, then regard the triangle as degenerate
+   * into a line segment because we won't be able to
+   * compute reliable barycentrics.
+   */
+  const float tol_det = 1e-3;
+
+  analysis.m_control_start = curve.m_control - curve.m_start;
+  analysis.m_end_start = curve.m_end - curve.m_start;
+
+  if (astral_magnitude_l1(analysis.m_end_start * render_scale_factor) < tol_real_pixels_base_line)
+    {
+      analysis.m_classification = ASTRAL_STC_POINT;
+      analysis.m_major = vec2(1.0, 0.0);
+      analysis.m_minor = vec2(0.0, 1.0);
+      analysis.m_mby = 0.0;
+      analysis.m_base_line_length = 0.0;
+    }
+  else
+    {
+      analysis.m_major = normalize(analysis.m_end_start);
+      analysis.m_minor = vec2(-analysis.m_major.y, analysis.m_major.x);
+      analysis.m_det = analysis.m_control_start.x * analysis.m_end_start.y - analysis.m_control_start.y * analysis.m_end_start.x;
+      analysis.m_mby = dot(analysis.m_control_start, analysis.m_minor);
+      analysis.m_base_line_length = dot(analysis.m_major, analysis.m_end_start);
+
+      if (abs(analysis.m_mby) > tol_rel_mby * analysis.m_base_line_length
+          && abs(analysis.m_det) > tol_det
+          && abs(analysis.m_mby) * max(render_scale_factor.x, render_scale_factor.y) > tol_real_pixels_mby)
+        {
+          analysis.m_classification = ASTRAL_STC_QUAD;
+        }
+      else
+        {
+          analysis.m_classification = ASTRAL_STC_LINE;
+        }
+    }
+}

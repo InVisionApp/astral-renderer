@@ -1,0 +1,13 @@
+prefix=@INSTALL_LOCATION@
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: astral-@TYPE@
+Description: Astral-@TYPE@ is the @TYPE@ version of Astral which is a high performance 2D rendering library.
+Version:
+Requires: freetype2
+Conflicts: astral-@OTHER_TYPE@
+Cflags: -I${includedir} @COMPILE_FLAGS@
+Libs: -L${libdir} -lAstral_@TYPE@ @LINK_FLAGS@
+Libs.private:

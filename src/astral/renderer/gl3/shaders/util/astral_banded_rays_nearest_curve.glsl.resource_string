@@ -1,0 +1,395 @@
+// -*- C++ -*-
+/*!
+ * \file astral_banded_rays_nearest_curve.glsl.resource_string
+ * \brief astral_banded_rays_nearest_curve.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/*!\addtogroup GLSLItemPath
+ * @{
+ */
+
+/* Tracks the distance to the closest curve at the pixel only */
+struct astral_banded_rays_value_nearest_curve_distance
+{
+  float m_closest_distance_increment;
+  float m_closest_distance_decrement;
+};
+
+/* Tracks the winding number and closest curve at the pixel only */
+struct astral_banded_rays_value_nearest_curve
+{
+  astral_banded_rays_value_nearest_curve_distance m_distances;
+  int m_winding;
+  float m_max_distance;
+};
+
+void
+astral_banded_rays_init_band_rays_value(in float max_distance, out astral_banded_rays_value_nearest_curve V)
+{
+  V.m_winding = 0;
+  V.m_distances.m_closest_distance_decrement = max_distance;
+  V.m_distances.m_closest_distance_increment = max_distance;
+  V.m_max_distance = max_distance;
+}
+
+void
+astral_banded_rays_update_distance(float dist, bool is_increment, inout astral_banded_rays_value_nearest_curve_distance V)
+{
+  if (is_increment)
+    {
+      /* The curve is closest curve and if incremented the winding number,
+       * then crossing that curve from the sample point then decrements
+       * the winding number.
+       */
+      V.m_closest_distance_decrement = min(V.m_closest_distance_decrement, dist);
+    }
+  else
+    {
+      V.m_closest_distance_increment = min(V.m_closest_distance_increment, dist);
+    }
+}
+
+/* Compute the impact of a curve on the winding number and update the
+ * distance values if the curve processed is closer. NOTE: the return
+ * value is WITHOUT the winding multiplier applied. This is done as
+ * a micro-optimization since the caller can multiple it at the end
+ * of all curves in a band.
+ * \param curve to process to test against (0, 0) with the horizontal
+ *              ray to (infinity, 0).
+ * \param orientation_factor: is +1.0 if the orientation has not been reversed
+ *                            and -1.0 if the orientation has been reversed
+ * \param V values to update
+ * \returns impact on winding number (ignoring the effect of orientation_factor).
+ */
+int
+astral_banded_rays_process_curve(in astral_banded_rays_curve curve,
+                                 in float orientation_factor,
+                                 inout astral_banded_rays_value_nearest_curve_distance V)
+{
+  astral_banded_rays_process_curve_output Q;
+  int return_value;
+
+  astral_banded_rays_process_curve(curve, Q);
+  return_value = 0;
+
+  if (Q.m_use_t1)
+    {
+      return_value += int(step(0.0, Q.m_x1));
+      astral_banded_rays_update_distance(abs(Q.m_x1), Q.m_x1 * orientation_factor > 0.0, V);
+    }
+
+  if (Q.m_use_t2)
+    {
+      return_value -= int(step(0.0, Q.m_x2));
+      astral_banded_rays_update_distance(abs(Q.m_x2), Q.m_x2 * orientation_factor < 0.0, V);
+    }
+
+  return return_value;
+}
+
+/*
+ * \param curve_location lcoation in fp16 data for curves
+ * \param number_curves number of curves
+ * \param path_coord point in path coordinates to compute the
+ *                   winding and nearest curve
+ * \param em scale factor from curve data to pixels
+ * \param widen amount by which to widen the curves
+ * \param orientation_factor: is +1.0 if the orientation has not been reversed
+ *                            and -1.0 if the orientation has been reversed
+ * \param V values to update
+ * \returns the winding number
+ */
+int
+astral_banded_rays_process_band(in uint curve_location,
+                                in uint number_curves,
+                                in vec2 path_coord,
+                                in float em, in float widen,
+                                in float orientation_factor,
+                                inout astral_banded_rays_value_nearest_curve_distance V)
+{
+  int return_value = 0;
+  uint c, src;
+  float early_out;
+
+  /* Note that we early out only if the query point is atleast
+   * one and a half a pixel outside of the path-rect; this way
+   * if a feature touches the boundary, we still anti-alias
+   * that feature.
+   */
+  if (number_curves == 0u
+      || abs(path_coord.x) * em > em * (widen + 1.0) + 1.5
+      || abs(path_coord.y) * em > em + 1.5)
+    {
+      return return_value;
+    }
+
+  early_out = -1.5 - widen * em;
+  src = curve_location;
+  for (c = 0u; c < number_curves; ++c, src += 2u)
+    {
+      astral_banded_rays_curve curve;
+
+      astral_banded_rays_load_curve(src, curve);
+
+      /* put curve in coordinate system where path_coord is the origin */
+      curve.m_p1 -= path_coord;
+      curve.m_p2 -= path_coord;
+      curve.m_p3 -= path_coord;
+      curve.m_early_out -= path_coord.x;
+
+      curve.m_p1.x *= em;
+      curve.m_p2.x *= em;
+      curve.m_p3.x *= em;
+      curve.m_early_out *= em;
+
+      /* curves are sorted so we can break out early; the early out
+       * value comes from the tight bounding box of the curve instead
+       * of just max'ing the defining points of the curve. Note that
+       * we early out at -1.5, this is because we are computing the
+       * winding number also one pixel before the point along the ray.
+       */
+      if (curve.m_early_out < early_out)
+        break;
+
+      return_value += astral_banded_rays_process_curve(curve, orientation_factor, V);
+    }
+
+  return return_value;
+}
+
+/*!
+ * Main work horse of the banded rays compute. Computes the winding
+ * number at a path coordinate, the winding number of the neighboring
+ * points and the unsigned psudo-distance in pixels to the nearest curve.
+ * \param header_location location in shared data where astral_banded_rays_header is located
+ * \param path_coord path coordinate of fragment, in the range [-1, 1]x[-1, 1]
+ * \param path_coord_fwidth value of fwidth(path_coord)
+ * \param[out] V winding numbers and distance to nearest curve
+ */
+vec2
+astral_banded_rays_compute(in uint header_location,
+                           in vec2 path_coord,
+                           in vec2 path_coord_fwidth,
+                           float widen,
+                           out astral_banded_rays_value_nearest_curve V)
+{
+  astral_banded_rays_header header;
+  astral_banded_rays_bands bands;
+  vec2 em;
+
+  em = 1.0 / path_coord_fwidth;
+
+  astral_banded_rays_init_band_rays_value(120.0, V);
+  astral_banded_rays_load_header(header_location, header);
+  astral_banded_rays_compute_bands(header, path_coord, bands);
+
+  if (header.m_num_horizontal_bands > 0u)
+    {
+      vec2 p;
+      float orientation_factor;
+
+      /* NOTE: If the bands.m_horizontal_band_direction
+       *       is -1, then the curve's have their x-coordinate
+       *       negated by ItemPath AND the location of the
+       *       p.x is also negated. The upshot is that then
+       *       the winding number is negated as are the curve
+       *       orientation impacts. If the only data used was
+       *       the horizontal band, then we could do nothing.
+       *       However, because we also use a vertial band, we
+       *       need to keep the data consistent, so we negate
+       *       thw winding number and also the orientation.
+       */
+      p.x = abs(path_coord.x);
+      p.y = path_coord.y;
+      orientation_factor = bands.m_horizontal_band_direction;
+
+      V.m_winding = astral_banded_rays_process_band(bands.m_horizontal_band,
+                                                    bands.m_number_curves_in_horizontal_band,
+                                                    p, em.x, widen, orientation_factor,
+                                                    V.m_distances);
+
+      if (bands.m_horizontal_band_direction < 0.0)
+        {
+          /* astral_banded_rays_process_band()'s return value does
+           * NOT take into account the orientation multplier.
+           */
+          V.m_winding = -V.m_winding;
+        }
+    }
+
+  if (header.m_num_vertical_bands > 0u && widen <= 0.0)
+    {
+      vec2 p;
+      float orientation_factor;
+
+      p.x = abs(path_coord.y);
+      p.y = path_coord.x;
+      orientation_factor = -bands.m_vertical_band_direction;
+
+      astral_banded_rays_process_band(bands.m_vertical_band,
+                                      bands.m_number_curves_in_vertical_band,
+                                      p, em.y, 0.0, orientation_factor,
+                                      V.m_distances);
+    }
+
+  return em;
+}
+
+/*!
+ * From winding values, fill rule and distance to nearest curve,
+ * compute the distance to the boundary of the path filled with
+ * a given fill rule.
+ * \param V output value from astral_banded_rays_compute()
+ * \param fill_rule fill rule
+ * \returns the pseudo signed distance to the boundary of the
+ *          path filled
+ */
+float
+astral_banded_rays_post_process(in astral_banded_rays_value_nearest_curve V, in uint fill_rule, in float widen)
+{
+  uint base_fill_rule;
+  float D;
+
+  base_fill_rule = astral_base_fill_rule(fill_rule);
+
+  /* odd-even: view all curves as a boundary between
+   * non-zero: depends on the value of W = winding number
+   *     W =  0: any curve is a boundary from not-filled to filled
+   *     W = +1: only curves that decrement the winding number are to the boundary
+   *     W = -1: only curves that increment the winding number are to the boundary
+   *     abs(W) >= 2: we just assume that no curve matters since it needs to
+   *                  go through two curves.
+   */
+  if (V.m_winding == 0 || base_fill_rule == ASTRAL_ODD_EVEN_FILL_RULE)
+    {
+      D = min(V.m_distances.m_closest_distance_increment,
+              V.m_distances.m_closest_distance_decrement);
+    }
+  else if (V.m_winding == -1)
+    {
+      D = V.m_distances.m_closest_distance_increment;
+    }
+  else if (V.m_winding == 1)
+    {
+      D = V.m_distances.m_closest_distance_decrement;
+    }
+  else
+    {
+      // winding number has abs() >= 2 and is non-zero fill rule
+      D = V.m_max_distance;
+    }
+
+  D *= astral_apply_fill_rule(V.m_winding, fill_rule);
+
+  return D + widen;
+}
+
+/*!
+ * Compute the signed distance in pixels from the passed
+ * coordinate in path coordinates to the boundary of the
+ * *filled* path.
+ * \param header_location location to header for the path data
+ * \param path_coord path coordinate at which to compute the
+ *                   pseudo-distance. Recall that the path's
+ *                   bounding box is [-1, 1]x[-1, 1].
+ * \param path_coord_fwidth the value of fwidth(path_coord)
+ * \param[out] V location to which to write the winding
+ *               number values and the unsigned distance to the
+ *               nearest curve.
+ * \returns a pseudo-distance in pixels to the filled path
+ */
+float
+astral_banded_rays_compute_distance_to_filled_path(in uint header_location,
+                                                   in vec2 path_coord,
+                                                   in vec2 path_coord_fwidth,
+                                                   in uint fill_rule,
+                                                   in float widen,
+                                                   out astral_banded_rays_value_nearest_curve V)
+{
+  vec2 em;
+
+  em = astral_banded_rays_compute(header_location,
+                                  path_coord,
+                                  path_coord_fwidth,
+                                  widen,
+                                  V);
+
+  return astral_banded_rays_post_process(V, fill_rule, em.x * widen);
+}
+
+/*!
+ * Compute the partial coverage at a logical coordinate
+ * \param logical_coord LOGICAL coordinate, i.e. before
+ *                      the transformation as specified by
+ *                      the layer
+ * \param logical_coord_fwidth the value of fwidth(logical_coord_fwidth)
+ * \param L layer
+ * \param out_coverage location to which to write the coverage
+ * \returns the distance, clamped to the nearest curve
+ */
+float
+astral_banded_rays_process_layer_nearest_curve_distance(in vec2 logical_coord,
+                                                        in vec2 logical_coord_fwidth,
+                                                        in astral_banded_rays_layer L,
+                                                        in float widen)
+{
+  vec2 path_coord, path_coord_fwidth;
+  float d;
+  astral_banded_rays_value_nearest_curve V;
+
+  path_coord = L.m_scale * logical_coord + L.m_translate;
+  path_coord_fwidth = L.m_scale * logical_coord_fwidth;
+
+  return astral_banded_rays_compute_distance_to_filled_path(L.m_header_offset,
+                                                            path_coord,
+                                                            path_coord_fwidth,
+                                                            L.m_fill_rule,
+                                                            widen, V);
+}
+
+/*!
+ * Return the color of the layer without alpha pre-multiplied and
+ * compute the partial coverage at a logical coordinate
+ * \param logical_coord LOGICAL coordinate, i.e. before
+ *                      the transformation as specified by
+ *                      the layer
+ * \param logical_coord_fwidth the value of fwidth(logical_coord_fwidth)
+ * \param L layer
+ * \param out_coverage location to which to write the coverage
+ * \returns the color of the layer without alpha pre-multiplied
+ */
+vec4
+astral_banded_rays_process_layer_nearest_curve(in vec2 logical_coord,
+                                               in vec2 logical_coord_fwidth,
+                                               in astral_banded_rays_layer L,
+                                               in float widen,
+                                               out float out_coverage)
+{
+  float d;
+
+  d = astral_banded_rays_process_layer_nearest_curve_distance(logical_coord,
+                                                              logical_coord_fwidth,
+                                                              L, widen);
+
+  /* the value returned is the signed distance to the
+   * boundary, so the coverage is that value plus 0.5
+   * clamped to [0.0, 1.0].
+   */
+  out_coverage = clamp(d + 0.5, 0.0, 1.0);
+
+  return L.m_color;
+}
+
+/*! @} */

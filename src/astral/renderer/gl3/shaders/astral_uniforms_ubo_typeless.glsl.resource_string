@@ -1,0 +1,83 @@
+// -*- C++ -*-
+/*!
+ * \file astral_uniforms_ubo_typeless.glsl.resource_string
+ * \brief astral_uniforms_ubo_typeless.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+layout(std140) uniform AstralTransformationsUBO
+{
+  uvec4 astral_ubo_transformations[ASTRAL_NUMBER_ITEM_TRANSFORMATIONS * ASTRAL_ITEM_TRANSFORMATION_SIZE];
+};
+
+layout(std140) uniform AstralScaleTranslatesUBO
+{
+  uvec4 astral_ubo_scale_translates[ASTRAL_NUMBER_ITEM_SCALE_TRANSLATES * ASTRAL_ITEM_SCALE_TRANSLATE_SIZE];
+};
+
+layout(std140) uniform AstralGradientTransformationsUBO
+{
+  uvec4 astral_ubo_gradient_transformations[ASTRAL_NUMBER_IMAGE_TRANSFORMATIONS * ASTRAL_IMAGE_TRANSFORMATION_SIZE];
+};
+
+layout(std140) uniform AstralPackedGradientsUBO
+{
+  uvec4 astral_ubo_packed_gradients[ASTRAL_NUMBER_GRADIENTS * ASTRAL_GRADIENT_SIZE];
+};
+
+layout(std140) uniform AstralPackedBrushesUBO
+{
+  uvec4 astral_ubo_packed_brushes[ASTRAL_NUMBER_BRUSHES * ASTRAL_BRUSH_SIZE];
+};
+
+layout(std140) uniform AstralClipWindowUBO
+{
+  uvec4 astral_ubo_clip_window[ASTRAL_NUMBER_CLIP_WINDOWS * ASTRAL_CLIP_WINDOW_SIZE];
+};
+
+layout(std140) uniform AstralPackedHeadersUBO
+{
+  uvec4 astral_ubo_packed_headers[ASTRAL_NUMBER_HEADERS * ASTRAL_HEADER_SIZE];
+};
+
+layout(std140) uniform AstralPackedImagesUBO
+{
+  uvec4 astral_ubo_packed_images[ASTRAL_NUMBER_TILED_IMAGES * ASTRAL_TILED_IMAGE_SIZE];
+};
+
+layout(std140) uniform AstralShadowMapUBO
+{
+  uvec4 astral_ubo_shadow_maps[ASTRAL_NUMBER_SHADOW_MAPS * ASTRAL_SHADOW_MAP_SIZE];
+};
+
+layout(std140) uniform AstralClipElementsUBO
+{
+  uvec4 astral_ubo_clip_elements[ASTRAL_NUMBER_CLIP_ELEMENTS * ASTRAL_CLIP_ELEMENT_SIZE];
+};
+
+layout(std140) uniform AstralItemDataUBO
+{
+  vec4 astral_ubo_data[ASTRAL_NUMBER_SHADER_DATA];
+};
+
+vec4
+astral_read_item_dataf(uint location)
+{
+  return astral_ubo_data[location];
+}
+
+uvec4
+astral_read_item_datau(uint location)
+{
+  return floatBitsToUint(astral_ubo_data[location]);
+}

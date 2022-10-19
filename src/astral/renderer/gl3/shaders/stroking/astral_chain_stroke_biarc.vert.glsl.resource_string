@@ -1,0 +1,460 @@
+// -*- C++ -*-
+/*!
+ * \file astral_chain_stroke_biarc.vert.glsl.resource_string
+ * \brief astral_chain_stroke_biarc.vert.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_vert_shader(in uint sub_shader, in uint item_data_location,
+                       in vec4 a0,
+                       in AstralTransformation tr)
+{
+}
+
+vec2
+astral_vert_shader(in uint sub_shader, in uint item_data_location,
+                   in vec4 a0,
+                   in AstralTransformation tr)
+{
+  const float inflate = 1.5;
+  uint static_data_offset, role, offset_type, path_transformation_location;
+  vec4 item_data;
+  vec2 p, start_pt, end_pt, control_pt, return_value;
+  float packed_stroke_radius, R, curve_length, curve_start, distance_stretch;
+  uint inverted_flags = 0u;
+  astral_biarc biarc;
+  astral_stroke_radius_info_t detailed_radii;
+
+  static_data_offset = floatBitsToUint(a0.x);
+  role = astral_vertex_role(floatBitsToUint(a0.y));
+
+  item_data.xyz = astral_read_item_dataf(item_data_location).xyz;
+  packed_stroke_radius = item_data.x;
+  path_transformation_location = floatBitsToUint(item_data.z);
+
+  offset_type = role & ASTRAL_STROKE_SHADER_ARC_OFFSET_TYPE_MASK;
+
+  /* Step 1: extract the quadratic curve */
+  if (astral_stroking_is_animated(sub_shader))
+    {
+      float t;
+      vec4 start_01, end_01, control_01;
+
+      t = item_data.y;
+      start_01 = astral_read_static_data32f(static_data_offset + 0u);
+      control_01 = astral_read_static_data32f(static_data_offset + 1u);
+      end_01 = astral_read_static_data32f(static_data_offset + 2u);
+
+      start_pt = mix(start_01.xy, start_01.zw, t);
+      end_pt = mix(end_01.xy, end_01.zw, t);
+      control_pt = mix(control_01.xy, control_01.zw, t);
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          vec4 static_data;
+          float e;
+
+          static_data = astral_read_static_data32f(static_data_offset + 3u).xyzw;
+          curve_start = mix(static_data.x, static_data.y, t);
+          curve_length = mix(static_data.z, static_data.w, t);
+
+          static_data = astral_read_static_data32f(static_data_offset + 4u).xyzw;
+          e = mix(static_data.x, static_data.y, t);
+          astral_chain_stroke_contour_length = mix(static_data.z, static_data.w, t);
+          astral_chain_stroke_edge_length = mix(a0.z, a0.w, t);
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge = curve_start - e;
+        }
+      #else
+        {
+          curve_start = curve_length = 0.0;
+        }
+      #endif
+    }
+  else
+    {
+      vec4 data;
+
+      data = astral_read_static_data32f(static_data_offset + 0u);
+      start_pt = data.xy;
+      control_pt = data.zw;
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          float e;
+
+          data.xyzw = astral_read_static_data32f(static_data_offset + 1u).xyzw;
+
+          end_pt = data.xy;
+          curve_start = data.z;
+          curve_length = data.w;
+
+          data.xy = astral_read_static_data32f(static_data_offset + 2u).xy;
+          e = data.x;
+          astral_chain_stroke_contour_length = data.y;
+          astral_chain_stroke_edge_length = a0.z;
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge = curve_start - e;
+        }
+      #else
+        {
+          curve_start = curve_length = 0.0;
+          end_pt = astral_read_static_data32f(static_data_offset + 1u).xy;
+        }
+      #endif
+    }
+
+  if (path_transformation_location != ASTRAL_INVALID_INDEX)
+    {
+      AstralTransformation P;
+
+      astral_load(path_transformation_location, P);
+      start_pt = astral_apply_transformation(P, start_pt);
+      end_pt = astral_apply_transformation(P, end_pt);
+      control_pt = astral_apply_transformation(P, control_pt);
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          float D;
+
+          D = sqrt(abs(astral_det_matrix(P.m_matrix)));
+          astral_chain_stroke_contour_length *= D;
+          astral_chain_stroke_edge_length *= D;
+          astral_chain_stroke_distance_from_start_contour_minus_from_start_edge *= D;
+          curve_start *= D;
+          curve_length *= D;
+        }
+      #endif
+    }
+
+  astral_chain_stroke_start_pt_x = start_pt.x;
+  astral_chain_stroke_start_pt_y = start_pt.y;
+  astral_chain_stroke_end_pt_x = end_pt.x;
+  astral_chain_stroke_end_pt_y = end_pt.y;
+  astral_chain_stroke_control_pt_x = control_pt.x;
+  astral_chain_stroke_control_pt_y = control_pt.y;
+
+  detailed_radii = astral_stroke_radius_info(packed_stroke_radius, tr.m_matrix, astral_render_scale());
+  R = detailed_radii.m_vertex_radius;
+  astral_chain_stroke_radius = detailed_radii.m_fragment_radius;
+  astral_chain_stroke_coverage_multiplier = detailed_radii.m_coverage_multiplier;
+
+  /* step 2 compute the bi-arc */
+  if (astral_compute_biarc(start_pt, control_pt, end_pt, biarc))
+    {
+      vec2 base_pt, n;
+      astral_arc_from_biarc arc;
+
+      astral_compute_arc_from_biarc(role, biarc, arc);
+      if ((role & ASTRAL_STROKE_SHADER_ARC_END_POINT_MASK) != 0u)
+        {
+          base_pt = arc.m_end_pt;
+          n = arc.m_end_N;
+        }
+      else
+        {
+          base_pt = arc.m_start_pt;
+          n = arc.m_start_N;
+        }
+
+      /* ASTRAL_STROKE_SHADER_ARC_OMEGA --> 0
+       * ASTRAL_STROKE_SHADER_ARC_ZETA  --> 1
+       * ASTRAL_STROKE_SHADER_ARC_TOWARDS_CENTER --> 2
+       * ASTRAL_STROKE_SHADER_ARC_BASE_POINT --> 3
+       * ASTRAL_STROKE_SHADER_ARC_AWAY_FROM_CENTER --> 4
+       * ASTRAL_STROKE_SHADER_ARC_TOP --> 5
+       */
+      if (R <= arc.m_radius && offset_type <= ASTRAL_STROKE_SHADER_ARC_TOWARDS_CENTER)
+        {
+          offset_type = ASTRAL_STROKE_SHADER_ARC_ZETA;
+        }
+
+      if (offset_type == ASTRAL_STROKE_SHADER_ARC_BASE_POINT)
+        {
+          p = base_pt;
+        }
+      else if (offset_type == ASTRAL_STROKE_SHADER_ARC_ZETA)
+        {
+          p = base_pt - R * n;
+        }
+      else if (offset_type == ASTRAL_STROKE_SHADER_ARC_TOWARDS_CENTER)
+        {
+          /* from assignment above we know that R > arc.m_radius */
+          p = arc.m_center;
+        }
+      else if (offset_type == ASTRAL_STROKE_SHADER_ARC_AWAY_FROM_CENTER)
+        {
+          p = base_pt + R * n;
+        }
+      else if (offset_type == ASTRAL_STROKE_SHADER_ARC_OMEGA)
+        {
+          /* from assignment above we know that R > arc.m_radius */
+          p = arc.m_center
+            - (dot(n, arc.m_ES) * (R - arc.m_radius) / (arc.m_ES_length * arc.m_ES_length)) * arc.m_ES
+            - (sign(arc.m_lambda) * (R - arc.m_radius) / arc.m_ES_length)* arc.m_J;
+        }
+      else if (offset_type == ASTRAL_STROKE_SHADER_ARC_TOP)
+        {
+          p = base_pt
+            + (R * dot(n, arc.m_ES) / (arc.m_ES_length * arc.m_ES_length)) * arc.m_ES
+            + (sign(arc.m_lambda) * (abs(arc.m_lambda) + R / arc.m_ES_length)) * arc.m_J;
+        }
+
+      if (R > arc.m_radius && offset_type == ASTRAL_STROKE_SHADER_ARC_OMEGA)
+        {
+          /* The stroke radius causes inversion AND the vertex we are on
+           * is only invoked on the portions that are the inverted portions
+           * of the arc.
+           */
+          inverted_flags = ASTRAL_STROKING_ARC_INVERTED_PORTION_MASK;
+        }
+
+      astral_chain_stroke_arc_radius = arc.m_radius;
+
+      astral_chain_stroke_arc_center_x = arc.m_center.x;
+      astral_chain_stroke_arc_center_y = arc.m_center.y;
+
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          vec2 v, d;
+          float lfirst, lsecond, normalizer;
+
+          v = p - arc.m_center;
+          d = normalize(arc.m_start_pt - arc.m_center);
+
+          /* rotate v so that the start is on the x-axis;
+           * by doing this, the fragment shader can use
+           * atan() directly to compute the length travelled
+           * along the arc.
+           */
+          astral_chain_stroke_pt_x = v.x * d.x + v.y * d.y;
+          astral_chain_stroke_pt_y = v.y * d.x - v.x * d.y;
+
+          /* The fragment shader computes the distance as
+           *
+           *   astral_chain_stroke_distance_along_contour_start + dist * astral_chain_stroke_distance_along_contour_multiplier
+           *
+           * where
+           *
+           *  dist = astral_chain_stroke_arc_radius * abs(atan(astral_chain_stroke_pt_y, astral_chain_stroke_pt_x))
+           *
+           * We need for
+           */
+          astral_compute_arc_lengths(biarc, lfirst, lsecond);
+          astral_chain_stroke_distance_along_contour_multiplier = curve_length / (lfirst + lsecond);
+
+          /* The second arc needs to have the length of the first
+           * arc added before multiplying by astral_chain_stroke_distance_along_contour_multiplier
+           */
+          if (0u != (role & ASTRAL_STROKE_SHADER_BIARC_SECOND_ARC_MASK))
+            {
+              astral_chain_stroke_distance_along_contour_pre_offset = lfirst;
+            }
+          else
+            {
+              astral_chain_stroke_distance_along_contour_pre_offset = 0.0;
+            }
+
+          astral_chain_stroke_distance_along_contour_start = curve_start;
+          astral_chain_stroke_distance_along_contour_end = curve_start + curve_length;
+        }
+      #else
+        {
+          astral_chain_stroke_pt_x = p.x - arc.m_center.x;
+          astral_chain_stroke_pt_y = p.y - arc.m_center.y;
+        }
+      #endif
+    }
+  else
+    {
+      float w, dist_ctl, dist, s0, s1;
+      vec2 base_pt, nfirst, nsecond, nmid, n, n0, n1, A, B;
+
+      dist_ctl = length(start_pt - control_pt);
+      dist = length(end_pt - control_pt) + dist_ctl;
+
+      /* This is a touch of a pain because bi-arc
+       * might be classified as flat even if it not
+       * perfectly flat. We have the constraints:
+       *  (1) the normal at the start point of the
+       *      start half must point be perpindicular
+       *      to control_pt - start_pt
+       *
+       *  (2) the normal at the end point of the
+       *      end half must point be perpindicular
+       *      to control_pt - end_pt
+       *
+       *  (3) the normals where the start and end
+       *      halves meet must match.
+       *
+       * This sadly means that the rectangles
+       * emitted will not actually be rectangles
+       * but potentially slightly slanted; we will
+       * make which ever length is longer the one to
+       * choose the direction at the meeting point.
+       */
+
+      nfirst = biarc.m_N0;
+      nsecond = biarc.m_N1;
+      nmid = (dist_ctl > 0.5 * dist) ? nfirst : nsecond;
+
+      /* Have the first arc cover the first half and the
+       * second arc cover the second half.
+       */
+      if ((role & ASTRAL_STROKE_SHADER_BIARC_SECOND_ARC_MASK) == 0u)
+        {
+          n0 = nfirst;
+          n1 = nmid;
+          A = start_pt;
+          B = control_pt;
+
+          s0 = 0.0;
+          s1 = dist_ctl;
+        }
+      else
+        {
+          n0 = nmid;
+          n1 = nsecond;
+          A = control_pt;
+          B = end_pt;
+
+          s0 = dist_ctl;
+          s1 = dist;
+        }
+
+      if ((role & ASTRAL_STROKE_SHADER_ARC_END_POINT_MASK) != 0u)
+        {
+          n = n1;
+          base_pt = B;
+          #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+            {
+              astral_chain_stroke_pt_y = s1;
+            }
+          #endif
+        }
+      else
+        {
+          n = n0;
+          base_pt = A;
+          #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+            {
+              astral_chain_stroke_pt_y = s0;
+            }
+          #endif
+        }
+
+      if (offset_type < ASTRAL_STROKE_SHADER_ARC_BASE_POINT)
+        {
+          w = -1.0;
+        }
+      else if (offset_type > ASTRAL_STROKE_SHADER_ARC_BASE_POINT)
+        {
+          w = 1.0;
+        }
+      else
+        {
+          w = 0.0;
+        }
+
+      p = base_pt + (w * R) * n;
+      astral_chain_stroke_arc_radius = -1.0;
+      astral_chain_stroke_pt_x = R * w;
+      #ifdef ASTRAL_STROKING_EMIT_DISTANCE_VALUES
+        {
+          astral_chain_stroke_distance_along_contour_start = curve_start;
+          astral_chain_stroke_distance_along_contour_end = curve_start + curve_length;
+          astral_chain_stroke_distance_along_contour_multiplier = curve_length / dist;
+          astral_chain_stroke_distance_along_contour_pre_offset = 0.0f;
+        }
+      #else
+        {
+          astral_chain_stroke_pt_y = 0.0;
+        }
+      #endif
+
+      astral_chain_stroke_arc_center_x = 0.0;
+      astral_chain_stroke_arc_center_y = 0.0;
+    }
+
+  astral_chain_stroke_boundary_flags = astral_vertex_flags(floatBitsToUint(a0.y)) | inverted_flags;
+  #ifdef ASTRAL_STROKING_WITH_DASHING
+    {
+      astral_dash_pattern_header header;
+      bool dash_pattern_per_edge;
+
+      dash_pattern_per_edge = astral_load_dash_pattern_header(astral_chain_stroke_edge_length,
+                                                              astral_chain_stroke_contour_length,
+                                                              item_data_location, header);
+
+      if (dash_pattern_per_edge)
+        {
+          astral_chain_stroke_distance_along_contour_start -= astral_chain_stroke_distance_from_start_contour_minus_from_start_edge;
+          astral_chain_stroke_distance_along_contour_end -= astral_chain_stroke_distance_from_start_contour_minus_from_start_edge;
+        }
+
+      astral_chain_stroke_dash_xz_draw_factor = header.m_xz_factor;
+      astral_chain_stroke_dash_yw_draw_factor = header.m_yw_factor;
+      astral_chain_stroke_dash_corner = header.m_dash_corner;
+      astral_chain_stroke_dash_end_length = header.m_end_length;
+      astral_chain_stroke_dash_total_length = header.m_total_length;
+    }
+  #endif
+
+  return_value = astral_apply_transformation(tr, p);
+
+  /* initialize to some large obscene positive value to make it not matter */
+  astral_chain_stroke_pixel_distance_from_end = 1e6;
+  if (astral_stroke_cap_style(sub_shader) == ASTRAL_STROKE_CAP_STYLE_FLAT_CAP)
+    {
+      uint flags;
+      vec2 from_pp, to_pp, backup_to_pp, pp, vv;
+
+      /* NOTE: if an edge connects from the start to the end
+       *       of an open contour, we should actually have
+       *       two varyings; we will assume/require that it
+       *       is never the case that an open contour consists
+       *       of a single arc.
+       */
+
+      flags = astral_vertex_flags(floatBitsToUint(a0.y));
+      if ((flags & ASTRAL_STROKE_CLOSED_CONTOUR_MASK) == 0u
+          && (flags & (ASTRAL_STROKE_START_CONTOUR_MASK | ASTRAL_STROKE_END_CONTOUR_MASK)) != 0u)
+        {
+          if ((flags & ASTRAL_STROKE_START_CONTOUR_MASK) != 0u)
+            {
+              from_pp = start_pt;
+              backup_to_pp = end_pt;
+            }
+          else
+            {
+              from_pp = end_pt;
+              backup_to_pp = start_pt;
+            }
+
+          /* map to rasterized coordinates */
+          from_pp = astral_render_scale() * astral_apply_transformation(tr, from_pp);
+          to_pp = astral_render_scale() * astral_apply_transformation(tr, control_pt);
+          backup_to_pp = astral_render_scale() * astral_apply_transformation(tr, backup_to_pp);
+
+          /* make the unit vector, apologies for the funkiness */
+          vv = -astral_unit_vector(from_pp, to_pp, backup_to_pp);
+
+          /* make pp relative to from_pp */
+          pp = astral_render_scale() * return_value - from_pp;
+
+          /* start at -0.5 to match more closely with fill */
+          astral_chain_stroke_pixel_distance_from_end = -0.5 + dot(pp, vv);
+        }
+    }
+
+  return return_value;
+}

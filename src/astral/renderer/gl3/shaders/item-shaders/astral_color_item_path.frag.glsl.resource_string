@@ -1,0 +1,76 @@
+// -*- C++ -*-
+/*!
+ * \file astral_color_item_path.frag.glsl.resource_string
+ * \brief astral_color_item_path.frag.glsl.resource_string
+ *
+ * Copyright 2020 by InvisionApp.
+ *
+ * Contact kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_pre_frag_shader(in uint sub_shader, in uint item_data_location)
+{
+  /* no symbols to compute for a caller to manipulate */
+}
+
+void
+astral_frag_shader(in uint sub_shader,
+                   in uint color_space,
+                   in uint item_data_location,
+                   out float coverage,
+                   out vec4 base_color)
+{
+  /* ItemData at item_data_location + 1u holds
+   * the layers of the shader-path to process.
+   */
+  bool more_to_go;
+  astral_banded_rays_layer layer;
+  vec2 astral_path_coord, astral_path_coord_fwidth;
+  float cvg;
+
+  astral_path_coord.x = astral_path_coord_x;
+  astral_path_coord.y = astral_path_coord_y;
+
+  astral_path_coord_fwidth.x = fwidth(astral_path_coord_x);
+  astral_path_coord_fwidth.y = fwidth(astral_path_coord_y);
+
+  item_data_location += 1u;
+  more_to_go = astral_banded_rays_load_layer_from_item_data(item_data_location, layer);
+  base_color = astral_banded_rays_process_layer_nearest_curve(astral_path_coord, astral_path_coord_fwidth, layer, 0.0, cvg);
+
+  if (more_to_go)
+    {
+      coverage = cvg;
+    }
+  else
+    {
+      base_color *= cvg;
+      while (more_to_go)
+        {
+          vec4 c;
+
+          more_to_go = astral_banded_rays_load_layer_from_item_data(item_data_location, layer);
+          c = astral_banded_rays_process_layer_nearest_curve(astral_path_coord, astral_path_coord_fwidth, layer, 0.0, cvg);
+
+          base_color = cvg * c + (1.0 - cvg) * base_color;
+        }
+
+      /* Hmm. The shader path processing of layers is not quite correct
+       * because alpha and coverage get tangled together. We will need to
+       * tweak the layer processing to emit a coverage value and somehow
+       * respect the alpha layering nicely too. Perhaps the max across all
+       * layers gives the coverage?
+       */
+      coverage = 1.0;
+
+      /* TODO: convert from sRGB color space to the requested color space */
+    }
+}

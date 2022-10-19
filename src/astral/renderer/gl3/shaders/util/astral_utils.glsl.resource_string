@@ -1,0 +1,1196 @@
+// -*- C++ -*-
+/*!
+ * \file astral_utils.glsl.resource_string
+ * \brief astral_utils.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+/*!
+ * \brief
+ * Simple class to represent a bounding box in GLSL
+ */
+struct AstralBoundingBox
+{
+  /*!
+   * The min-corner of the box
+   */
+  vec2 m_min;
+
+  /*!
+   * The max-corner of the box
+   */
+  vec2 m_max;
+};
+
+/*!
+ * \brief
+ * Simple class to represent a vec2-triangle in GLSL
+ * together with information on how to compute the barycentics
+ * within the triangle
+ */
+struct AstralTriangle
+{
+  vec2 m_a, m_b_a, m_c_a;
+  float m_detM, m_recipM;
+};
+
+/*!
+ * Computes an approximatin of the complementary Gauss error function
+ * with a maximum error of 0.0005; this is the fast form.
+ */
+float astral_erfc(in float x)
+{
+  /* From Abramowitz and Stegun (equations 7.1.25–28), taken from
+   * https://en.wikipedia.org/wiki/Error_function#Approximation_with_elementary_functions
+   */
+  const float a1 = 0.278393;
+  const float a2 = 0.230389;
+  const float a3 = 0.000972;
+  const float a4 = 0.078108;
+
+  float d = 1.0 + x * (a1 + x * (a2 + x * (a3 + x * a4)));
+  d *= d;
+  d *= d;
+
+  return 1.0 / d;
+}
+
+/*!
+ * Computes an approximatin of the complementary Gauss error function
+ * with a maximum error of 0.0000003, i.e. essentially fp32 accurate.
+ */
+float astral_erfc_accurate(in float x)
+{
+  const float a1 = 0.0705230784, a2 = 0.0422820123, a3 = 0.0092705272, a4 = 0.0001520143, a5 = 0.0002765672, a6 = 0.0000430638;
+  float d = 1.0 + x * (a1 + x * (a2 + x * (a3 + x * (a4 + x * (a5 + x * a6)))));
+
+  float d2 = d * d;
+  float d4 = d2 * d2;
+  float d8 = d4 * d4;
+  float d16 = d8 * d8;
+
+  return 1.0 / d16;
+}
+
+/*!
+ * computes an approximation of the Gauss error function
+ * with a maximum error of 0.0005; this is the fast form.
+ */
+float astral_erf(in float x)
+{
+  return 1.0 - astral_erfc(x);
+}
+
+/*!
+ * Computes an approximatin of the Gauss error function
+ * with a maximum error of 0.0000003, i.e. essentially fp32 accurate.
+ */
+float astral_erf_accurate(in float x)
+{
+  return 1.0 - astral_erfc_accurate(x);
+}
+
+/*!
+ * Given a distance-field value from a texture-iamge lookup
+ * and a sharpnes factor comptuted from the derivatives of
+ * the texel coordinate of the lookup, compute the coverage
+ * from the distance field.
+ * \param distance_field value from texture-image lookup of a distance field mask
+ * \param sharpness_factor sharpness factor as computed by astral_compute_sharpness_factor()
+ */
+float
+astral_apply_sharpness_factor_to_distance_field(in float distance_field,
+                                                in float sharpness_factor)
+{
+  float r;
+
+  r = 2.0 * distance_field - 1.0;
+  return smoothstep(-0.5, 0.5, r * sharpness_factor);
+}
+
+/*!
+ * Given a signed distance value and a coverage multiplier,
+ * compute the value for a mask stroke shader to emit.
+ */
+vec4
+astral_compute_mask_emit_value(in float signed_distance,
+                               in float coverage_multiplier)
+{
+  float df, cvg;
+
+  signed_distance = clamp(signed_distance, -1.0, 1.0);
+  df = 0.5 * signed_distance + 0.5;
+  cvg = astral_apply_sharpness_factor_to_distance_field(df, 1.0);
+
+  /*
+   * (coverage, signed distance field value, unused, unused)
+   *
+   * NOTE: coverage_multiplier only impacts the coverage; this is essentially
+   *       fine since it is only less that 1.0 on strokes thinner than a
+   *       hairline and such strokes should never use the distance field mask.
+   */
+  return vec4(cvg * coverage_multiplier, df, 0.0, 0.0);
+}
+
+/*!
+ * Initialize an \ref AstralTriangle object using the three points of a triangle.
+ * This initialization helps to reduce the computation of barycentric coordinates
+ * into a series of multiply and add (MAD) instuctions.
+ * \param a first point of the triangle
+ * \param b second point of the triangle
+ * \param c third point of the triangle
+ * \param v \ref AstralTriangle object to be initialized
+ */
+void
+astral_compute_triangle_setup(in vec2 a, in vec2 b, in vec2 c, out AstralTriangle v)
+{
+  v.m_a = a;
+  v.m_b_a = b - a;
+  v.m_c_a = c - a;
+  v.m_detM = v.m_b_a.x * v.m_c_a.y - v.m_b_a.y * v.m_c_a.x;
+  v.m_recipM = (v.m_detM != 0.0) ? 1.0 / v.m_detM : 0.0;
+}
+
+/*!
+ * Given a point P inside a triangle, compute the barycentric coordinates of a point P
+ * which is the 3-vector (A, B, C) so that P = A * a + B * b + C * c where a, b, c are
+ * the points (in that order) passed to astral_compute_triangle_setup(). If P is inside
+ * of the triangle, then A >=0, B >=0, C>=0 and A + B + C = 1.
+ * \param v \ref AstralTriangle whose barycentric coordinates will be used to represent the point
+ * \param pt point to be mapped to barycentric coordinates
+ */
+vec3
+astral_compute_barycentric(in AstralTriangle v, in vec2 pt)
+{
+  float B, C;
+  vec2 pt_a;
+  vec3 return_value;
+
+  pt_a = pt - v.m_a;
+  B = v.m_c_a.y * pt_a.x - v.m_c_a.x * pt_a.y;
+  C = v.m_b_a.x * pt_a.y - v.m_b_a.y * pt_a.x;
+
+  return_value.y = B * v.m_recipM;
+  return_value.z = C * v.m_recipM;
+  return_value.x = 1.0 - (return_value.y + return_value.z);
+
+  return return_value;
+}
+
+/*!
+ * Compute the L1 magnitude of a vector p, i.e
+ * return \f$ |p.x| + |p.y| \f$.
+ */
+float
+astral_magnitude_l1(in vec2 p)
+{
+  return abs(p.x) + abs(p.y);
+}
+
+/*!
+ * Enlarge a \ref AstralBoundingBox to contain a point
+ * \param B box to enlarge
+ * \param p point to include into B
+ */
+void
+astral_union_point(in vec2 p, inout AstralBoundingBox B)
+{
+  B.m_min.x = min(p.x, B.m_min.x);
+  B.m_min.y = min(p.y, B.m_min.y);
+
+  B.m_max.x = max(p.x, B.m_max.x);
+  B.m_max.y = max(p.y, B.m_max.y);
+}
+
+/*!
+ * Given a vector, screen_delta, in screen coordinates, make an offset
+ * vector that is either horizontal or vertical that is a single rasterized pixel
+ * \param screen_delta 2-vector in screen coordinates
+ */
+vec2
+astral_compute_screen_offset_for_aa(in vec2 screen_delta)
+{
+  const float astral_offset_magnitude_for_aa = 1.1;
+  vec2 return_value;
+
+  if (abs(screen_delta.x) > abs(screen_delta.y))
+    {
+      return_value.x = 0.0;
+      return_value.y = astral_offset_magnitude_for_aa;
+    }
+  else
+    {
+      return_value.x = astral_offset_magnitude_for_aa;
+      return_value.y = 0.0;
+    }
+
+  return return_value;
+}
+
+/*!
+ * Returns true if the input value v is much smaller than R where we assume v and R are non-negative
+ * \param v value to be examined for being tiny
+ * \param R reference value
+ */
+bool
+astral_value_is_tiny(in float v, in float R)
+{
+  const float tiny = 1e-5;
+  return v < tiny * R;
+}
+
+/*!
+ * Combines two signed distance values to a single value
+ * returns a signed distance to the intersection of the two
+ * regions. Note that the return value may not be the real
+ * distance to the boundary of intersection (for example
+ * if the intersection is empty, it is wrong), but the value
+ * returned can be used for "near" eitehr boundary which is
+ * the exact case needed for using a distance field value to
+ * perform anti-aliasing.
+ * \param f0 first distance value
+ * \param f1 second distance value
+ */
+float
+astral_combine_signed_distances_intersect(float f0, float f1)
+{
+  /* Let
+   *
+   *  ff0 = min(f0, f1);
+   *  ff1 = max(f0, f1);
+   *
+   * Case1: ff1 <= 0.0, then we are not in either region and
+   *        the distance to the intersection is the largest
+   *        distance because we have to cross both boundaries,
+   *        which means the signed distance is ff0 (because it
+   *        is more negative)
+   *
+   * Case 2: ff0 <= 0.0 < ff1, then we are in region ff1 but
+   *         not in region ff0, thus not in the region. The
+   *         signed distance to the intersecion is then ff0.
+   *
+   * Case 3: 0 < ff0 <= ff1 then we are in the intersection
+   *         and the distance to the boundary of the intersection
+   *         is the smallest distance which means the signed
+   *         distance is again ff0
+   *
+   * This the distance is always the min(f0, f1).
+   */
+  return min(f0, f1);
+}
+
+/*!
+ * Combines two signed distance values to a single value
+ * returns a signed distance to the union of the two
+ * regions. Note that the return value may not be the real
+ * distance to the boundary of intersection (for example
+ * if the intersection is empty, it is wrong), but the value
+ * returned can be used for "near" eitehr boundary which is
+ * the exact case needed for using a distance field value to
+ * perform anti-aliasing.
+ * \param f0 first distance value
+ * \param f1 second distance value
+ */
+float
+astral_combine_signed_distances_union(float f0, float f1)
+{
+  return max(f0, f1);
+}
+
+/*!
+ * Compute the unit vector between two points, respecting direction
+ * If the distance between the points is too small, this will return a zero-vector.
+ * \param to destination point (P1)
+ * \param from source point (P0)
+ */
+vec2
+astral_unit_vector(in vec2 to, in vec2 from)
+{
+  vec2 r;
+  float m;
+
+  r = to - from;
+  m = max(astral_magnitude_l1(to), astral_magnitude_l1(from));
+  if (astral_value_is_tiny(astral_magnitude_l1(r), m))
+    {
+      return vec2(0.0, 0.0);
+    }
+  else
+    {
+      return normalize(r);
+    }
+}
+
+/*!
+ * Compute the unit vector between two points , respecting direction
+ * If the distance between the first two points is too small, this will return
+ * the unit vector between the destination point (P1) and a backup source point (P0').
+ * \param to destination point (P1)
+ * \param from source point (P0)
+ * \param from_backup backup source point (P0') in case the distance between P0 and P1 is too small
+ */
+vec2
+astral_unit_vector(in vec2 to, in vec2 from, in vec2 from_backup)
+{
+  vec2 r;
+  float m;
+
+  r = to - from;
+  m = max(astral_magnitude_l1(to), astral_magnitude_l1(from));
+  if (astral_value_is_tiny(astral_magnitude_l1(r), m))
+    {
+      return astral_unit_vector(to, from_backup);
+    }
+  else
+    {
+      return normalize(r);
+    }
+}
+
+/*!
+ * The value of a named component of a vec4.
+ * \param channel which component to extract, one of
+ *        \ref ASTRAL_MASK_CHANNEL_RED,
+ *        \ref ASTRAL_MASK_CHANNEL_GREEN,
+ *        \ref ASTRAL_MASK_CHANNEL_BLUE,
+ *        \ref ASTRAL_MASK_CHANNEL_ALPHA
+ */
+float
+astral_extract_channel(in uint channel, vec4 value)
+{
+  float r;
+  vec2 rr;
+
+  /* ASTRAL_MASK_CHANNEL_RED = 0
+   * ASTRAL_MASK_CHANNEL_GREEN = 1
+   * ASTRAL_MASK_CHANNEL_BLUE = 2
+   * ASTRAL_MASK_CHANNEL_ALPHA = 3
+   *
+   * --> if bit1 (= 2) is up, then either blue or alpha
+   * --> is bit0 (= 1) is up, then either red or green
+   */
+  rr = ((channel & 2u) == 0u) ?
+    value.rg :
+    value.ba;
+
+  r = ((channel & 1u) == 0u) ?
+    rr.x :
+    rr.y;
+
+  return r;
+}
+
+/*!
+ * Returns true if the given fill rule is a complement fill rule
+ * \param fill_rule fill rule to be checked
+ */
+bool
+astral_fill_rule_is_complement_fill_rule(in uint fill_rule)
+{
+  /* ASTRAL_ODD_EVEN_FILL_RULE --> 0
+   * ASTRAL_NON_ZERO_FILL_RULE --> 1
+   * ASTRAL_COMPLEMENT_ODD_EVEN_FILL_RULE --> 2
+   * ASTRAL_COMPLEMENT_NON_ZERO_FILL_RULE --> 3
+   */
+  return fill_rule >= ASTRAL_COMPLEMENT_ODD_EVEN_FILL_RULE;
+}
+
+/*!
+ * Find the base rule of a fill rule.
+ * The returned fill rule value will be stripped of its complement property.
+ * \param fill_rule fill rule to be checked
+ */
+uint
+astral_base_fill_rule(in uint fill_rule)
+{
+  /* ASTRAL_ODD_EVEN_FILL_RULE --> 0
+   * ASTRAL_NON_ZERO_FILL_RULE --> 1
+   * ASTRAL_COMPLEMENT_ODD_EVEN_FILL_RULE --> 2
+   * ASTRAL_COMPLEMENT_NON_ZERO_FILL_RULE --> 3
+   */
+  return fill_rule & 1u;
+}
+
+/*!
+ * Returns -1 if the winding number is filled and +1 otherwise
+ */
+float
+astral_apply_fill_rule(in int winding_number, in uint fill_rule)
+{
+  float return_value;
+
+  if (astral_base_fill_rule(fill_rule) == ASTRAL_ODD_EVEN_FILL_RULE)
+    {
+      /* either odd-even or complement odd-even */
+      winding_number = winding_number & 1;
+    }
+
+  return_value = (winding_number == 0) ? -1.0 : 1.0;
+
+  if (astral_fill_rule_is_complement_fill_rule(fill_rule))
+    {
+      return_value = -return_value;
+    }
+
+  return return_value;
+}
+
+/*!
+ * Returns the integer part of log2() of a floating point value.
+ * This function avoids doing log2 and relies on bit packing of fp32.
+ * It does NOT handle sub-normal values correctly. A value of the form
+ * (1 + m) * 2^e (with 0 <= m < 1) will return e.
+ * \param v number to fast-calculate log2() of
+ */
+int
+astral_fast_log2(in float v)
+{
+  /* just bit hackery */
+  int c;
+
+  /* get the bits of the float */
+  c = floatBitsToInt(v);
+
+  /* extract the exponent, the exponent
+   * is at bits [23, 31) which is 8-bits.
+   * The exponent is biased by 127.
+   */
+  c = (c >> 23) - 127;
+
+  return c;
+}
+
+/*!
+ * Returns the integer part and the mantissa of log2() of a floating point value.
+ * This function avoids doing log2 and relies on bit packing of fp32. Does NOT
+ * handle sub-normal values correctly. A value of the form
+ * (1 + m) * 2^e (with 0 <= m < 1) will return e.
+ * \param v number to fast-calculate log2() of
+ * \param factor returns the value of (1 + m) of the input of (1 + m) * 2^e
+ *               where 0 <= m < 1.
+ */
+int
+astral_fast_log2(in float v, out float factor)
+{
+  /* just bit hackery */
+  int c, d;
+
+  /* get the bits of the float */
+  c = floatBitsToInt(v);
+
+  /* change the exponent to zero and then get factor from that */
+  d = c & ~(0xFF << 23) | (127 << 23);
+  factor = intBitsToFloat(d);
+
+  /* extract the exponent, the exponent
+   * is at bits [23, 31) which is 8-bits.
+   * The exponent is biased by 127.
+   */
+  c = (c >> 23) - 127;
+
+  return c;
+}
+
+/*!
+ * Given an integer N, returns pow(2, N) via bit-ops only.
+ * Does not protect against underflow or overflow.
+ */
+float
+astral_pow2(in int N)
+{
+  int return_value;
+
+  /* the exponent is at bits [23, 31) with a bias of 127 */
+  return_value = (N + 127) << 23;
+
+  return intBitsToFloat(return_value);
+}
+
+/*!
+ * Returns an approximation for the inverse square root of a number
+ * using the Newton-Raphson method with an optimally picked initial value.
+ * \param x number to calculate the inverse square root of
+ */
+float
+astral_fast_inverse_sqrt(in float x)
+{
+  /* This is essnetially Quake3's fast inverse_sqrt() ported to GLSL,
+   * see https://en.wikipedia.org/wiki/Fast_inverse_square_root
+   */
+  int i;
+  float x2;
+  const float threehalfs = 1.5;
+
+  x2 = x * 0.5;
+  i = floatBitsToInt(x);
+  i = int(0x5f3759df) - (i >> 1);
+  x = intBitsToFloat(i);
+
+  // run one iteration of Newton's
+  x = x * (threehalfs - (x2 * x * x));
+
+  //for more accuracy run another iteration
+  //x = x * (threehalfs - (x2 * x * x));
+
+  return x;
+}
+
+/*!
+ * Convert an sRGB color value to linear space for one color channel (R, G or B)
+ * \param in_srgb monochromatic color value in sRGB space
+ */
+float
+astral_linear_from_srgb(in float in_srgb)
+{
+  /* clamp it, just in case */
+  in_srgb = clamp(in_srgb, 0.0, 1.0);
+
+  /* TODO: there is likely a faster comptuation
+   *       that is good enough for accuracy
+   *       to 8-bits.
+   *
+   * Note that doing the below maths is still faster
+   * than using a lookup table because a pow() is for
+   * most GPU's nowaways faster than a texture read.
+   *
+   * https://www.excamera.com/sphinx/article-srgb.html gives
+   * an approximation suggestion using degree 4 Chebyshev
+   * polynomial. Other ideas in https://hero.handmade.network/forums/code-discussion/t/1278-approach_for_faster_software_srgb_gamma_computation
+   * which is actually for doing pow(x, 2.2) faster.
+   */
+  return (in_srgb <= 0.04045) ?
+    0.0773993808 * in_srgb :
+    pow((in_srgb + 0.055) * 0.94786729857, 2.4);
+}
+
+/*!
+ * Convert a linear color value to sRGB space for one color channel (R, G or B)
+ * \param in_linear monochromatic color value in linear space
+ */
+float
+astral_srgb_from_linear(in float in_linear)
+{
+  /* clamp it, just in case */
+  in_linear = clamp(in_linear, 0.0, 1.0);
+
+  return (in_linear < 0.0031308) ?
+    12.92 * in_linear :
+    1.055 * pow(in_linear, 0.4166666) - 0.055;
+}
+
+/*!
+ * Convert an sRGB color vector to linear space,
+ * omitting the alpha channel from the conversion
+ * \param in_srgb color vector in sRGB space
+ */
+vec4
+astral_linear_from_srgb(in vec4 in_srgb)
+{
+  return vec4(astral_linear_from_srgb(in_srgb.x),
+              astral_linear_from_srgb(in_srgb.y),
+              astral_linear_from_srgb(in_srgb.z),
+              in_srgb.w);
+}
+
+/*!
+ * Convert a linear color vector to sRGB space,
+ * omitting the alpha channel from the conversion
+ * \param in_linear color vector in linear space
+ */
+vec4
+astral_srgb_from_linear(in vec4 in_linear)
+{
+  return vec4(astral_srgb_from_linear(in_linear.x),
+              astral_srgb_from_linear(in_linear.y),
+              astral_srgb_from_linear(in_linear.z),
+              in_linear.w);
+}
+
+/*!
+ * Convert a color vector from one color space to another
+ * \param out_colorspace target color space
+ * \param in_colorspace source color space
+ * \param in_color input color vector
+ */
+vec4
+astral_convert_colorspace(in uint out_colorspace,
+                          in uint in_colorspace,
+                          in vec4 in_color)
+{
+  if (in_colorspace == out_colorspace)
+    {
+      return in_color;
+    }
+
+  /* conversion formula is given by
+   *
+   * out_color = (in_value <= THRESH) ?
+   *   LINEAR_COEFF * in_color :
+   *   POW_OUTER_COEFF * pow((in_color + POW_INNER_OFFSET) * POW_INNER_COEFF, POW_POWER) - POW_INNER_OFFSET;
+   *
+   * out_colorspace = linear, in_colorspace = sRGB is:
+   *   THRESH             = 0.04045
+   *   LINEAR_COEFF       = 0.0773993808
+   *   POW_INNER_OFFSET   = 0.055
+   *   POW_INNER_COEFF    = 0.94786729857
+   *   POW_POWER          = 2.4
+   *   POW_OUTER_COEFF    = 1.0
+   *   POW_OUTER_OFFSET   = 0.0
+   *
+   * out_colorspace = sRGB, in_colorspace = linear is:
+   *   THRESH             = 0.0031308
+   *   LINEAR_COEFF       = 12.92
+   *   POW_INNER_OFFSET   = 0.0
+   *   POW_INNER_COEFF    = 1.0
+   *   POW_POWER          = 0.4166666
+   *   POW_OUTER_COEFF    = 1.055
+   *   POW_OUTER_OFFSET   = 0.055
+   */
+
+  /* .x = THRESH
+   * .y = LINEAR_COEFF
+   * .z = POW_INNER_OFFSET
+   * .w = POW_INNER_COEFF
+   */
+  vec4 A;
+
+  A = (out_colorspace == ASTRAL_COLORSPACE_LINEAR) ?
+    vec4(0.04045, 0.0773993808, 0.055, 0.94786729857) :
+    vec4(0.0031308, 12.92, 0.0, 1.0);
+
+///@cond
+#define ASTRAL_THRESH A.x
+#define ASTRAL_LINEAR_COEFF A.y
+#define ASTRAL_POW_INNER_OFFSET A.z
+#define ASTRAL_POW_INNER_COEFF A.w
+///@endcond
+
+  /* .x = ASTRAL_POW_POWER
+   * .y = ASTRAL_POW_OUTER_COEFF
+   * .z = ASTRAL_POW_OUTER_OFFSET
+   */
+  vec3 B;
+
+///@cond
+#define ASTRAL_POW_POWER B.x
+#define ASTRAL_POW_OUTER_COEFF B.y
+#define ASTRAL_POW_OUTER_OFFSET B.z
+///@endcond
+
+  B = (out_colorspace == ASTRAL_COLORSPACE_LINEAR) ?
+    vec3(2.4, 1.0, 0.0) :
+    vec3(0.4166666, 1.055, 0.055);
+
+///@cond
+#define ASTRAL_LINEAR_VALUE(v) ((v) * ASTRAL_LINEAR_COEFF)
+#define ASTRAL_POWER_VALUE(v) (ASTRAL_POW_OUTER_COEFF * pow(ASTRAL_POW_INNER_COEFF * ((v) + ASTRAL_POW_INNER_OFFSET), ASTRAL_POW_POWER) - ASTRAL_POW_OUTER_OFFSET)
+
+#define ASTRAL_FINAL_VALUE(v) ((v <= ASTRAL_THRESH) ? ASTRAL_LINEAR_VALUE(v) : ASTRAL_POWER_VALUE(v))
+///@endcond
+
+  /* note that on R, G, B channels get converted, the A channel is ALWAYS linear */
+  in_color.x = ASTRAL_FINAL_VALUE(in_color.x);
+  in_color.y = ASTRAL_FINAL_VALUE(in_color.y);
+  in_color.z = ASTRAL_FINAL_VALUE(in_color.z);
+
+  return in_color;
+
+///@cond
+#undef ASTRAL_THRESH
+#undef ASTRAL_LINEAR_COEFF
+#undef ASTRAL_POW_INNER_OFFSET
+#undef ASTRAL_POW_INNER_COEFF
+#undef ASTRAL_POW_POWER
+#undef ASTRAL_POW_OUTER_COEFF
+#undef ASTRAL_POW_OUTER_OFFSET
+#undef ASTRAL_LINEAR_VALUE
+#undef ASTRAL_POWER_VALUE
+#undef ASTRAL_FINAL_VALUE
+///@endcond
+}
+
+/*!
+ * Calculate the final color value of a blend overlay operation
+ * between two R, G or B (but not alpha) values
+ * \param src single color channel value for the source color
+ * \param dst single color channel value for the target color
+ * \param src_alpha alpha channel value for the source color
+ * \param dst_alpha alpha channel value for the target color
+ */
+float
+astral_blend_overlay_component(in float src, in float src_alpha,
+                               in float dst, in float dst_alpha)
+{
+  return (2.0 * dst <= dst_alpha) ?
+    2.0 * src * dst :
+    src_alpha * dst_alpha - (2.0 * (dst_alpha - dst)) * (src_alpha - src);
+}
+
+/*!
+ * Calculate the final color vector of a blend overlay operation
+ * using two color vectors (RGBA)
+ * \param src source color vector
+ * \param dst target colro vector
+ */
+vec4
+astral_blend_overlay(in vec4 src, in vec4 dst)
+{
+  vec4 return_value;
+
+  return_value.x = astral_blend_overlay_component(src.x, src.w, dst.x, dst.w);
+  return_value.y = astral_blend_overlay_component(src.y, src.w, dst.y, dst.w);
+  return_value.z = astral_blend_overlay_component(src.z, src.w, dst.z, dst.w);
+  return_value.w = src.w + (1.0 - src.w) * dst.w;
+
+  return_value.xyz += dst.xyz * (1.0 - src.w) + src.xyz * (1.0 - dst.w);
+  return return_value;
+}
+
+/*!
+ * Calculate the final color value of a color dodge operation
+ * between two R, G or B (but not alpha) values
+ * \param src single color channel value for the source color
+ * \param dst single color channel value for the target color
+ * \param src_alpha alpha channel value for the source color
+ * \param dst_alpha alpha channel value for the target color
+ */
+float
+astral_color_dodge_component(in float src, in float src_alpha,
+                             in float dst, in float dst_alpha)
+{
+  if (dst == 0.0)
+    {
+      return src * (1.0 - dst_alpha);
+    }
+
+  float tmp;
+
+  tmp = src_alpha - src;
+  if (tmp == 0.0)
+    {
+      return src_alpha * dst_alpha + src * (1.0 - dst_alpha) + dst * (1.0 - src_alpha);
+    }
+
+  tmp = min(dst_alpha, (dst * src_alpha) / tmp);
+  return tmp * src_alpha + src * (1.0 - dst_alpha) + dst * (1.0 - src_alpha);
+}
+
+/*!
+ * Calculate the final color vector of a color dodge operation
+ * using two color vectors (RGBA)
+ * \param src source color vector
+ * \param dst target colro vector
+ */
+vec4
+astral_color_dodge(in vec4 src, in vec4 dst)
+{
+  vec4 return_value;
+
+  return_value.x = astral_color_dodge_component(src.x, src.w, dst.x, dst.w);
+  return_value.y = astral_color_dodge_component(src.y, src.w, dst.y, dst.w);
+  return_value.z = astral_color_dodge_component(src.z, src.w, dst.z, dst.w);
+  return_value.w = src.w + (1.0 - src.w) * dst.w;
+
+  return return_value;
+}
+
+/*!
+ * Calculate the final color value of a color burn operation
+ * between two R, G or B (but not alpha) values
+ * \param src single color channel value for the source color
+ * \param dst single color channel value for the target color
+ * \param src_alpha alpha channel value for the source color
+ * \param dst_alpha alpha channel value for the target color
+ */
+float
+astral_color_burn_component(in float src, in float src_alpha,
+                            in float dst, in float dst_alpha)
+{
+  if (dst_alpha == dst)
+    {
+      return src_alpha * dst_alpha + src * (1.0 - dst_alpha) + dst * (1.0 - src_alpha);
+    }
+  else if (src == 0.0)
+    {
+      return dst * (1.0 - src_alpha);
+    }
+
+  float tmp;
+
+  tmp = max(0.0, dst_alpha - src_alpha * (dst_alpha - dst) / src);
+  return tmp * src_alpha + src * (1.0 - dst_alpha) + dst * (1.0 - src_alpha);
+}
+
+/*!
+ * Calculate the final color vector of a color burn operation
+ * using two color vectors (RGBA)
+ * \param src source color vector
+ * \param dst target colro vector
+ */
+vec4
+astral_color_burn(in vec4 src, in vec4 dst)
+{
+  vec4 return_value;
+
+  return_value.x = astral_color_burn_component(src.x, src.w, dst.x, dst.w);
+  return_value.y = astral_color_burn_component(src.y, src.w, dst.y, dst.w);
+  return_value.z = astral_color_burn_component(src.z, src.w, dst.z, dst.w);
+  return_value.w = src.w + (1.0 - src.w) * dst.w;
+
+  return return_value;
+}
+
+/*!
+ * Calculate the final color vector of a blend hardlight operation
+ * using two color vectors (RGBA)
+ * \param src source color vector
+ * \param dst target colro vector
+ */
+vec4
+astral_blend_hardlight(in vec4 src, in vec4 dst)
+{
+  return astral_blend_overlay(dst, src);
+}
+
+/*!
+ * Calculate the final color value of a blend softlight
+ * between two R, G or B (but not alpha) values
+ * \param src single color channel value for the source color
+ * \param dst single color channel value for the target color
+ * \param src_alpha alpha channel value for the source color
+ * \param dst_alpha alpha channel value for the target color
+ */
+float
+astral_softlight_component(in float src, in float src_alpha,
+                           in float dst, in float dst_alpha)
+{
+  /* Formula taken from an API dump of Skia */
+  if (2.0 * src <= src_alpha)
+    {
+      float A, B, C, D;
+
+      D = (-src_alpha + 2.0 * src);
+      C = (dst * dst) * (src_alpha - 2.0 * src);
+      B = (1.0 - dst_alpha) * src;
+      A = C / dst_alpha + B;
+      return A + dst * (D + 1.0);
+    }
+  else if (4.0 * dst <= dst_alpha)
+    {
+      float dst2 = dst * dst;
+      float dst3 = dst2 * dst;
+      float dst_alpha2 = dst_alpha * dst_alpha;
+      float dst_alpha3 = dst_alpha2 * dst_alpha;
+      float A, B, C, D, E, F;
+
+      E = (3.0 * src_alpha - 6.0 * src) - 1.0;
+      D = ((12.0 * dst_alpha) * dst2) * (src_alpha - 2.0 * src);
+      C = dst_alpha2 * (src - dst * E) + D;
+      B = C - (16.0 * dst3) * (src_alpha - 2.0 * src);
+      A = B - dst_alpha3 * src;
+
+      return A / dst_alpha2;
+    }
+
+  float A, B, C, D;
+
+  D = (src_alpha - 2.0 * src) + 1.0;
+  C = dst * D + src;
+  B = sqrt(max(0.0, dst_alpha * dst)) * (src_alpha - 2.0 * src);
+  A = C - B;
+
+  return A - dst_alpha * src;
+}
+
+/*!
+ * Calculate the final color vector of a blend softlight operation
+ * using two color vectors (RGBA)
+ * \param src source color vector
+ * \param dst target colro vector
+ */
+vec4
+astral_softlight(in vec4 src, in vec4 dst)
+{
+  vec4 return_value;
+
+  if (dst.w == 0.0)
+    {
+      return src;
+    }
+
+  return_value.x = astral_softlight_component(src.x, src.w, dst.x, dst.w);
+  return_value.y = astral_softlight_component(src.y, src.w, dst.y, dst.w);
+  return_value.z = astral_softlight_component(src.z, src.w, dst.z, dst.w);
+  return_value.w = src.w + (1.0 - src.w) * dst.w;
+
+  return return_value;
+}
+
+/* The formula used for the HLS blend modes are taken
+ * from GL_KHR_blend_equations_advanced with the only
+ * change that when computing the luminance, the value
+ * is clamped to [0, 1].
+ */
+
+/*!
+ * Returns the lowest value among the components of a 3-vector
+ * \param in_value input vector
+ */
+float
+astral_min(vec3 in_value)
+{
+  return min(in_value.x, min(in_value.y, in_value.z));
+}
+
+/*!
+ * Returns the highest value among the components of a 3-vector
+ * \param in_value input vector
+ */
+float
+astral_max(vec3 in_value)
+{
+  return max(in_value.x, max(in_value.y, in_value.z));
+}
+
+/*!
+ * Compute the saturation value of color vector.
+ * The difference between the highest and the lowest channel
+ *  values of a color vector yields the saturation value.
+ * \param color input color vector
+ */
+float
+astral_color_saturation(in vec3 color)
+{
+  return astral_max(color) - astral_min(color);
+}
+
+/*!
+ * Compute the luminance value of a color vector
+ * \param color input color vector
+ */
+float
+astral_color_luminance(in vec3 color)
+{
+  return clamp(dot(color, vec3(0.30, 0.59, 0.11)), 0.0, 1.0);
+}
+
+/*!
+ * Compute the clip value of a color vector
+ * \param color input color vector
+ */
+vec3
+astral_clip_color(in vec3 color)
+{
+  float min_color = astral_min(color);
+  float max_color = astral_max(color);
+  float lum_color = astral_color_luminance(color);
+  vec3 L = vec3(lum_color);
+
+  if (min_color < 0.0)
+    {
+      return L + ((color - L) * lum_color) / (lum_color - min_color);
+    }
+  else if (max_color > 1.0)
+    {
+      return L + ((color - L) * (1.0 - lum_color)) / (max_color - lum_color);
+    }
+
+  return color;
+}
+
+/*!
+ * Given a base color, base_color, override its luminosity
+ * \param base_color starting color
+ * \param override_luminosity new value for the luminosity
+ */
+vec3
+astral_set_luminosity(in vec3 base_color, in float override_luminosity)
+{
+  float base_lum = astral_color_luminance(base_color);
+  float diff_lum = override_luminosity - base_lum;
+
+  return astral_clip_color(base_color + vec3(diff_lum));
+}
+
+/*!
+ * Given a base color, base_color, override its luminosity
+ * with the luminance of an override color
+ * \param base_color starting color
+ * \param override_color new color whose luminance will override as the new luminosity
+ */
+vec3
+astral_set_luminosity(in vec3 base_color, in vec3 override_color)
+{
+  return astral_set_luminosity(base_color, astral_color_luminance(override_color));
+}
+
+/*!
+ * Given a base color, base_color, override its luminosity
+ * and saturation
+ * \param base_color starting color
+ * \param override_saturation new value for the saturation
+ * \param override_luminosity new value for the luminosity
+ */
+vec3
+astral_set_luminosity_and_saturation(in vec3 base_color,
+                                     in float override_saturation,
+                                     in float override_luminosity)
+{
+  float base_min = astral_min(base_color);
+  float base_sat = astral_color_saturation(base_color);
+  vec3 color;
+
+  if (base_sat > 0.0)
+    {
+      color = (base_color - vec3(base_min)) * override_saturation / base_sat;
+    }
+  else
+    {
+      color = vec3(0.0);
+    }
+
+  return astral_set_luminosity(color, override_luminosity);
+}
+
+/*!
+ * Given a base color, base_color, override its luminosity
+ * and saturation from other colors, override_saturation
+ * and override_luminosity, respectively.
+ * \param base_color starting color
+ * \param override_saturation a color vector whose saturation will override as the new saturation
+ * \param override_luminosity a color vector whose luminance will override as the new luminosity
+ */
+vec3
+astral_set_luminosity_and_saturation(in vec3 base_color,
+                                     in vec3 override_saturation,
+                                     in vec3 override_luminosity)
+{
+  return astral_set_luminosity_and_saturation(base_color,
+                                              astral_color_saturation(override_saturation),
+                                              astral_color_luminance(override_luminosity));
+}
+
+/*!
+ * Undo alpha pre-multiplication from the color channels of a color vector
+ * \param in_color premultiplied color vector
+ */
+vec3
+astral_unmultiply_alpha(in vec4 in_color)
+{
+  float R;
+  R = (in_color.w != 0.0) ? (1.0 / in_color.w) : 1.0;
+  return R * in_color.xyz;
+}
+
+/* Perform the final alpha mixing for performing HLS blending
+ * \param hls result of HSL blending before alpha mixing
+ * \param src_u the source color value in unpremulitplied alpha
+ * \param src_a the source alpha
+ * \param dst_u the destination color value in unpremulitplied alpha
+ * \param dst_a the destination alpha
+ */
+vec4
+astral_alpha_mix_hls(in vec3 hls,
+                     in vec3 src_u, in float src_a,
+                     in vec3 dst_u, in float dst_a)
+{
+  vec4 v;
+
+  /* raw combination */
+  v.xyz = src_a * dst_a * hls;
+
+  /* alpha blending */
+  v.xyz += src_a * (1.0 - dst_a) * src_u + dst_a * (1.0 - src_a) * dst_u;
+  v.w = src_a + (1.0 - src_a) * dst_a;
+
+  return v;
+}
+
+/*!
+ * Given a src RGBA value and dst RGBA value, compute
+ * the result color value on performing hue blending
+ * \param src source color vector
+ * \param dst target color vactor
+ */
+vec4
+astral_hue(in vec4 src, in vec4 dst)
+{
+  vec3 src_u, dst_u;
+
+  src_u = astral_unmultiply_alpha(src);
+  dst_u = astral_unmultiply_alpha(dst);
+
+  return astral_alpha_mix_hls(astral_set_luminosity_and_saturation(src_u, dst_u, dst_u),
+                              src_u, src.w, dst_u, dst.w);
+}
+
+/*!
+ * Given a src RGBA value and dst RGBA value, compute
+ * the result color value on performing saturation blending
+ * \param src source color vector
+ * \param dst target color vactor
+ */
+vec4
+astral_saturation(in vec4 src, in vec4 dst)
+{
+  vec3 src_u, dst_u;
+
+  src_u = astral_unmultiply_alpha(src);
+  dst_u = astral_unmultiply_alpha(dst);
+
+  return astral_alpha_mix_hls(astral_set_luminosity_and_saturation(dst_u, src_u, dst_u),
+                              src_u, src.w, dst_u, dst.w);
+}
+
+/*!
+ * Given a src RGBA value and dst RGBA value, compute
+ * the result color value on performing color blending
+ * \param src source color vector
+ * \param dst target color vactor
+ */
+vec4
+astral_color(in vec4 src, in vec4 dst)
+{
+  vec3 src_u, dst_u;
+
+  src_u = astral_unmultiply_alpha(src);
+  dst_u = astral_unmultiply_alpha(dst);
+
+  return astral_alpha_mix_hls(astral_set_luminosity(src_u, dst_u),
+                              src_u, src.w, dst_u, dst.w);
+}
+
+/*!
+ * Given a src RGBA value and dst RGBA value, compute
+ * the result color value on performing luminosity blending
+ * \param src source color vector
+ * \param dst target color vactor
+ */
+vec4
+astral_luminosity(in vec4 src, in vec4 dst)
+{
+  vec3 src_u, dst_u;
+
+  src_u = astral_unmultiply_alpha(src);
+  dst_u = astral_unmultiply_alpha(dst);
+
+  return astral_alpha_mix_hls(astral_set_luminosity(dst_u, src_u),
+                              src_u, src.w, dst_u, dst.w);
+}
+
+/*! @} */

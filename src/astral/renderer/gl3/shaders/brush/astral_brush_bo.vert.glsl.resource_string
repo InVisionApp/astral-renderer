@@ -1,0 +1,184 @@
+// -*- C++ -*-
+/*!
+ * \file astral_brush_bo.vert.glsl.resource_string
+ * \brief astral_brush_bo.vert.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+void
+astral_material_pre_vert_shader(in uint sub_shader, in uint shader_data,
+                                in uint brush_idx, in vec2 material_p,
+                                in AstralTransformation tr)
+{
+}
+
+void
+astral_material_vert_shader(in uint sub_shader, in uint shader_data,
+                            in uint brush_idx, in vec2 material_p,
+                            in AstralTransformation pixel_transformation_material)
+{
+  vec2 image_p, gradient_p;
+
+  if (brush_idx == ASTRAL_INVALID_INDEX)
+    {
+      astral_brush_flags = 0u;
+      return;
+    }
+
+  uint flags = 0u;
+  AstralPackedBrush packed_brush;
+  AstralUnpackedBrush brush;
+
+  flags |= ASTRAL_BRUSH_ACTIVE;
+  astral_load(brush_idx, packed_brush);
+  astral_unpack_brush(packed_brush, brush);
+
+  astral_brush_base_color_rg = brush.m_color_rg;
+  astral_brush_base_color_ba = brush.m_color_ba;
+
+  if (brush.m_specify_colorspace)
+    {
+      flags |= ASTRAL_BRUSH_SPECIFIED_COLORSPACE;
+      flags |= astral_pack_bits(ASTRAL_BRUSH_COLORSPACE_BIT, brush.m_colorspace);
+    }
+
+  if (brush.m_image != ASTRAL_INVALID_INDEX)
+    {
+      AstralPackedImage packed_image;
+      AstralUnpackedImage image;
+      AstralImageLOD image_lod;
+      AstralMatrix image_matrix_material;
+      uvec4 packed_image_lod0;
+      uvec2 packed_image_lod1;
+      vec2 compensate_nonpow2;
+      uint mip, lod, max_lod;
+
+      flags |= ASTRAL_BRUSH_HAS_IMAGE;
+      astral_load(brush.m_image, packed_image);
+      astral_unpack_image(packed_image, image);
+
+      if (brush.m_image_transformation != ASTRAL_INVALID_INDEX)
+        {
+          AstralTransformation image_transformation_material;
+
+          astral_load(brush.m_image_transformation, image_transformation_material);
+          image_p = astral_apply_transformation(image_transformation_material, material_p);
+
+          image_matrix_material = image_transformation_material.m_matrix;
+        }
+      else
+        {
+          image_p = material_p;
+        }
+
+      mip = astral_image_sampler_mipmap(image.m_base.m_sampler);
+      max_lod = astral_image_sampler_max_lod(image.m_base.m_sampler);
+
+      if (mip == ASTRAL_MIPMAP_CHOSEN || max_lod <= 0u)
+        {
+          lod = max_lod;
+        }
+      else
+        {
+          /* to compute the LOD, we need to compute the transformation
+           * from SurfaceCoordinates to image coordinates
+           */
+          AstralMatrix surface_matrix_material, material_matrix_surface, image_matrix_surface;
+
+          surface_matrix_material = astral_concat(astral_render_scale_value, pixel_transformation_material.m_matrix);
+          material_matrix_surface = astral_compute_inverse_matrix(surface_matrix_material);
+          if (brush.m_image_transformation != ASTRAL_INVALID_INDEX)
+            {
+              image_matrix_surface = astral_concat(image_matrix_material, material_matrix_surface);
+            }
+          else
+            {
+              image_matrix_surface = material_matrix_surface;
+            }
+
+          lod = astral_compute_raw_lod_fast(mip,
+                                            astral_matrix_dx(image_matrix_surface),
+                                            astral_matrix_dy(image_matrix_surface));
+        }
+
+      compensate_nonpow2 = astral_compute_lod(image, lod, image_lod);
+      image_p *= compensate_nonpow2;
+
+      /* TODO: instead of passing the AstralImageLOD, compute
+       *       the texel coordinates (both of the sample point
+       *       and the tile window) in the index texture, pass
+       *       those values along with the AstralImageSampler
+       *       value down to the fragment shader.
+       */
+      astral_pack_image_lod(image_lod,
+                            packed_image_lod0,
+                            packed_image_lod1);
+
+      astral_brush_image0_x = packed_image_lod0.x;
+      astral_brush_image0_y = packed_image_lod0.y;
+      astral_brush_image0_z = packed_image_lod0.z;
+      astral_brush_image0_w = packed_image_lod0.w;
+      astral_brush_image1_x = packed_image_lod1.x;
+      astral_brush_image1_y = packed_image_lod1.y;
+
+      astral_brush_image_p_x = image_p.x;
+      astral_brush_image_p_y = image_p.y;
+    }
+
+  if (brush.m_gradient != ASTRAL_INVALID_INDEX)
+    {
+      AstralPackedGradient gradient;
+      uvec4 packed0, packed1;
+
+      flags |= ASTRAL_BRUSH_HAS_GRADIENT;
+      astral_load(brush.m_gradient, gradient);
+      astral_pack_gradient(gradient, packed0, packed1);
+
+      astral_brush_gradient0_x = packed0.x;
+      astral_brush_gradient0_y = packed0.y;
+      astral_brush_gradient0_z = packed0.z;
+      astral_brush_gradient0_w = packed0.w;
+
+      astral_brush_gradient1_x = packed1.x;
+      astral_brush_gradient1_y = packed1.y;
+      astral_brush_gradient1_z = packed1.z;
+      astral_brush_gradient1_w = packed1.w;
+    }
+
+  if (brush.m_gradient_transformation != ASTRAL_INVALID_INDEX)
+    {
+      AstralGradientTransformation image_transformation;
+      uint r;
+      uvec4 tmp;
+
+      astral_load(brush.m_gradient_transformation, image_transformation);
+      gradient_p = astral_apply_image_transformation_mapping(image_transformation, material_p);
+
+      r = astral_pack_image_transformation_window(image_transformation, tmp);
+      flags |= (r | ASTRAL_BRUSH_HAS_GRADIENT_TRANSFORMATION);
+
+      astral_brush_gradient_transformation_x = tmp.x;
+      astral_brush_gradient_transformation_y = tmp.y;
+      astral_brush_gradient_transformation_z = tmp.z;
+      astral_brush_gradient_transformation_w = tmp.w;
+    }
+  else
+    {
+      gradient_p = material_p;
+    }
+
+  astral_brush_flags = flags;
+
+  astral_brush_gradient_p_x = gradient_p.x;
+  astral_brush_gradient_p_y = gradient_p.y;
+}

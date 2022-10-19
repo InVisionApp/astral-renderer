@@ -1,0 +1,3 @@
+Command to run cloc to count GLSL shader files:
+
+cloc inc/ src/ --exclude-list-file=.cloc_exclude --force-lang="C++",tcc --force-lang="GLSL",glsl.resource_string

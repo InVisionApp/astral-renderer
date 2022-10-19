@@ -1,0 +1,470 @@
+Dependencies
+============
+
+We should minimize external dependencies as much
+as reasonably possible. However, using STL is
+highly recommnded. At the time of this writing the
+only dependency that the library Astral requires
+is Freetype. Others can be added, but must be
+heavily justified.
+
+White Spaces
+============
+
+No source file shall have any tabs in it. Formatting
+by spaces only. In addition, no line shall end with
+a space either. Git includes a hook to check for
+ending in white space, enable the hook by renaming
+.git/hooks/pre-commit.sample to .git/hooks/pre-commit
+
+Coding Formatting Style
+=======================
+
+Formatting is heavily GNU style inspired; if one adds the following:
+
+/* -*- mode: c++; c-file-style: "gnu"; c-basic-offset: 4 -*- */
+
+as the top of a line (and then close and reload the file), then Emacs'
+auto-format (ala using tab-key) will format the code as you write it.
+
+
+/* Macros are SCREAMING_SNAKE_CASE */
+#define MY_MACRO
+
+return_type
+scope::
+method(type1 arg1, type2 arg2, type3 arg3,
+       type4 arg4, type5 arg5)
+{
+  // single line comments can start with double slash
+  /* single line comments can also be C-style */
+
+  /* Multi-line comments must be c-style
+   * comments with each line starting with
+   * a * with the *'s lining up.
+   */
+
+  // two spaces indent after open brace
+  do_stuff();
+  for (init; condition; increment)
+    {
+      hellow_fr();
+      /* open brace is two spaces forward after for, if, else,
+       * while, do. Contents inside of brace start two spaces
+       * inwards
+       */
+    }
+
+  if (some_value != 0)
+    {
+      // all contents of all if's must be surrounded by braces always.
+    }
+
+  switch (value)
+    {
+    case value1:
+      statement1();
+      more_stuff;
+      break;
+
+    case value2:
+      {
+        type1 local_variable1;
+        type2 whatever;
+
+        /* If you need local variables start
+         * with an open brace in a case.
+         */
+      }
+      break;
+
+    case value3:
+      // document fall throughs explicitely
+    case value4:
+    }
+
+  /* operands should have a space betwen symbols */
+  a += 3 * b + 2 * d;
+
+  /* unless needed, do floating point operations with float and not double */
+  some_float_a -= 2.0f * some_f + 3.0f;
+
+  /* Make MACRO dependent code flow more like normal code
+   * to improve readability. Both g++ and clang++ accept
+   * C/C++ code where # is not the first character on a
+   * line
+   */
+  #ifdef MACRO
+    {
+    }
+  #elif defined(ANOTHER_MACRO)
+    {
+    }
+  #else
+    {
+    }
+  #endif
+
+  /* Use ASTRALnew and ASTRALdelete when allocating or
+   * deallocating objects on the heap. Under release,
+   * they reduce to new/delete. Under debug, they add
+   * information on the file and line where an object
+   * is created and deleted
+   */
+  SomeType *p;
+  p = ASTRALnew SomeType();
+  ASTRALdelete(p);
+
+  /* Use ASTRALassert for asserting. It reduces to
+   * nothing under debug.
+   */
+  ASTRALassert(0 == 0);
+
+  /* If a value or argument is unused, use
+   * ASTRALunused to prevent a compiler warning
+   */
+  int v;
+  ASTRALunused(v);
+
+  /* Never, ever do "using namespace std" anywhere in your code,
+   * when using std, that std:: scope qualifier had better be
+   * present
+   */
+  std::string some_string;
+}
+
+/* Functions with empty argument list must be
+ * declared and implemented with foo(void).
+ * The motivation is old C-habits where leaving
+ * the argument list in older versions of C
+ * meant it was just not (yet) specified.
+ *
+ * However, dtor's are not declared with the
+ * void agument list. In truth, this is just
+ * the convention in the code.
+ */
+void
+foo(void);
+
+/*!
+ * \brief
+ * All public classes must have a doxy tag with a
+ * brief. Only those classes that are small can
+ * be named snake_case; all other classes should
+ * be named PascalCase.
+ */
+class PascalCaseClass
+{
+public:
+  /*!
+   * \brief
+   * All named public enumeration types must have
+   * a doxytag with a brief. Enumeration type and
+   * values should be named with snake_case. Unless
+   * there is a good reason, enumeration must have
+   * their backing types specified.
+   */
+  enum enum_type:uint32_t
+    {
+      /*!
+       * doxytag for enum_value1
+       */
+      enum_value1
+    };
+
+  /*!
+   * All public functions must have a doxytag,
+   * functions are named snake_case().
+   */
+  void
+  foo_function(void);
+
+  /*!
+   * All public members must have a doxytag and
+   * all non-static members are named snake_case
+   * and start with m_.
+   */
+  int m_foo_member;
+
+private:
+  /* if you can avoid defining private member classes
+   * in the source file, then just forward declare them
+   */
+  class SomePrivateMagic;
+
+  /* No need for doxytag on private functions, but
+   * some documentation suggested for what it is
+   * doing.
+   */
+  int
+  private_function(void);
+
+  /*!
+   * However, virtual private functions must have a
+   * doxytag because a derived class can override
+   * them.
+   */
+  virtual
+  void
+  some_private_vfunc(void);
+
+  /* No static member variables, EVER */
+
+  /* If you need a static variable which is a really
+   * just a pretty global then it must be accessed
+   * via a function that returns a reference to it.
+   * This trick makes it so that the ctor of the object
+   * is called the first time it is referenced.
+   */
+  static
+  SomeType&
+  some_name(void);
+
+  /* No need for doxytag on private members, but
+   * some documentation suggested for what it is
+   * doing.
+   */
+  int m_private;
+};
+
+SomeType&
+PascalCaseClass::
+some_name(void)
+{
+  static SomeType R;
+  return R;
+}
+
+/* indentation also applied to namesapce as well, even anonymous namespace.
+ * the main reason is that this is the default formatting option for emacs
+ * and makes nesting a little easier to follow.
+ */
+namespace Foo
+{
+  class Bar
+  {
+  };
+};
+
+namespace
+{
+  class Private
+  {
+  };
+}
+
+There are files that are not following this in the repo; when you edit them,
+please make them follow this namespace convention.
+
+/* use enum astral::return_code as a return value for functions
+ * that can fail; if the nature of failure is not a simple yes/no
+ * then either a class for more detailed information or a custom
+ * enumeration.
+ *
+ * Exceptions are NOT used in Astral in *general* because in order
+ * for exceptions to be safe to use, if a function call can directly
+ * or indirectly throw an exception then the stack unwinding to the
+ * location of the catch of an exception needs be sufficient to restore
+ * the program to a known good state for the exception handling to work.
+ * This requirement is not met for much of the Astral implementation
+ * (especially Renderer and the GL3 backend). However, this does NOT
+ * mean no exceptions. It means that if a function can throw an exception
+ * that the following must be satisfied: all functions that call it without
+ * catching the exception must satisfy the stack unwinding restores to
+ * known good state requirement. In particular if a() calls b() which
+ * calls c() which can throw an exception, then one of the folllowing
+ * must be satisified:
+ *  1) b() must catch the exceptions from c()
+ * or
+ *  2) b() is document as being able to throw and can
+ *     safely unwind AND a() must catch (or be document
+ *     to throw and safely unwind).
+ *
+ * TODO: might be a good idea to tag onto the majority of Astral code
+ *       the noexcept tag for the functions to automatically have the
+ *       compliler do the work for us.
+ */
+enum astral::return_code
+my_function(argument_list)
+{
+  if (fail)
+    {
+      return astral::routine_fail;
+    }
+
+  // success!
+  return astral::routine_success;
+}
+
+/* If a class is heavy, it likely should be reference counted object.
+ * However, there are exceptions to this, so it is not a hard rule,
+ * but a very strong suggestion. The member class non_concurrent of
+ * reference_counted<T> gives intrusive reference counting that is NOT
+ * thread safe and the concurrent member class the reference count is
+ * via an atomic. Always try to use non_concurrent for performance.
+ */
+class HeavyClass:public astral::reference_counted<HeavyClass>::non_concurrent
+{
+public:
+  /* Reference counted objects should have a private ctor
+   * and a public static method to create the object. This
+   * way, one cannot by accident create such an object on
+   * the stack by accident.
+   */
+  static
+  astral::reference_counted_ptr<HeavyClass>
+  create(argument_list);
+
+  ~HeavyClass();
+
+private:
+  HeavyClass(argument_list).
+};
+
+/* If one is making a base class where one expects the derived classes
+ * to be heavy, then the base class should also be reference counted
+ */
+class Base:public astral::reference_counted<Base>::non_concurrent
+{
+protected:
+  /* To avoid accidentally making an instance of Base if it is
+   * not a pure-virtual function, the ctor should be protected.
+   */
+  Base(argument_list);
+
+  /* As always, if a class should be derived from, make sure its
+   * dtor is virtual.
+   */
+  virtual
+  ~Base();
+};
+
+class Derived:public Base
+{
+public:
+  /* As for the HeavyClass case, make a public static create() method
+   * and make the ctor private.
+   */
+  static
+  astral::reference_counted_ptr<Base>
+  create(argument_list);
+
+private:
+  Derived(argumment_list);
+};
+
+/* Use the PIMPL pattern for reference counted object as follows
+ * when reasonably possible.
+ *
+ * NEVER use std::shared_ptr<> or std::unique_ptr<> as to use those
+ * with ASTRALnew and ASTRALdelete is more of a hassle that it is
+ * worth.
+ *
+ * Public header:
+ */
+class Foo:public astral::reference_counted<Foo>::non_concurrent
+{
+public:
+  static
+  astral::reference_counted_ptr<Foo>
+  create(create_argument_list);
+
+  return_type
+  simple_func(argument_list);
+
+  return_type
+  commplicated_func(argument_list);
+
+private:
+  class Implement;
+
+  Foo(void)
+  {}
+};
+
+/* Private source file: */
+class Foo::Implement
+{
+public:
+  // fields and implementation functions that are not part of public interface
+};
+
+Foo::Implement::
+Implement(create_argument_list)
+{
+}
+
+astral::reference_counted_ptr<Foo>
+Foo::
+create(create_argument_list)
+{
+  return ASTRALnew Foo::Implement(create_argument_list);
+}
+
+return_type
+Foo::
+simple_func(argument_list)
+{
+  Implement *d;
+
+  d = static_cast<Implement*>(this);
+
+  /* implement the simple func via the d pointer */
+}
+
+return_type
+Foo::
+complicated_func(argument_list)
+{
+  Implement *d;
+
+  /* if the function is complicated, then having to type d-> gets old
+   * fast, so just make an complicated_func_implement() function in
+   * Implement to do the implementation.
+   */
+  d = static_cast<Implement*>(this);
+  return d->complicated_func_implement(argument_list);
+}
+
+
+
+
+Coding C++ Style
+================
+
+The C++ style of Astral can be described as C with
+ 1. templates to avoid usign macros
+ 2. virtual functions to avoid explicitely specifying function pointers
+ 3. constructor and deconstructors to make sure initialization and cleanup
+    code are called.
+ 4. Use of STL (with taste) to avoid implementing standard containers
+ 5. Use of std::ostringstream to "print to a string".
+ 6. Use of operator overloading for math operations and printing
+    to an std::ostream (printing for "printf"-debugging).
+
+Astral is to compile and run the same with C++11 through C++17.
+
+Using C++ features beyond is not always forbidden but if there is a reasonably
+way to stay within those confines it shall be done. In particular, the following
+are to be noted:
+
+ 1. Exception handling cannot be a part of the Astral interface; the core assumption
+    of exception handling is that calling the dtor's along the stack until the exception
+    is caught will restore the program to a known good state is not the case for
+    Astral. However, if one has a self contained class where exception handling makes
+    more readable code than propogating of error codes, then exception handling is ok
+    subject to that no exception "escapes" the class implementation.
+
+ 2. Lambdas are not to be used; the main reasoning is that the capture occuring from
+    lambdas can easily diffucult to debug issues; in addition when an std::function
+    is created from a lambda and the std::function is saved, the C++ implementation
+    MUST allocate an object (internal to std::funciton) on the heap; memory allocation
+    must be carefully controlled and using lambdas makes this much harder to tell
+    at a glance. It is strongly preferred to have a specific type with a virtual method
+    (or methods).
+
+ 3. If a heavy object is to be computed by a function then that heavy object should be
+    passed as a pointer *out_value. This requirement comes from that what ctors (be it
+    copy or move) has changed between different C++ versions. It is not reasonable to
+    wrestle with the C++ specification to figure out what it actually going to be
+    called.

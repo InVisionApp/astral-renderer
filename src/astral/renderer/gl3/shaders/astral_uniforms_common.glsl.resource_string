@@ -1,0 +1,181 @@
+// -*- C++ -*-
+/*!
+ * \file astral_uniforms_common.glsl.resource_string
+ * \brief astral_uniforms_common.glsl.resource_string
+ *
+ * Copyright 2019 by InvisionApp.
+ *
+ * Contact: kevinrogovin@invisionapp.com
+ *
+ * This Source Code Form is subject to the
+ * terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with
+ * this file, You can obtain one at
+ * http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+
+/* Micro-optimizations:
+ *   - astral_colorstop_inverse_width is a MACRO because
+ *     its value is constant because the the atlas only
+ *     grows in height.
+ *   - astral_shadow_map_inverse_width is a MACRO for the
+ *     same reason
+ */
+
+/*!\addtogroup GLSLBase
+ * @{
+ */
+
+layout(std140) uniform AstralMiscUBO
+{
+  float astral_recip_half_viewport_width;
+  float astral_recip_half_viewport_height;
+  float astral_viewport_width;
+  float astral_viewport_height;
+
+  float astral_shadow_map_inverse_height;
+  float astral_colorstop_inverse_height;
+
+  float astral_clip_y_coeff;
+  uint padding;
+};
+
+/*!
+ * Read data from an astral::ItemData where the
+ * data is interpreted as 4-tuples of 32-bit
+ * floats
+ * \param location location of data
+ */
+vec4
+astral_read_item_dataf(uint location);
+
+/*!
+ * Read data from an astral::ItemData where the
+ * data is interpreted as 4-tuples of 32-bit
+ * unsigned integers
+ * \param location location of data
+ */
+uvec4
+astral_read_item_datau(uint location);
+
+/*!
+ * Read from the backing of RenderEngine::static_data_allocator32()
+ * interpreting the values as 32-bit uint values.
+ * \param location lcoation in the backing from which to read.
+ */
+uvec4
+astral_read_static_data32u(uint location);
+
+/*!
+ * Read from the backing of RenderEngine::static_data_allocator32()
+ * interpreting the values as floating point values.
+ * \param location lcoation in the backing from which to read.
+ */
+vec4
+astral_read_static_data32f(uint location)
+{
+  return uintBitsToFloat(astral_read_static_data32u(location));
+}
+
+/*!
+ * Read from the backing of RenderEngine::static_data_allocator16()
+ * interpreting the value as two 32-bit uint values.
+ * \param location lcoation in the backing from which to read.
+ */
+uvec2
+astral_read_static_data16_32u(uint location);
+
+/*!
+ * Read from the backing of RenderEngine::static_data_allocator16()
+ * interpreting the values as fp16 values.
+ * \param location lcoation in the backing from which to read.
+ */
+vec4
+astral_read_static_data16f(uint location)
+{
+  uvec2 v;
+
+  v = astral_read_static_data16_32u(location);
+  return vec4(astral_unpackHalf2x16(v.x), astral_unpackHalf2x16(v.y));
+}
+
+/* the sampler2D for the color-stop atlas */
+uniform sampler2D astral_colorstop_atlas;
+
+/* the sampler2D for the shadow map atlas */
+uniform sampler2D astral_shadow_map_atlas;
+
+/* sampler2DArray that holds the backing store for the color tiles */
+uniform sampler2DArray astral_image_color_atlas;
+
+/* usampler2DArray that hodls the backing store for the index tiles */
+uniform usampler2DArray astral_image_index_atlas;
+
+vec4
+astral_sample_colorstop(uint colorstop_start, uint colorstop_size, uint colorstop_layer, float t)
+{
+  vec2 st;
+  float sz = float(colorstop_size);
+
+  t *= (sz - 1.0);
+  t += 0.5;
+  t = clamp(t, 0.5, sz - 0.5);
+
+  st.x = astral_colorstop_inverse_width * (float(colorstop_start) + t);
+  st.y = astral_colorstop_inverse_height * (float(colorstop_layer) + 0.5);
+
+  return textureLod(astral_colorstop_atlas, st, 0.0);
+}
+
+#ifdef ASTRAL_STATIC_DATA_TBO
+
+/* the buffer holding the StaticData */
+uniform usamplerBuffer astral_static_data32;
+uniform usamplerBuffer astral_static_data16;
+
+uvec4
+astral_read_static_data32u(uint location)
+{
+  return texelFetch(astral_static_data32, int(location));
+}
+
+uvec2
+astral_read_static_data16_32u(uint location)
+{
+  return texelFetch(astral_static_data16, int(location)).xy;
+}
+
+#else
+
+uniform usampler2DArray astral_static_data32;
+uniform usampler2DArray astral_static_data16;
+
+uvec4
+astral_read_static_data32u(uint location)
+{
+  uint x, y, z;
+
+  x = ASTRAL_SHARED_DATA_X_MASK & location;
+  y = (location >> ASTRAL_SHARED_DATA_Y_SHIFT) & ASTRAL_SHARED_DATA_Y_MASK;
+  z = location >> ASTRAL_SHARED_DATA_Z_SHIFT;
+
+  return texelFetch(astral_static_data32, ivec3(x, y, z), 0);
+}
+
+uvec2
+astral_read_static_data16_32u(uint location)
+{
+  uint x, y, z;
+
+  x = ASTRAL_SHARED_DATA_X_MASK & location;
+  y = (location >> ASTRAL_SHARED_DATA_Y_SHIFT) & ASTRAL_SHARED_DATA_Y_MASK;
+  z = location >> ASTRAL_SHARED_DATA_Z_SHIFT;
+
+  return texelFetch(astral_static_data16, ivec3(x, y, z), 0).xy;
+}
+
+#endif
+
+/*! @} */
