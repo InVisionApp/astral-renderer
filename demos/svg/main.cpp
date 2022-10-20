@@ -210,7 +210,7 @@ private:
 
   enumerated_command_line_argument_value<enum stroke_mode_t> m_stroke_mode;
   enumerated_command_line_argument_value<enum astral::anti_alias_t> m_fill_aa_mode;
-  command_line_argument_value<bool> m_sparse_stroke;
+  command_line_argument_value<bool> m_sparse_stroke, m_use_direct_stroking;
   enumerated_command_line_argument_value<enum astral::fill_method_t> m_sparse_fill;
   enumerated_command_line_argument_value<enum astral::filter_t> m_layer_filter, m_stroke_filter, m_fill_filter;
   command_line_argument_value<astral::vec2> m_scale_pre_rotate, m_scale_post_rotate;
@@ -277,6 +277,7 @@ SVGExample(void):
                  "specifies aa-mode to apply to fills of the SVG",
                  *this),
   m_sparse_stroke(true, "sparse_stroke", "if true, stroke the strokes of the SVG sparsely", *this),
+  m_use_direct_stroking(true, "use_direct_stroking", "if true, on opaque strokes, use direct stroking", *this),
   m_sparse_fill(astral::fill_method_sparse_curve_clipping,
                 enumerated_string_type<enum astral::fill_method_t>(&astral::label, astral::number_fill_method_t),
                 "sparse_fill",
@@ -656,15 +657,12 @@ render_svg_element(astral::RenderEncoderBase render_encoder,
   if (element.m_stroke_brush.m_active && m_stroke_mode.value() != stroke_none)
     {
       astral::Brush brush;
+      astral::RenderValue<astral::Brush> render_brush;
       astral::BoundingBox<float> bb;
-      astral::StrokeMaskProperties mask_stroke_params;
       astral::StrokeParameters stroke_params(element.m_stroke_params);
 
       generate_brush(render_encoder, idx, element.m_stroke_brush, element.m_opacity, &brush);
-
-      mask_stroke_params
-        .render_scale_factor(m_stroke_scale_factor.value())
-        .sparse_mask(m_sparse_stroke.value());
+      render_brush = render_encoder.create_value(brush);
 
       if (m_stroke_mode.value() == stroke_hairline)
         {
@@ -675,29 +673,56 @@ render_svg_element(astral::RenderEncoderBase render_encoder,
           stroke_params.graceful_thin_stroking(true);
         }
 
-      if (stroke_params.m_width <= 0.0f)
+      if (m_use_direct_stroking.value() && render_brush.value().m_opaque)
         {
-          mask_stroke_params.render_scale_factor(1.0f);
-        }
-
-      if (element.m_dash_pattern.empty())
-        {
-          render_encoder.stroke_paths(path,
-                                      stroke_params,
-                                      render_encoder.create_value(brush),
-                                      astral::blend_porter_duff_src_over,
-                                      astral::MaskUsage(),
-                                      mask_stroke_params);
+          if (element.m_dash_pattern.empty())
+            {
+              render_encoder.direct_stroke_paths(path,
+                                                 stroke_params,
+                                                 render_brush,
+                                                 astral::blend_porter_duff_src_over);
+            }
+          else
+            {
+              render_encoder.direct_stroke_paths(path,
+                                                 stroke_params,
+                                                 element.m_dash_pattern,
+                                                 render_brush,
+                                                 astral::blend_porter_duff_src_over);
+            }
         }
       else
         {
-          render_encoder.stroke_paths(path,
-                                      stroke_params,
-                                      element.m_dash_pattern,
-                                      render_encoder.create_value(brush),
-                                      astral::blend_porter_duff_src_over,
-                                      astral::MaskUsage(),
-                                      mask_stroke_params);
+          astral::StrokeMaskProperties mask_stroke_params;
+
+          mask_stroke_params
+            .render_scale_factor(m_stroke_scale_factor.value())
+            .sparse_mask(m_sparse_stroke.value());
+
+          if (stroke_params.m_width <= 0.0f)
+            {
+              mask_stroke_params.render_scale_factor(1.0f);
+            }
+
+          if (element.m_dash_pattern.empty())
+            {
+              render_encoder.stroke_paths(path,
+                                          stroke_params,
+                                          render_brush,
+                                          astral::blend_porter_duff_src_over,
+                                          astral::MaskUsage(),
+                                          mask_stroke_params);
+            }
+          else
+            {
+              render_encoder.stroke_paths(path,
+                                          stroke_params,
+                                          element.m_dash_pattern,
+                                          render_brush,
+                                          astral::blend_porter_duff_src_over,
+                                          astral::MaskUsage(),
+                                          mask_stroke_params);
+            }
         }
     }
 }
@@ -1058,10 +1083,20 @@ handle_event(const SDL_Event &ev)
           break;
 
         case SDLK_o:
-          m_sparse_stroke.value() = !m_sparse_stroke.value();
-          std::cout << "Stroking with sparse mask set to: "
-                    << std::boolalpha << m_sparse_stroke.value()
-                    << "\n";
+          if (ev.key.keysym.mod & KMOD_SHIFT)
+            {
+              m_use_direct_stroking.value() = !m_use_direct_stroking.value();
+              std::cout << "Use direct stroking set to: "
+                        << std::boolalpha << m_use_direct_stroking.value()
+                        << "\n";
+            }
+          else
+            {
+              m_sparse_stroke.value() = !m_sparse_stroke.value();
+              std::cout << "Stroking with sparse mask set to: "
+                        << std::boolalpha << m_sparse_stroke.value()
+                        << "\n";
+            }
           break;
 
         case SDLK_0:
