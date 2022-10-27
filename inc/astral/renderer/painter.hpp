@@ -131,6 +131,18 @@ namespace astral
     ~Painter();
 
     /*!
+     * Returns the astral::Renderer used to render if active()
+     * returns true. Otherwise returns nullptr.
+     */
+    reference_counted_ptr<Renderer>
+    renderer(void)
+    {
+      return (active()) ?
+        reference_counted_ptr<Renderer>(&m_start_encoder.renderer()) :
+        reference_counted_ptr<Renderer>(nullptr);
+    }
+
+    /*!
      * Start a painter that renders to content via an encoder
      */
     void
