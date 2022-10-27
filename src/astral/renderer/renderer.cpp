@@ -318,6 +318,53 @@ encoder_surface(RenderTarget &rt, enum colorspace_t colorspace, u8vec4 clear_col
   return implement().m_virtual_buffer_to_render_target.back();
 }
 
+void
+astral::Renderer::
+encoders_surface(RenderTarget &rt,
+                 c_array<const SubViewport> in_regions,
+                 c_array<RenderEncoderSurface> out_encoders,
+                 enum colorspace_t colorspace,
+                 u8vec4 clear_color)
+{
+  RenderValue<Brush> clear_brush;
+
+  ASTRALassert(in_regions.size() == out_encoders.size());
+  ASTRALassert(implement().m_backend->rendering());
+  ASTRALassert(rt.has_color_buffer());
+
+  if (in_regions.empty())
+    {
+      return;
+    }
+
+  if (clear_color != u8vec4(0, 0, 0, 0))
+    {
+      Brush brush;
+
+      brush.base_color(vec4(clear_color) / 255.0f, colorspace);
+      clear_brush = create_value(brush);
+    }
+  else
+    {
+      clear_brush = RenderValue<Brush>();
+    }
+
+  range_type<unsigned int> same_surface_range;
+
+  same_surface_range.m_begin = implement().m_virtual_buffer_to_render_target_subregion.size();
+  rt.active_status(detail::RenderTargetRendererStatus(this));
+  for (unsigned int i = 0; i < in_regions.size(); ++i)
+    {
+      RenderEncoderBase R;
+
+      R = implement().m_storage->create_virtual_buffer(VB_TAG, rt, clear_color, colorspace, clear_brush, &in_regions[i]);
+      out_encoders[i] = RenderEncoderSurface(R.m_virtual_buffer);
+      implement().m_virtual_buffer_to_render_target_subregion.push_back(R.m_virtual_buffer->render_index());
+    }
+  same_surface_range.m_end = implement().m_virtual_buffer_to_render_target_subregion.size();
+  implement().m_virtual_buffer_to_render_target_subregion_same_surface.push_back(same_surface_range);
+}
+
 astral::RenderEncoderMask
 astral::Renderer::
 encoder_mask(ivec2 size)
@@ -1350,15 +1397,27 @@ end_abort_implement(void)
   m_engine->image_atlas().flush();
 
   /* for renders to RenderTarget(s), mark the surfaces as changeable again */
-  for (unsigned int i = 0, endi = m_storage->number_virtual_buffers(); i < endi; ++i)
+  for (RenderEncoderSurface encoder : m_virtual_buffer_to_render_target)
     {
-      VirtualBuffer &render_target_buffer(m_storage->virtual_buffer(i));
+      VirtualBuffer &render_target_buffer(*encoder.m_virtual_buffer);
 
-      if (render_target_buffer.type() != VirtualBuffer::render_target_buffer)
-        {
-          break;
-        }
+      ASTRALassert(render_target_buffer.type() == VirtualBuffer::render_target_buffer);
+      ASTRALassert(render_target_buffer.render_target()->active_status(detail::RenderTargetRendererStatusQuery()) == this);
+      render_target_buffer.render_target()->active_status(detail::RenderTargetRendererStatus(nullptr));
+    }
 
+  for (range_type<unsigned int> R : m_virtual_buffer_to_render_target_subregion_same_surface)
+    {
+      unsigned int render_index;
+
+      ASTRALassert(R.m_begin < R.m_end);
+      ASTRALassert(R.m_end <= m_virtual_buffer_to_render_target_subregion.size());
+
+      render_index = m_virtual_buffer_to_render_target_subregion[R.m_begin];
+
+      VirtualBuffer &render_target_buffer(m_storage->virtual_buffer(render_index));
+
+      ASTRALassert(render_target_buffer.type() == VirtualBuffer::render_target_buffer);
       ASTRALassert(render_target_buffer.render_target()->active_status(detail::RenderTargetRendererStatusQuery()) == this);
       render_target_buffer.render_target()->active_status(detail::RenderTargetRendererStatus(nullptr));
     }
@@ -1376,6 +1435,8 @@ end_abort_implement(void)
   m_engine->static_data_allocator16().unlock_resources();
 
   m_virtual_buffer_to_render_target.clear();
+  m_virtual_buffer_to_render_target_subregion.clear();
+  m_virtual_buffer_to_render_target_subregion_same_surface.clear();
 
   /* increment m_begin_cnt to make all the RenderEncoderBase
    * derived object invalid.
@@ -1430,6 +1491,7 @@ end_implement(OffscreenBufferAllocInfo *p)
 
       ASTRALassert(render_target_buffer.type() == VirtualBuffer::render_target_buffer);
       ASTRALassert(R == routine_success);
+      ASTRALunused(R);
 
       RenderBackend::ClearParams clear_params;
       vec4 clear_color;
@@ -1490,7 +1552,54 @@ end_implement(OffscreenBufferAllocInfo *p)
 
       render_target_buffer.render_performed(nullptr);
     }
+
+  for (range_type<unsigned int> R : m_virtual_buffer_to_render_target_subregion_same_surface)
+    {
+      c_array<const unsigned int> vbs;
+
+      ASTRALassert(R.m_begin < R.m_end);
+      ASTRALassert(R.m_end <= m_virtual_buffer_to_render_target_subregion.size());
+      vbs = make_c_array(m_virtual_buffer_to_render_target_subregion).sub_array(R);
+
+      VirtualBuffer &first_buffer(m_storage->virtual_buffer(vbs.front()));
+      RenderBackend::ClearParams clear_params;
+      vec4 clear_color;
+
+      /* the clear color sent to the backend needs to be
+       * pre-multiplied by alpha because we are rendering
+       * pre-multiplied by alpha color values.
+       */
+      clear_color = vec4(first_buffer.render_target_clear_color()) / 255.0f;
+      clear_color.x() *= clear_color.w();
+      clear_color.y() *= clear_color.w();
+      clear_color.z() *= clear_color.w();
+
+      clear_params
+        .clear_stencil(0)
+        .clear_color(clear_color)
+        .clear_depth(RenderBackend::depth_buffer_value_clear);
+
+      /* start the render target */
+      m_backend->begin_render_target(clear_params, *first_buffer.render_target());
+      m_backend->depth_buffer_mode(RenderBackend::depth_buffer_occlude);
+      m_backend->color_write_mask(bvec4(true));
+      m_backend->set_stencil_state(StencilState().enabled(false));
+      m_backend->set_fragment_shader_emit(first_buffer.colorspace());
+
+      /* TODO: call render_virtual_buffers(vbs) specifying to NOT render to the scratch
+       *       buffer and to just render to the currently bound render target
+       */
+      #warning "Implement rendering to m_virtual_buffer_to_render_target_subregion buffers"
+
+      /* end the render target and mark it as not-active */
+      m_backend->end_render_target();
+      ASTRALassert(first_buffer.render_target()->active_status(detail::RenderTargetRendererStatusQuery()) == this);
+      first_buffer.render_target()->active_status(detail::RenderTargetRendererStatus(nullptr));
+    }
+
   m_virtual_buffer_to_render_target.clear();
+  m_virtual_buffer_to_render_target_subregion.clear();
+  m_virtual_buffer_to_render_target_subregion_same_surface.clear();
 
   /* Let the backend know we are done drawing */
   m_backend->end(make_c_array(m_stats).sub_array(number_renderer_stats));

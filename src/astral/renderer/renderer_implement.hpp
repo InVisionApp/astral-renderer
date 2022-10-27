@@ -152,8 +152,22 @@ public:
   RenderValue<Brush> m_black_brush, m_white_brush;
   RenderValue<Transformation> m_identity;
 
-  /* list of VirtualBuffers that render to a RenderTarget */
+  /* list of VirtualBuffers that render to a RenderTarget's entire viewport */
   std::vector<RenderEncoderSurface> m_virtual_buffer_to_render_target;
+
+  /* list of VirtualBuffers that render to a Subviewport of a RenderTarget;
+   * the encoders are placed in an order so that the encoders made from
+   * the same encoders_surface() call are together. Note that the
+   * values are integers, this is so that render_virtual_buffers() can
+   * be reused to render their content.
+   */
+  std::vector<unsigned int> m_virtual_buffer_to_render_target_subregion;
+
+  /* m_virtual_buffer_to_render_target_subregion_same_surface[i]
+   * gives a range into m_virtual_buffer_to_render_target_subregion where
+   * the same surface is used.
+   */
+  std::vector<range_type<unsigned int>> m_virtual_buffer_to_render_target_subregion_same_surface;
 
   vecN<reference_counted_ptr<Filler>, number_fill_method_t> m_filler;
   reference_counted_ptr<WorkRoom> m_workroom;
