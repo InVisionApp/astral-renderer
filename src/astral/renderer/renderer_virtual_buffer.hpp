@@ -456,11 +456,14 @@ public:
    * \param brush if valid(), means that clear_color is not (0, 0, 0, 0)
    *              and gives the RenderValue<Brush> to use when drawing a
    *              rect of the clear color
+   * \param region if non-null, the virtual buffer renders to the named
+   *               sub-region of rt.
    */
   VirtualBuffer(CreationTag C, unsigned int render_index,
                 Renderer::Implement &renderer, RenderTarget &rt,
                 u8vec4 clear_color, enum colorspace_t colorspace,
-                RenderValue<Brush> clear_brush);
+                RenderValue<Brush> clear_brush,
+                const SubViewport *region = nullptr);
 
   /* Ctor for a VirtualBuffer that generates pixels for a ShadowMap
    *
@@ -803,8 +806,9 @@ public:
   void
   start_z(unsigned int v)
   {
-    /* only image buffes should ever set start_z() */
-    ASTRALassert(type() == image_buffer || type() == sub_image_buffer);
+    /* only image buffers or render target buffers with a clip window should ever set start_z() */
+    ASTRALassert(type() == image_buffer || type() == sub_image_buffer
+                 || (type() == render_target_buffer && m_clip_window.clip_window_value_type() != clip_window_not_present));
 
     /* start_z() should only set it once */
     ASTRALassert(m_start_z == 0u);
@@ -816,7 +820,8 @@ public:
   unsigned int
   start_z(void) const
   {
-    ASTRALassert(type() == image_buffer || type() == sub_image_buffer || m_start_z == 0);
+    ASTRALassert(type() == image_buffer || type() == sub_image_buffer || m_start_z == 0
+                 || (type() == render_target_buffer && m_clip_window.clip_window_value_type() != clip_window_not_present));
     return m_start_z;
   }
 
@@ -1467,8 +1472,10 @@ private:
   /* list of commands */
   Implement::DrawCommandList *m_command_list;
 
-  /* ScaleTranslate created at the time when
-   * m_location_in_color_buffer is computed
+  /* ScaleTranslate that maps from pixel coordinates to where the VirtualBuffer
+   * is rendered in either the scratch offscreen render target or a user passed
+   * render target when used in Renderer::encoders_surface() where multiple encoders
+   * are returned to render to a single surface.
    */
   RenderValue<ScaleTranslate> m_render_scale_translate;
 
@@ -1482,8 +1489,10 @@ private:
   // These apply only for when the VirtualBuffer is rendering
   // to a RenderTarget
   astral::reference_counted_ptr<RenderTarget> m_render_target;
-
   u8vec4 m_render_target_clear_color;
+
+  // only present if rendering to a sub-region of a RenderTarget
+  SubViewport m_region;
 
   /////////////////////////////////////////////////////////
   // These apply only for when the VirtualBuffer is rendering

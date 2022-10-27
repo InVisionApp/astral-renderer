@@ -411,7 +411,8 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
 
 astral::Renderer::VirtualBuffer::
 VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer, RenderTarget &rt,
-              u8vec4 clear_color, enum colorspace_t colorspace, RenderValue<Brush> clear_brush):
+              u8vec4 clear_color, enum colorspace_t colorspace, RenderValue<Brush> clear_brush,
+              const SubViewport *region):
   m_renderer(renderer),
   m_use_pixel_rect_tile_culling(renderer.m_default_use_pixel_rect_tile_culling),
   m_render_accuracy(renderer.m_default_render_accuracy),
@@ -438,10 +439,29 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
 {
-  ASTRALassert(m_render_index == 0);
   m_transformation_stack.push_back(Transformation());
-  m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(rt.size()));
 
+  if (region)
+    {
+      m_region = *region;
+      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(region->m_size));
+
+      /* Recall that the clip-window is in coordinates BEFORE the ScaleTranslate that places
+       * it on the surface.
+       */
+      m_clip_window = renderer.create_clip_window(m_clip_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
+                                                  m_clip_geometry.bounding_geometry().pixel_rect().as_rect().size());
+
+      /* Now place the virtual buffer onto the render target by setting m_render_scale_translate */
+      ScaleTranslate tr;
+
+      tr.m_translate = vec2(region->m_xy);
+      m_render_scale_translate = m_renderer.create_value(tr);
+    }
+  else
+    {
+      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(rt.size()));
+    }
   m_command_list = renderer.m_storage->allocate_command_list(Implement::DrawCommandList::render_color_image,
                                                              image_processing_none,
                                                              m_clip_geometry.bounding_geometry().pixel_rect());
@@ -1163,10 +1183,20 @@ draw_depth_rect(RenderBackend::UberShadingKey::Cookie uber_key_cookie, unsigned 
   vecN<gvec4, DynamicRectShader::item_data_size> rect_data;
   RenderValues st;
 
-  ASTRALassert(type() == image_buffer || type() == sub_image_buffer);
+  ASTRALassert(type() == image_buffer || type() == sub_image_buffer
+               || (type() == render_target_buffer && m_clip_window.clip_window_value_type() != clip_window_not_present));
 
-  sz = offscreen_render_size();
-  rect.m_min_point = m_location_in_color_buffer.m_location;
+
+  if (type() != render_target_buffer)
+    {
+      sz = offscreen_render_size();
+      rect.m_min_point = m_location_in_color_buffer.m_location;
+    }
+  else
+    {
+      rect.m_min_point = m_region.m_xy;
+      sz = m_region.m_size;
+    }
   rect.m_max_point = rect.m_min_point + sz;
 
   DynamicRectShader::pack_item_data(rect, rect_data);
