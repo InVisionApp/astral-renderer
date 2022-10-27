@@ -86,8 +86,8 @@ public:
 
   void //renders a sub-set of buffers that have their dependencies met
   render_virtual_buffers(OffscreenBufferAllocInfo *p,
-                         c_array<unsigned int> image_buffers,
-                         c_array<unsigned int> shadow_map_buffers,
+                         c_array<const unsigned int> image_buffers,
+                         c_array<const unsigned int> shadow_map_buffers,
                          enum render_virtual_buffer_mode_t mode);
 
   void //performs the STC algorithm on the passed buffers.

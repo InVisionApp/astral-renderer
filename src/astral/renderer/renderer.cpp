@@ -846,14 +846,14 @@ render_stc_virtual_buffers(c_array<const unsigned int>::iterator begin,
 void
 astral::Renderer::Implement::
 render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
-                       c_array<unsigned int> image_buffers,
-                       c_array<unsigned int> shadow_map_buffers,
+                       c_array<const unsigned int> in_image_buffers,
+                       c_array<const unsigned int> in_shadow_map_buffers,
                        enum render_virtual_buffer_mode_t mode)
 {
-  ASTRALhard_assert(!image_buffers.empty() || !shadow_map_buffers.empty());
+  ASTRALhard_assert(!in_image_buffers.empty() || !in_shadow_map_buffers.empty());
 
   /* when rendering directly, only color buffer rendering is supported */
-  ASTRALassert(mode == render_virtual_buffers_blit_atlas || shadow_map_buffers.empty());
+  ASTRALassert(mode == render_virtual_buffers_blit_atlas || in_shadow_map_buffers.empty());
 
   /* the backend should have a render target bound if and only if rendering directly */
   ASTRALassert((mode == render_virtual_buffers_directly) == (m_backend->current_render_target().get() != nullptr));
@@ -881,7 +881,7 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
    *   will be fine.
    */
   m_workroom->m_renderable_image_buffers.clear();
-  for (unsigned int b : image_buffers)
+  for (unsigned int b : in_image_buffers)
     {
       VirtualBuffer &vb(m_storage->virtual_buffer(b));
       if (routine_success == vb.about_to_render_content())
@@ -889,10 +889,11 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
           m_workroom->m_renderable_image_buffers.push_back(b);
         }
     }
+  c_array<unsigned int> image_buffers;
   image_buffers = make_c_array(m_workroom->m_renderable_image_buffers);
 
   m_workroom->m_renderable_shadowmap_buffers.clear();
-  for (unsigned int b : shadow_map_buffers)
+  for (unsigned int b : in_shadow_map_buffers)
     {
       VirtualBuffer &vb(m_storage->virtual_buffer(b));
       if (routine_success == vb.about_to_render_content())
@@ -900,6 +901,7 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
           m_workroom->m_renderable_shadowmap_buffers.push_back(b);
         }
     }
+  c_array<unsigned int> shadow_map_buffers;
   shadow_map_buffers = make_c_array(m_workroom->m_renderable_shadowmap_buffers);
 
   const ScratchRenderTarget *scratch_rt = nullptr;
