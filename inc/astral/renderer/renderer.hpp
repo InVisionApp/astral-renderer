@@ -66,13 +66,14 @@ namespace astral
    * rendering in fashion that reduces GPU state thrashing.
    *
    * There are three main coordinate systems active at any time:
-   *  - PixelCoordinates are the raw pixel coordinates of the
-   *    surface passed to Renderer::begin() or the raw pixel
-   *    coordinates of the astral::Image rendered to from any of
+   *  - PixelCoordinates are the raw pixel coordinates relateive
+   *    to RenderTarget::viewport_xy() of the surface passed to
+   *    Renderer::encoder_surface() or the raw pixel coordinates
+   *    of the astral::Image rendered to from any of
    *    the overloads of RenderEncoderBase::encoder_image(),
    *    RenderEncoderBase::encoder_mask() or
    *    RenderEncoderBase::encoder_shadow_map()
-   *  - SurfaceCoordinates are the raw pixel coordinates to
+   *  - SurfaceCoordinates are the raw pixel coordinates of the
    *    astral::Image rendered to that are spawned by any of
    *    the overloads of RenderEncoderBase::encoder_mask_relative(),
    *    or RenderEncoderBase::encoder_image_relative(). These
