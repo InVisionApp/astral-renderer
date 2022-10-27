@@ -314,7 +314,8 @@ encoder_surface(RenderTarget &rt, enum colorspace_t colorspace, u8vec4 clear_col
   rt.active_status(detail::RenderTargetRendererStatus(this));
   return_value = implement().m_storage->create_virtual_buffer(VB_TAG, rt, clear_color, colorspace, clear_brush);
 
-  return RenderEncoderSurface(return_value.m_virtual_buffer);
+  implement().m_virtual_buffer_to_render_target.push_back(RenderEncoderSurface(return_value.m_virtual_buffer));
+  return implement().m_virtual_buffer_to_render_target.back();
 }
 
 astral::RenderEncoderMask
@@ -1374,6 +1375,8 @@ end_abort_implement(void)
   m_engine->static_data_allocator32().unlock_resources();
   m_engine->static_data_allocator16().unlock_resources();
 
+  m_virtual_buffer_to_render_target.clear();
+
   /* increment m_begin_cnt to make all the RenderEncoderBase
    * derived object invalid.
    */
@@ -1418,15 +1421,15 @@ end_implement(OffscreenBufferAllocInfo *p)
   render_non_render_target_virtual_buffers(p);
 
   /* now we can render the virtual buffers that render to a render target*/
-  for (unsigned int i = 0, endi = m_storage->number_virtual_buffers(); i < endi; ++i)
+  for (RenderEncoderSurface encoder : m_virtual_buffer_to_render_target)
     {
-      VirtualBuffer &render_target_buffer(m_storage->virtual_buffer(i));
+      VirtualBuffer &render_target_buffer(*encoder.m_virtual_buffer);
+      enum return_code R;
 
-      if (render_target_buffer.type() != VirtualBuffer::render_target_buffer
-          || render_target_buffer.about_to_render_content() != routine_success)
-        {
-          break;
-        }
+      R = render_target_buffer.about_to_render_content();
+
+      ASTRALassert(render_target_buffer.type() == VirtualBuffer::render_target_buffer);
+      ASTRALassert(R == routine_success);
 
       RenderBackend::ClearParams clear_params;
       vec4 clear_color;
@@ -1487,6 +1490,7 @@ end_implement(OffscreenBufferAllocInfo *p)
 
       render_target_buffer.render_performed(nullptr);
     }
+  m_virtual_buffer_to_render_target.clear();
 
   /* Let the backend know we are done drawing */
   m_backend->end(make_c_array(m_stats).sub_array(number_renderer_stats));

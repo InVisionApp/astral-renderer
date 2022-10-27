@@ -152,6 +152,9 @@ public:
   RenderValue<Brush> m_black_brush, m_white_brush;
   RenderValue<Transformation> m_identity;
 
+  /* list of VirtualBuffers that render to a RenderTarget */
+  std::vector<RenderEncoderSurface> m_virtual_buffer_to_render_target;
+
   vecN<reference_counted_ptr<Filler>, number_fill_method_t> m_filler;
   reference_counted_ptr<WorkRoom> m_workroom;
   reference_counted_ptr<VertexStreamer> m_vertex_streamer;
