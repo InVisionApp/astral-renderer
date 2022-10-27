@@ -416,6 +416,31 @@ namespace astral
     };
 
     /*!
+     * Class to specify a sub-viewport for encoders_surface().
+     */
+    class SubViewport
+    {
+    public:
+      /*!
+       * Location of top-left of the viewport relative to
+       * RenderTarget::viewport_xy().
+       */
+      ivec2 m_xy;
+
+      /*!
+       * Size of the rendering area, i.e. the SubViewport
+       * specifies to render to the pxiels (x, y) relative to
+       * RenderTarget::viewport_xy() where
+       * - m_xy.x() <= x < m_xy.x() + m_size.x() and
+       * - m_xy.y() <= y < m_xy.y() + m_size.y()
+       * .
+       * Note that this is relative to viewport of an
+       * astral::RenderTarget.
+       */
+      ivec2 m_size;
+    };
+
+    /*!
      * Create an astral::Renderer object
      */
     static
@@ -716,6 +741,49 @@ namespace astral
     template<enum colorspace_t colorspace>
     RenderEncoderSurface
     encoder_surface(RenderTarget &rt, FixedPointColor<colorspace> clear_color);
+
+    /*!
+     * Begin rendering multiple scenes onto a single surface.
+     * \param rt what astral::RenderTarget to which to render
+     * \param in_regions the sub-viewports on the surface to which to render;
+     *                   the rects are relative to RenderTarget::viewport()
+     *                   and specify a viewport. It is an error if the
+     *                   regions intersect.
+     * \param out_encoders location to which to write the encoder, the i'th
+     *                     encoder will render to the region specified by
+     *                     in_regions[i]. It is an error if this array is not
+     *                     the same size as in_regions
+     * \param colorspace the colorspace at which to render content
+     * \param clear_color color to which to clear rt in the color
+     *                    space named by colorspace
+     */
+    void
+    encoders_surface(RenderTarget &rt,
+                     c_array<const SubViewport> in_regions,
+                     c_array<RenderEncoderSurface> out_encoders,
+                     enum colorspace_t colorspace = colorspace_srgb,
+                     u8vec4 clear_color = u8vec4(0u, 0u, 0u, 0u));
+
+    /*!
+     * Begin rendering multiple scenes onto a single surface.
+     * \param rt what astral::RenderTarget to which to render
+     * \param in_regions the sub-viewports on the surface to which to render;
+     *                   the rects are relative to RenderTarget::viewport()
+     *                   and specify a viewport. It is an error if the
+     *                   regions intersect.
+     * \param out_encoders location to which to write the encoder, the i'th
+     *                     encoder will render to the region specified by
+     *                     in_regions[i]. It is an error if this array is not
+     *                     the same size as in_regions
+     * \param clear_color color to which to clear rt in the color
+     *                    space named by colorspace
+     */
+    template<enum colorspace_t colorspace>
+    void
+    encoders_surface(RenderTarget &rt,
+                     c_array<const SubViewport> in_regions,
+                     c_array<RenderEncoderSurface> out_encoders,
+                     FixedPointColor<colorspace> clear_color);
 
     /*!
      * Begin a rendering session. Doing so also guarantees that the
@@ -4473,6 +4541,17 @@ namespace astral
   encoder_surface(RenderTarget &rt, FixedPointColor<colorspace> clear_color)
   {
     return encoder_surface(rt, colorspace, clear_color.m_value);
+  }
+
+  template<enum colorspace_t colorspace>
+  void
+  Renderer::
+  encoders_surface(RenderTarget &rt,
+                   c_array<const SubViewport> in_regions,
+                   c_array<RenderEncoderSurface> out_encoders,
+                   FixedPointColor<colorspace> clear_color)
+  {
+    encoders_surface(rt, in_regions, out_encoders, colorspace, clear_color.m_value);
   }
 
   inline
