@@ -847,9 +847,16 @@ void
 astral::Renderer::Implement::
 render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
                        c_array<unsigned int> image_buffers,
-                       c_array<unsigned int> shadow_map_buffers)
+                       c_array<unsigned int> shadow_map_buffers,
+                       enum render_virtual_buffer_mode_t mode)
 {
   ASTRALhard_assert(!image_buffers.empty() || !shadow_map_buffers.empty());
+
+  /* when rendering directly, only color buffer rendering is supported */
+  ASTRALassert(mode == render_virtual_buffers_blit_atlas || shadow_map_buffers.empty());
+
+  /* the backend should have a render target bound if and only if rendering directly */
+  ASTRALassert((mode == render_virtual_buffers_directly) == (m_backend->current_render_target().get() != nullptr));
 
   /* Signal to the image buffers that they are about to be rendered
    *
@@ -895,82 +902,88 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
     }
   shadow_map_buffers = make_c_array(m_workroom->m_renderable_shadowmap_buffers);
 
-  /* (1) instead of having a single render target, we have an array
-   *     of render targets where the widths of each render target
-   *     is VirtualBuffer::render_scratch_buffer_size and the height
-   *     of the i'th target is VirtualBuffer::render_scratch_buffer_size / 2^i
-   * (2) compute the bounding box of all the rects of the buffers
-   *     to be rendered and pick the smallest render target that
-   *     contains them all.
-   */
-  BoundingBox<int> scratch_area;
-
-  for (unsigned int b : image_buffers)
+  const ScratchRenderTarget *scratch_rt = nullptr;
+  if (mode == render_virtual_buffers_blit_atlas)
     {
-      m_storage->virtual_buffer(b).add_scratch_area(&scratch_area);
-    }
+      /* (1) instead of having a single render target, we have an array
+       *     of render targets where the widths of each render target
+       *     is VirtualBuffer::render_scratch_buffer_size and the height
+       *     of the i'th target is VirtualBuffer::render_scratch_buffer_size / 2^i
+       * (2) compute the bounding box of all the rects of the buffers
+       *     to be rendered and pick the smallest render target that
+       *     contains them all.
+       */
+      BoundingBox<int> scratch_area;
 
-  for (unsigned int b : shadow_map_buffers)
-    {
-      m_storage->virtual_buffer(b).add_scratch_area(&scratch_area);
-    }
-
-  /* It is not the size of the scratch area, but the max_point()
-   * that matters since we have already decided the region to
-   * place each VirtualBuffer and made the ScaleTranslate value
-   * ready.
-   */
-  uint32_t which_buffer, buffer_height;
-
-  ASTRALassert(scratch_area.as_rect().m_min_point.x() >= 0);
-  ASTRALassert(scratch_area.as_rect().m_min_point.y() >= 0);
-  ASTRALassert(scratch_area.as_rect().m_max_point.x() <= VirtualBuffer::render_scratch_buffer_size);
-  ASTRALassert(scratch_area.as_rect().m_max_point.y() <= VirtualBuffer::render_scratch_buffer_size);
-
-  buffer_height = scratch_area.as_rect().m_max_point.y();
-  which_buffer = uint32_log2_ceiling(buffer_height);
-
-  if (m_scratch_render_targets.size() <= which_buffer)
-    {
-      m_scratch_render_targets.resize(which_buffer + 1u);
-    }
-
-  if (!m_scratch_render_targets[which_buffer].render_target())
-    {
-      ivec2 dims;
-
-      dims.x() = VirtualBuffer::render_scratch_buffer_size;
-      dims.y() = 1u << which_buffer;
-
-      ASTRALassert(dims.y() <= VirtualBuffer::render_scratch_buffer_size);
-      m_scratch_render_targets[which_buffer].init(dims, *m_engine);
-    }
-
-  if (tracker)
-    {
-      tracker->begin_offscreen_session(m_scratch_render_targets[which_buffer].render_target()->size());
       for (unsigned int b : image_buffers)
         {
-          VirtualBuffer &buffer(m_storage->virtual_buffer(b));
-          RectT<int> R;
-
-          R.m_min_point = buffer.location_in_color_buffer().m_location;
-          R.m_max_point = R.m_min_point + buffer.offscreen_render_size();
-          if (buffer.permute_xy_when_rendering())
-            {
-              std::swap(R.m_min_point.x(), R.m_min_point.y());
-              std::swap(R.m_max_point.x(), R.m_max_point.y());
-            }
-          tracker->add_rect(R);
+          m_storage->virtual_buffer(b).add_scratch_area(&scratch_area);
         }
-    }
 
-  /* begin rendering to render target */
-  m_backend->begin_render_target(RenderBackend::ClearParams()
-                                 .clear_color(vec4(0.0f, 0.0f, 0.0f, 0.0f))
-                                 .clear_depth(RenderBackend::depth_buffer_value_clear)
-                                 .clear_stencil(0),
-                                 *m_scratch_render_targets[which_buffer].render_target());
+      for (unsigned int b : shadow_map_buffers)
+        {
+          m_storage->virtual_buffer(b).add_scratch_area(&scratch_area);
+        }
+
+      /* It is not the size of the scratch area, but the max_point()
+       * that matters since we have already decided the region to
+       * place each VirtualBuffer and made the ScaleTranslate value
+       * ready.
+       */
+      uint32_t which_buffer, buffer_height;
+
+      ASTRALassert(scratch_area.as_rect().m_min_point.x() >= 0);
+      ASTRALassert(scratch_area.as_rect().m_min_point.y() >= 0);
+      ASTRALassert(scratch_area.as_rect().m_max_point.x() <= VirtualBuffer::render_scratch_buffer_size);
+      ASTRALassert(scratch_area.as_rect().m_max_point.y() <= VirtualBuffer::render_scratch_buffer_size);
+
+      buffer_height = scratch_area.as_rect().m_max_point.y();
+      which_buffer = uint32_log2_ceiling(buffer_height);
+
+      if (m_scratch_render_targets.size() <= which_buffer)
+        {
+          m_scratch_render_targets.resize(which_buffer + 1u);
+        }
+
+      if (!m_scratch_render_targets[which_buffer].render_target())
+        {
+          ivec2 dims;
+
+          dims.x() = VirtualBuffer::render_scratch_buffer_size;
+          dims.y() = 1u << which_buffer;
+
+          ASTRALassert(dims.y() <= VirtualBuffer::render_scratch_buffer_size);
+          m_scratch_render_targets[which_buffer].init(dims, *m_engine);
+        }
+
+      if (tracker)
+        {
+          tracker->begin_offscreen_session(m_scratch_render_targets[which_buffer].render_target()->size());
+          for (unsigned int b : image_buffers)
+            {
+              VirtualBuffer &buffer(m_storage->virtual_buffer(b));
+              RectT<int> R;
+
+              R.m_min_point = buffer.location_in_color_buffer().m_location;
+              R.m_max_point = R.m_min_point + buffer.offscreen_render_size();
+              if (buffer.permute_xy_when_rendering())
+                {
+                  std::swap(R.m_min_point.x(), R.m_min_point.y());
+                  std::swap(R.m_max_point.x(), R.m_max_point.y());
+                }
+              tracker->add_rect(R);
+            }
+        }
+
+      scratch_rt = &m_scratch_render_targets[which_buffer];
+
+      /* begin rendering to render target */
+      m_backend->begin_render_target(RenderBackend::ClearParams()
+                                     .clear_color(vec4(0.0f, 0.0f, 0.0f, 0.0f))
+                                     .clear_depth(RenderBackend::depth_buffer_value_clear)
+                                     .clear_stencil(0),
+                                     *m_scratch_render_targets[which_buffer].render_target());
+    }
 
   /* sort the buffers by VirtualBuffer so that color rendered buffers
    * come first and mask rendering buffers come last.
@@ -982,6 +995,9 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
   VirtualBuffer::IsMaskFormat is_mask_format(*this);
   c_array<unsigned int>::iterator iter;
   iter = std::find_if(image_buffers.begin(), image_buffers.end(), is_mask_format);
+
+  /* when rendering directly, only color buffer rendering is supported */
+  ASTRALassert(mode == render_virtual_buffers_blit_atlas || iter == image_buffers.end());
 
   /* if we do not use uber-shading, we sort the image buffers by
    * the first shader they used in the hopes of reducing shader
@@ -1140,82 +1156,99 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
         }
     }
 
-  /* any rendering after color rendering is in linear space;
-   * this includes both occluders and all STC rendering
+  /* If we are rendering to the scrach and then blitting to the atlases,
+   * then render the masks, shadows and then blit to the atlas.
    */
-  m_backend->set_fragment_shader_emit(colorspace_linear);
-
-  if (iter != image_buffers.end())
+  if (mode == render_virtual_buffers_blit_atlas)
     {
-      m_backend->color_write_mask(bvec4(true));
+      ASTRALassert(scratch_rt != nullptr);
 
-      if (depth_occlusion_performs_clipping)
-	{
-	  /* Clipping via depth buffer for masks is done with the
-	   * depth buffer equal test because mask draws have the
-	   * blending as max-blending which is order independent
-	   */
-	  m_backend->depth_buffer_mode(RenderBackend::depth_buffer_equal);
-	}
-      else
-	{
-	  m_backend->depth_buffer_mode(RenderBackend::depth_buffer_off);
-	}
-
-      /* render the anti-alias fuzz of the fills. The rendering
-       * order between the fuzz and STC does not matter because
-       * the fuzz hits a different color channel than the STC.
-       * It is the post-processing blit that combines the fuzz
-       * with the actual coverage.
+      /* any rendering after color rendering is in linear space;
+       * this includes both occluders and all STC rendering
        */
-      render_stc_aa_virtual_buffers(iter, image_buffers.end());
-
-      /* render the mask buffers taking advantage that their render order does
-       * not matter and thus rendering can be done completely ordered by shader.
-       */
-      DrawCommandList::send_commands_sorted_by_shader_to_backend(*this, iter, image_buffers.end());
-
-      /* We delay the stencil-then-cover rendering until the
-       * end because it invokes discard which can disable
-       * GPU's early-z; in addition, write to the stencil
-       * buffer with stencil tests which also might disable
-       * early-z.
-       */
-      render_stc_virtual_buffers(iter, image_buffers.end());
-    }
-
-  /* render shadow maps */
-  if (!shadow_map_buffers.empty())
-    {
       m_backend->set_fragment_shader_emit(colorspace_linear);
-      render_shadow_maps(shadow_map_buffers);
-      m_stats[number_non_degenerate_shadowmap_virtual_buffers] += shadow_map_buffers.size();
+
+      if (iter != image_buffers.end())
+        {
+          m_backend->color_write_mask(bvec4(true));
+
+          if (depth_occlusion_performs_clipping)
+            {
+              /* Clipping via depth buffer for masks is done with the
+               * depth buffer equal test because mask draws have the
+               * blending as max-blending which is order independent
+               */
+              m_backend->depth_buffer_mode(RenderBackend::depth_buffer_equal);
+            }
+          else
+            {
+              m_backend->depth_buffer_mode(RenderBackend::depth_buffer_off);
+            }
+
+          /* render the anti-alias fuzz of the fills. The rendering
+           * order between the fuzz and STC does not matter because
+           * the fuzz hits a different color channel than the STC.
+           * It is the post-processing blit that combines the fuzz
+           * with the actual coverage.
+           */
+          render_stc_aa_virtual_buffers(iter, image_buffers.end());
+
+          /* render the mask buffers taking advantage that their render order does
+           * not matter and thus rendering can be done completely ordered by shader.
+           */
+          DrawCommandList::send_commands_sorted_by_shader_to_backend(*this, iter, image_buffers.end());
+
+          /* We delay the stencil-then-cover rendering until the
+           * end because it invokes discard which can disable
+           * GPU's early-z; in addition, write to the stencil
+           * buffer with stencil tests which also might disable
+           * early-z.
+           */
+          render_stc_virtual_buffers(iter, image_buffers.end());
+        }
+
+      /* render shadow maps */
+      if (!shadow_map_buffers.empty())
+        {
+          m_backend->set_fragment_shader_emit(colorspace_linear);
+          render_shadow_maps(shadow_map_buffers);
+          m_stats[number_non_degenerate_shadowmap_virtual_buffers] += shadow_map_buffers.size();
+        }
+
+      /* indicate to backend that rendering to render target is done */
+      m_backend->end_render_target();
+
+      if (!image_buffers.empty())
+        {
+          /* Blit the contents of the rendering of scratch_rt to the Image objects */
+          for (unsigned int b : image_buffers)
+            {
+              VirtualBuffer &virtual_buffer(m_storage->virtual_buffer(b));
+              virtual_buffer.render_performed(&scratch_rt->color_buffer());
+            }
+          m_engine->image_atlas().flush();
+        }
+
+      if (!shadow_map_buffers.empty())
+        {
+          for (unsigned int b : shadow_map_buffers)
+            {
+              VirtualBuffer &virtual_buffer(m_storage->virtual_buffer(b));
+              virtual_buffer.render_performed_shadow_map(&scratch_rt->depth_stencil_buffer());
+            }
+          m_engine->shadow_map_atlas().backing().flush_gpu();
+        }
     }
-
-  /* indicate to backend that rendering to render target is done */
-  m_backend->end_render_target();
-
-  if (!image_buffers.empty())
+  else
     {
-      /* Blit the contents of the rendering of m_scratch_render_targets[which_buffer]
-       * to the Image objects.
-       */
+      ASTRALassert(shadow_map_buffers.empty());
+      ASTRALassert(scratch_rt == nullptr);
+
       for (unsigned int b : image_buffers)
         {
           VirtualBuffer &virtual_buffer(m_storage->virtual_buffer(b));
-          virtual_buffer.render_performed(&m_scratch_render_targets[which_buffer].color_buffer());
+          virtual_buffer.render_performed(nullptr);
         }
-      m_engine->image_atlas().flush();
-    }
-
-  if (!shadow_map_buffers.empty())
-    {
-      for (unsigned int b : shadow_map_buffers)
-        {
-          VirtualBuffer &virtual_buffer(m_storage->virtual_buffer(b));
-          virtual_buffer.render_performed_shadow_map(&m_scratch_render_targets[which_buffer].depth_stencil_buffer());
-        }
-      m_engine->shadow_map_atlas().backing().flush_gpu();
     }
 }
 
@@ -1276,7 +1309,7 @@ render_non_render_target_virtual_buffers(OffscreenBufferAllocInfo *p)
           break;
         }
 
-      render_virtual_buffers(p, image_buffers, shadow_map_buffers);
+      render_virtual_buffers(p, image_buffers, shadow_map_buffers, render_virtual_buffers_blit_atlas);
       ++m_stats[number_offscreen_render_targets];
     }
 }
@@ -1555,13 +1588,13 @@ end_implement(OffscreenBufferAllocInfo *p)
 
   for (range_type<unsigned int> R : m_virtual_buffer_to_render_target_subregion_same_surface)
     {
-      c_array<const unsigned int> vbs;
+      c_array<unsigned int> image_buffers, shadow_map_buffers;
 
       ASTRALassert(R.m_begin < R.m_end);
       ASTRALassert(R.m_end <= m_virtual_buffer_to_render_target_subregion.size());
-      vbs = make_c_array(m_virtual_buffer_to_render_target_subregion).sub_array(R);
+      image_buffers = make_c_array(m_virtual_buffer_to_render_target_subregion).sub_array(R);
 
-      VirtualBuffer &first_buffer(m_storage->virtual_buffer(vbs.front()));
+      VirtualBuffer &first_buffer(m_storage->virtual_buffer(image_buffers.front()));
       RenderBackend::ClearParams clear_params;
       vec4 clear_color;
 
@@ -1586,10 +1619,7 @@ end_implement(OffscreenBufferAllocInfo *p)
       m_backend->set_stencil_state(StencilState().enabled(false));
       m_backend->set_fragment_shader_emit(first_buffer.colorspace());
 
-      /* TODO: call render_virtual_buffers(vbs) specifying to NOT render to the scratch
-       *       buffer and to just render to the currently bound render target
-       */
-      #warning "Implement rendering to m_virtual_buffer_to_render_target_subregion buffers"
+      render_virtual_buffers(p, image_buffers, shadow_map_buffers, render_virtual_buffers_directly);
 
       /* end the render target and mark it as not-active */
       m_backend->end_render_target();

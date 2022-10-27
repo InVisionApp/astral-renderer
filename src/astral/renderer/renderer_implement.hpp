@@ -47,6 +47,19 @@ public:
 
   class MaskDrawerImage;
 
+  enum render_virtual_buffer_mode_t
+    {
+      /* indicates rendering to scratch render target and then blitting
+       * contents to atlases
+       */
+      render_virtual_buffers_blit_atlas,
+
+      /* indicates rendering virtual buffers to the currently bound
+       * render taget in the backend
+       */
+      render_virtual_buffers_directly,
+    };
+
   explicit
   Implement(RenderEngine &engine);
 
@@ -74,7 +87,8 @@ public:
   void //renders a sub-set of buffers that have their dependencies met
   render_virtual_buffers(OffscreenBufferAllocInfo *p,
                          c_array<unsigned int> image_buffers,
-                         c_array<unsigned int> shadow_map_buffers);
+                         c_array<unsigned int> shadow_map_buffers,
+                         enum render_virtual_buffer_mode_t mode);
 
   void //performs the STC algorithm on the passed buffers.
   render_stc_virtual_buffers(c_array<const unsigned int>::iterator begin,
