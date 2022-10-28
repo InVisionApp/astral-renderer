@@ -13,5 +13,5 @@ build
 wasm
 string_resources_cpp
 docs/doxy/
-astralGL-debug.pc
-astralGL-release.pc
+astral-debug.pc
+astral-release.pc
