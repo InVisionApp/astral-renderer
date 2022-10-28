@@ -83,9 +83,7 @@ namespace astral
   /*!
    * \brief
    * Represents an offscreen color buffer to which to render.
-   * The data backed by a \ref ColorBuffer is with alpha NOT
-   * pre-multiplied. As a consequence, rendering produces
-   * color values that are NOT pre-multiplied by alpha.
+   * Recall that rendering results are with alpha pre-multiplied.
    */
   class ColorBuffer:public reference_counted<ColorBuffer>::non_concurrent
   {
@@ -318,8 +316,8 @@ namespace astral
      * Protected ctor that the buffers that back the created \ref RenderTarget.
      * If both buffers are not null, they must have identical dimensions.
      * Atleast one of the buffers must not be null.
-     * \param cb new value for color_buffer()
-     * \param ds new value for depth_buffer()
+     * \param cb color buffer to use
+     * \param ds depth-stencil buffer to use
      */
     RenderTarget(const reference_counted_ptr<ColorBuffer> &cb,
                  const reference_counted_ptr<DepthStencilBuffer> &ds):
