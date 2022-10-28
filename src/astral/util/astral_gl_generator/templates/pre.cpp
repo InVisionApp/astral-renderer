@@ -36,3 +36,25 @@ void debug_invoke(type_tag<void>, const std::string& call_string, const char* fi
     f(std::forward<Args>(args)...);
     post_call(call_string.c_str(), call, fname, (void*)f, file, line);
 }
+
+template<typename T>
+static
+T
+printable(T v)
+{
+  return v;
+}
+
+static
+int
+printable(signed char v)
+{
+  return v;
+}
+
+static
+unsigned int
+printable(unsigned char v)
+{
+  return v;
+}

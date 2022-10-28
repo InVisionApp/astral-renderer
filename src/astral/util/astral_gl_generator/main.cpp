@@ -407,7 +407,7 @@ string format_template(const Function& func, const char* const* output_template)
                         }
                         else
                         {
-                            output << "argName" << i << " << \" = 0x\" << arg" << i;
+                            output << "argName" << i << " << \" = 0x\" << printable(arg" << i << ")";
                         }
                     }
                 }
