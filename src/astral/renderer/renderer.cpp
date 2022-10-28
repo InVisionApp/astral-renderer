@@ -1042,41 +1042,41 @@ render_virtual_buffers(OffscreenBufferAllocInfo *tracker,
   enum clip_window_value_type_t shader_clipping(compute_shader_clipping());
   bool depth_occlusion_performs_clipping(m_properties.m_overridable_properties.m_clip_window_strategy != clip_window_strategy_shader);
 
-  /* set the z-values now for all virtual buffers */
-  for (c_array<unsigned int>::iterator i = image_buffers.begin(); i != iter; ++i)
-    {
-      unsigned int b(*i);
-      VirtualBuffer &buffer(m_storage->virtual_buffer(b));
-
-      /* draw a depth rect for each color buffer with spacing between the color
-       * buffes z-values enough for the color buffers' occluders and opaque
-       * items.
-       */
-      if (i != image_buffers.begin() && depth_occlusion_performs_clipping)
-        {
-          /* initialize the depth buffer on each color buffer to occlude
-           * all content of all color buffers that come before it.
-           * Note that the value is current_z - 1; this is because
-           * the occluder is to come "just before" the content of
-           * the image buffer
-           */
-          buffer.draw_depth_rect(RenderBackend::UberShadingKey::Cookie(), current_z - 1);
-        }
-
-      /* We add 1 to the number_z() needed, because the
-       * occluder above takes a slot as well.
-       */
-      ASTRALassert(buffer.command_list() && buffer.command_list()->renders_to_color_buffer());
-      buffer.start_z(current_z);
-      current_z += buffer.command_list()->number_z() + 1;
-    }
-
-  /* the mask buffers come after the color buffers, they each only
-   * needs a single z-slot; when shader clipping is not used, they
-   * use equality depth test.
-   */
+  /* set the z-values now for all virtual buffers if we are using depth occlusion */
   if (depth_occlusion_performs_clipping)
     {
+      for (c_array<unsigned int>::iterator i = image_buffers.begin(); i != iter; ++i)
+        {
+          unsigned int b(*i);
+          VirtualBuffer &buffer(m_storage->virtual_buffer(b));
+
+          /* draw a depth rect for each color buffer with spacing between the color
+           * buffes z-values enough for the color buffers' occluders and opaque
+           * items.
+           */
+          if (i != image_buffers.begin() && depth_occlusion_performs_clipping)
+            {
+              /* initialize the depth buffer on each color buffer to occlude
+               * all content of all color buffers that come before it.
+               * Note that the value is current_z - 1; this is because
+               * the occluder is to come "just before" the content of
+               * the image buffer
+               */
+              buffer.draw_depth_rect(RenderBackend::UberShadingKey::Cookie(), current_z - 1);
+            }
+
+          /* We add 1 to the number_z() needed, because the
+           * occluder above takes a slot as well.
+           */
+          ASTRALassert(buffer.command_list() && buffer.command_list()->renders_to_color_buffer());
+          buffer.start_z(current_z);
+          current_z += buffer.command_list()->number_z() + 1;
+        }
+
+      /* the mask buffers come after the color buffers, they each only
+       * needs a single z-slot; when shader clipping is not used, they
+       * use equality depth test.
+       */
       for (c_array<unsigned int>::iterator i = iter; i != image_buffers.end(); ++i)
 	{
 	  unsigned int b(*i);
