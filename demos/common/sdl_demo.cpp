@@ -138,6 +138,12 @@ namespace
     message(astral::c_string message,
             astral::c_string src_file, int src_line);
 
+    std::ostream&
+    stream(void)
+    {
+      return m_str->stream();
+    }
+
   private:
     astral::reference_counted_ptr<StreamHolder> m_str;
   };
@@ -848,6 +854,13 @@ main(int argc, char **argv)
               end_demo(demo_return_value);
             }
 
+          if (m_gl_logger)
+            {
+              OstreamLogger *p;
+
+              p = static_cast<OstreamLogger*>(m_gl_logger.get());
+              p->stream() << "\n------ Swap Buffers(frame = " << m_current_frame << ") ---------\n\n";
+            }
           SDL_GL_SwapWindow(m_window);
           ++m_current_frame;
 
