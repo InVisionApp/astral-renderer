@@ -64,6 +64,9 @@ include $(dir)/Rules.mk
 dir := $(d)/effect_collection_test
 include $(dir)/Rules.mk
 
+dir := $(d)/encoders_surface_test
+include $(dir)/Rules.mk
+
 dir := $(d)/tutorial
 include $(dir)/Rules.mk
 
