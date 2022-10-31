@@ -215,34 +215,35 @@
         can use GL_ARB_texture_view instead to alias a GL_SRGB8_ALPHA8
         texture as an GL_RGB8 texture.
 
-10. Compute and Sparse Rendering together. Firstly, we do the path
-    clipping for filling into tiles in a -compute- shader. By
-    doing successive splitting, we can narrow down to exactly what
-    path splits hit what tiles. The compute shader will maintain
-    a single atomic which indicates the number of tiles that
-    have paths going through them. The first time a path is added
-    to a tile, that atomic is incremented and the return value
-    of the increment is the "ID" for the tile as well. Each of
-    the tiles is the SAME size and the size of a tile in the atlas
-    system. Thus, all that is needed to be known for the allocation
-    of tiles by the CPU is the number of tiles. However, it goes
-    further. Since there are no frees, the exact tile to use can
-    also be computed in the compute shader if the free tile list
-    is passed as well and now there are two atomics: where in the
-    free list to take the next tile and if the free list is empty,
-    what tile to take. With this system, we know what tiles are
-    needed and where they are in the atlas. From there, instead of
-    doing sencil-then cover, we could instead use a compute shader
-    operating directly on the atlas surface where the compute shader
-    used the contours to compute the psuedo-distance field value.
-    Before running the compute shader, the CPU will fetch that single
-    atomic value to make sure that the mask atlas is big enough
-    for all the masks.
+10. A different way to do filling. This idea builds strongly off of how
+    Pathfinder3 performs filling: https://nical.github.io/posts/a-look-at-pathfinder.html.
+    Steps:
+      a. Pick a tile size; PathFinder has great success with 16x16, so
+         perhaps we start with that.
+      b. Do NOT use line segments only, but continus to use quadratic bezier
+         curves and line segments.
+      c. In the "binning" pass (on CPU) do the same as PathFinder3 and
+         compute what curves and segments hit what tiles and build a list
+         of curves and segments that hit each tile. Use the algorithm in
+         Random Access Rendering of Generaly Vector Graphics, on the web
+         at https://hhoppe.com/ravg.pdf, to figure out the modification to
+         the winding offset value.
+      d. This step is where everything is different. Instead of rendering
+         to an fp16 buffer with additive blending, just draw a single quad
+         covering the tile. The fragment shader then walks the list of
+         curves and segments that hit it to compute the winding number.
+         Add the winding offset as well. In addition, instead of performing
+         this on a scratch buffer, we can do this directly onto the atlas
+         as well.
+      e. If we add to the curve list those curves that are within a pixel of
+         tile, we can then also compute a semi-reliable distance value as we do
+         for glyph rendering. Another approach is to observe that it is the
+         memory reads that are most expensive, we could instead track the
+         winding value for several sample points in the fragment shader (as
+         we do for the lighting shader) and use that to compute an anti-alias
+         value that is robust against false edges.
 
-    The next issue is drawing the mask "sparsely". The core issue
-    is that we don't know what tiles are full and empty until
-    after the comptute shader runs. One solution is to make a place
-    holder draw command that will emit the necessary tiles by the
-    backend after the compute path splitting is done. One issue then
-    is that if background pixels are needed to be known, then the
-    query for such needs to take into a time range too.
+     The main fly in the ointment is the interaction with the tile size
+     in the image atlas. The simplest way out is to simply draw several
+     times to the atlas for the filling tile size and the image atlas tile
+     size to match up. The other issue is to parallize the step in (c).
