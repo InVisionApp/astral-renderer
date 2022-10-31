@@ -1246,7 +1246,7 @@ draw_hud(astral::RenderEncoderSurface encoder, float frame_ms)
         {
           hud_text << "Opacity: " << m_alpha.value() << " [up/down]\n"
                    << "Blend mode: " << astral::label(m_blend_mode.value()) << " [ctrl-b]\n"
-                   << "MaskScaleFactor:" << m_scale_factor.value() << " [alt-0, alt-1, ..., alt-9]\n"
+                   << "MaskScaleFactor:" << m_scale_factor.value() << " [alt-0, alt-1, ..., alt-9], [return + up/down]\n"
                    << "MaskFilter: " << astral::label(m_mask_filter.value()) << " [k]\n";
 
           if (m_gradient_type.value() == astral::Gradient::number_types)
