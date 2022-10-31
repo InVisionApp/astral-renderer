@@ -207,6 +207,7 @@ private:
   command_line_argument_value<float> m_fill_scale_factor;
   command_line_argument_value<float> m_stroke_scale_factor;
   command_line_argument_value<float> m_layer_scale_factor;
+  command_line_argument_value<int> m_clear_red, m_clear_green, m_clear_blue, m_clear_alpha;
 
   enumerated_command_line_argument_value<enum stroke_mode_t> m_stroke_mode;
   enumerated_command_line_argument_value<enum astral::anti_alias_t> m_fill_aa_mode;
@@ -263,6 +264,10 @@ SVGExample(void):
   m_fill_scale_factor(0.5f, "fill_scale_factor", "Resolution scale at which to compute fill masks", *this),
   m_stroke_scale_factor(1.0f, "stroke_scale_factor", "Resolution scale at which to compute stroke masks", *this),
   m_layer_scale_factor(1.0f, "layer_scale_factor", "Resolution scale at which to render transparent layers", *this),
+  m_clear_red(0, "clear_red", "value (integer) for red channel for clear color in range [0, 255]", *this),
+  m_clear_green(0, "clear_green", "value (integer) for green channel for clear color in range [0, 255]", *this),
+  m_clear_blue(0, "clear_blue", "value (integer) for blue channel for clear color in range [0, 255]", *this),
+  m_clear_alpha(0, "clear_alpha", "value (integer) for alpha channel for clear color in range [0, 255]", *this),
   m_stroke_mode(stroke_svg_width,
                 enumerated_string_type<enum stroke_mode_t>()
                 .add_entry("stroke_svg_width", stroke_svg_width, "Strokes are with width from SVG file")
@@ -810,6 +815,7 @@ draw_frame(void)
   astral::RenderEncoderSurface render_encoder;
   astral::c_array<const unsigned int> stats;
   astral::c_array<const astral::c_string> stats_labels(renderer().stats_labels());
+  astral::u8vec4 clear_color(0, 0, 0, 0);
 
   m_frame_time_average.increment_counter();
   frame_ms = update_smooth_values();
@@ -819,7 +825,15 @@ draw_frame(void)
   tr.rotate(m_rotate_angle.value() * (ASTRAL_PI / 180.0f));
   tr.scale(m_scale_post_rotate.value());
 
-  render_encoder = renderer().begin( render_target());
+  if (color_mode_show_overdraw != m_color_mode.value())
+    {
+      clear_color.x() = astral::t_clamp(m_clear_red.value(), 0, 255);
+      clear_color.y() = astral::t_clamp(m_clear_green.value(), 0, 255);
+      clear_color.z() = astral::t_clamp(m_clear_blue.value(), 0, 255);
+      clear_color.w() = astral::t_clamp(m_clear_alpha.value(), 0, 255);
+    }
+
+  render_encoder = renderer().begin(render_target(), astral::colorspace_srgb, clear_color);
 
   if (m_image)
     {
@@ -872,15 +886,19 @@ draw_frame(void)
         }
     }
 
-  if (stats[renderer().stat_index(astral::Renderer::number_sparse_fill_clipping_errors)] != 0)
+  #if 0
     {
-      std::cout << "Clipping error encountered at:\n"
-                << "\tZ = " << print_float_and_bits(m_zoom.transformation().m_scale) << "\n"
-                << "\tTR = " << print_float_and_bits(m_zoom.transformation().m_translation) << "\n"
-                << "\tpre-rotate = " << print_float_and_bits(m_scale_pre_rotate.value()) << "\n"
-                << "\trotate = " << print_float_and_bits(m_rotate_angle.value()) << "\n"
-                << "\tpost-rotate = " << print_float_and_bits(m_scale_post_rotate.value()) << "\n";
+      if (stats[renderer().stat_index(astral::Renderer::number_sparse_fill_clipping_errors)] != 0)
+        {
+          std::cout << "Clipping error encountered at:\n"
+                    << "\tZ = " << print_float_and_bits(m_zoom.transformation().m_scale) << "\n"
+                    << "\tTR = " << print_float_and_bits(m_zoom.transformation().m_translation) << "\n"
+                    << "\tpre-rotate = " << print_float_and_bits(m_scale_pre_rotate.value()) << "\n"
+                    << "\trotate = " << print_float_and_bits(m_rotate_angle.value()) << "\n"
+                    << "\tpost-rotate = " << print_float_and_bits(m_scale_post_rotate.value()) << "\n";
+        }
     }
+  #endif
 }
 
 float
