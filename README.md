@@ -14,6 +14,7 @@ Building requirements
  - pkg-config
  - freetype2 version 2.10 or higher
  - SDL 2.0 and SDL Image 2.0 (for demos)
+ - linpng (for demos)
  - doxygen (for documentation)
  - graphviz (for documentation)
 
@@ -53,8 +54,9 @@ Recipe on MacOS to get pre-requisites
 3. brew install sdl2
 4. brew install sdl2_image
 5. brew install freetype
-6. brew install doxygen (for documentation)
-7. brew install graphviz (for documentation)
+6. brew install libpng
+7. brew install doxygen (for documentation)
+8. brew install graphviz (for documentation)
 
 
 Mac M1 Compatibility
