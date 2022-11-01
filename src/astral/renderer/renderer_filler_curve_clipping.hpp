@@ -248,12 +248,36 @@ private:
     /* Ctor
      * \param filler the object that backs everything
      * \param padding the padding on each side of each subrect
+     * \param src_contour contour src
      * \param contour list of curves
      * \param tr transformation to apply to the curves
      */
     MappedContour(Filler::CurveClipper &filler,
+                  const AnimatedContour &src_contour, float src_t,
                   c_array<const ContourCurve> contour,
-                  bool is_closed, const Transformation &tr);
+                  bool is_closed, const Transformation &tr):
+      MappedContour(filler, contour, is_closed, tr)
+    {
+      m_src_animated_contour = &src_contour;
+      m_src_animated_contour_time = src_t;
+    }
+
+    /* Ctor
+     * \param filler the object that backs everything
+     * \param padding the padding on each side of each subrect
+     * \param src_contour contour src
+     * \param contour list of curves
+     * \param tr transformation to apply to the curves
+     */
+    MappedContour(Filler::CurveClipper &filler,
+                  const Contour &src_contour, float src_t,
+                  c_array<const ContourCurve> contour,
+                  bool is_closed, const Transformation &tr):
+      MappedContour(filler, contour, is_closed, tr)
+    {
+      m_src_contour = &src_contour;
+      m_src_animated_contour_time = src_t;
+    }
 
     /* Light the subrects that the curves of the mapped contour
      * intersects. Returns the number of subrects that went from
@@ -279,6 +303,24 @@ private:
      * .y() holds the y-range (i.e. rows) of SubRects the contour's bounding box intersects
      */
     vecN<range_type<int>, 2> m_subrect_range;
+
+    /* if non-null, src of the MappedContour (and non-animated) */
+    const Contour *m_src_contour;
+
+    /* if non-null, src of the MappedContour (and animated) */
+    const AnimatedContour *m_src_animated_contour;
+    float m_src_animated_contour_time;
+
+  private:
+    /* Ctor
+     * \param filler the object that backs everything
+     * \param padding the padding on each side of each subrect
+     * \param contour list of curves
+     * \param tr transformation to apply to the curves
+     */
+    MappedContour(Filler::CurveClipper &filler,
+                  c_array<const ContourCurve> contour,
+                  bool is_closed, const Transformation &tr);
   };
 
   class ClippedCurve

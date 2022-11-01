@@ -450,7 +450,6 @@ Implement(RenderEngine &engine):
   m_stat_labels[number_sparse_fill_subrect_skip_clipping] = "renderer_sparse_fill_number_subrect_skip_clipping";
   m_stat_labels[number_sparse_fill_contour_skip_clipping] = "renderer_sparse_fill_number_contour_skip_clipping";
   m_stat_labels[number_sparse_fill_awkward_fully_clipped_or_unclipped] = "renderer_sparse_fill_number_awkward_fully_clipped_or_unclipped";
-  m_stat_labels[number_sparse_fill_clipping_errors] = "renderer_sparse_fill_number_clipping_errors";
 }
 
 bool
@@ -1672,4 +1671,11 @@ create_image(ivec2 sz)
     }
 
   return return_value;
+}
+
+void
+astral::Renderer::
+set_clip_error_callback(reference_counted_ptr<ClippingErrorCallback> callback)
+{
+  implement().m_clipping_error_callback = callback;
 }

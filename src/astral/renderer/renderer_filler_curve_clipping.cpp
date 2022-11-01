@@ -20,33 +20,6 @@
 #include "renderer_streamer.hpp"
 #include "renderer_filler_curve_clipping.hpp"
 
-// change to 1 to have release build do asserts
-#if 0
-  #ifndef ASTRAL_DEBUG
-    #undef ASTRALassert
-    #include <assert.h>
-    #define ASTRALassert(X) assert(X)
-  #endif
-#endif
-
-// change to 1 to have stdout spam contour mapping data
-#if 0
-  #define MAP_LOG(X) do { std::cout << X; } while(0)
-#else
-  #define MAP_LOG(X)
-#endif
-
-// change to 1 to have ClipLog write to an std::ostringstream
-#if 0
-  #define CLIP_LOG_RECORDS
-#endif
-
-// change to 1 to have a clipping error trigger an assert
-#if 1
-  #define BAIL_ON_UNMATCHING_CURVES
-  #define BAIL_ON_FORCE_CLOSE
-#endif
-
 class astral::Renderer::Implement::Filler::CurveClipper::Helper
 {
 public:
@@ -70,33 +43,32 @@ private:
 class astral::Renderer::Implement::Filler::CurveClipper::ClipLog
 {
 public:
-  ClipLog(void):
-    m_error_encountered(false)
+  explicit
+  ClipLog(astral::Renderer &renderer,
+          const MappedContour &current):
+    m_logger(renderer.implement().m_clipping_error_callback),
+    m_current(current)
   {}
 
-  bool m_error_encountered;
-
-  #ifdef CLIP_LOG_RECORDS
-  std::ostringstream m_log;
-  #endif
+  reference_counted_ptr<ClippingErrorCallback> m_logger;
+  const MappedContour &m_current;
 };
 
-#ifdef CLIP_LOG_RECORDS
-  #define CLIP_LOG(log, X) do { log.m_log << X; } while (0)
-  #define CLIP_LOG_CONTOUR(log, contour, tabbing) print_clipped_contour(contour, tabbing, log.m_log)
-  #define CLIP_ERROR_LOG(log, X) CLIP_LOG(log, X)
-  #define CLIP_ERROR_LOG_CONTOUR(log, contour, tabbing) CLIP_LOG_CONTOUR(log, contour, tabbing)
-#else
-  #define CLIP_LOG(log, X)
-  #define CLIP_LOG_CONTOUR(log, contour, tabbing)
-  #if 0
-    #define CLIP_ERROR_LOG(log, X) do { std::cerr << X; } while (0)
-    #define CLIP_ERROR_LOG_CONTOUR(log, contour, tabbing) print_clipped_contour(contour, tabbing, std::cerr)
-  #else
-    #define CLIP_ERROR_LOG(log, X)
-    #define CLIP_ERROR_LOG_CONTOUR(log, contour, tabbing)
-  #endif
-#endif
+#define CLIP_ERROR_LOG(_log, X) do { \
+  if (_log.m_logger)                 \
+    {                                \
+      std::ostringstream str;        \
+      str << X;                                                         \
+      if (_log.m_current.m_src_contour)                                 \
+        {                                                               \
+          _log.m_logger->report_error(*_log.m_current.m_src_contour, str.str()); \
+        }                                                               \
+      else                                                              \
+        {                                                               \
+          _log.m_logger->report_error(*_log.m_current.m_src_animated_contour, _log.m_current.m_src_animated_contour_time, str.str()); \
+        }                                                               \
+    }                                                                   \
+} while(0)
 
 ////////////////////////////////////////////
 // astral::Renderer::Implement::Filler::CurveClipper::Helper methods
@@ -175,7 +147,8 @@ map_contours(Filler::CurveClipper &filler, const CombinedPath &combined_path)
 
           if (!curves.empty())
             {
-              MappedContour M(filler, curves, contour.closed(),
+              MappedContour M(filler, contour, t,
+                              curves, contour.closed(),
                               tr_tol.m_buffer_transformation_path);
 
               if (M.m_subrect_range.x().m_begin != M.m_subrect_range.x().m_end
@@ -373,7 +346,6 @@ MappedCurve(Filler::CurveClipper &filler,
       m_mapped_curve.start_pt(tr.apply_to_point(prev->end_pt()));
     }
 
-  MAP_LOG("\tInput = " << curve << ", mapped = " << m_mapped_curve << "\n");
   m_bb = m_mapped_curve.tight_bounding_box();
 
   /* Step 1. compute the x-range and y-range of the curve; we use the
@@ -406,10 +378,6 @@ MappedCurve(Filler::CurveClipper &filler,
 
       for (int v = m_subrect_range[l].m_begin; v < m_subrect_range[l].m_end; ++v)
         {
-          MAP_LOG("\t\tSide = " << ss << ", fixed coordinate = " << l);
-          MAP_LOG("@" << filler.side_value(v, ss));
-          MAP_LOG(":\n");
-
           filler.m_intersection_backing.push_back(Intersection(ll, filler.side_value(v, ss), m_mapped_curve));
         }
     }
@@ -430,11 +398,8 @@ light_rects(Filler::CurveClipper &filler)
    * the sub-rects.
    */
 
-  MAP_LOG(m_mapped_curve << ".light_rects()\n");
-
   /* Step 1: tag the rects that the start and end point touch */
   r = filler.subrect_from_coordinate(m_mapped_curve.start_pt());
-  MAP_LOG("\tStartPt: " << m_mapped_curve.start_pt() << " ---> " << r << "\n");
   for (int y = r.y().m_begin; y < r.y().m_end; ++y)
     {
       for (int x = r.x().m_begin; x < r.x().m_end; ++x)
@@ -444,7 +409,6 @@ light_rects(Filler::CurveClipper &filler)
     }
 
   r = filler.subrect_from_coordinate(m_mapped_curve.end_pt());
-  MAP_LOG("\tEndPt: " << m_mapped_curve.end_pt() << " ---> " << r << "\n");
   for (int y = r.y().m_begin; y < r.y().m_end; ++y)
     {
       for (int x = r.x().m_begin; x < r.x().m_end; ++x)
@@ -456,7 +420,6 @@ light_rects(Filler::CurveClipper &filler)
   /* Step 2: for each intersection, tag the rect of the intersection */
   for (int x = m_subrect_range.x().m_begin; x < m_subrect_range.x().m_end; ++x)
     {
-      MAP_LOG("\t\tx-intersections(" << x << ")\n");
       const Intersection &intersection0(get_intersection(filler, minx_side, x));
       const Intersection &intersection1(get_intersection(filler, maxx_side, x));
 
@@ -466,7 +429,6 @@ light_rects(Filler::CurveClipper &filler)
 
   for (int y = m_subrect_range.y().m_begin; y < m_subrect_range.y().m_end; ++y)
     {
-      MAP_LOG("\t\ty-intersections(" << y << ")\n");
       const Intersection &intersection0(get_intersection(filler, miny_side, y));
       const Intersection &intersection1(get_intersection(filler, maxy_side, y));
 
@@ -499,7 +461,10 @@ get_intersection(const Filler::CurveClipper &filler, enum side_t ss, int xy) con
 astral::Renderer::Implement::Filler::CurveClipper::MappedContour::
 MappedContour(Filler::CurveClipper &filler,
               c_array<const ContourCurve> contour,
-              bool is_closed, const Transformation &tr)
+              bool is_closed, const Transformation &tr):
+  m_src_contour(nullptr),
+  m_src_animated_contour(nullptr),
+  m_src_animated_contour_time(-1.0f)
 {
   ASTRALassert(!contour.empty());
 
@@ -633,9 +598,6 @@ void
 astral::Renderer::Implement::Filler::CurveClipper::ClippedContourBuilder::
 add_curve_impl(const ClippedCurve &c)
 {
-  CLIP_LOG(m_clip_log, "\t\t\tadd: " << c.as_contour());
-  CLIP_LOG(m_clip_log, ", hugs = " << c.hugs_boundary() << "\n");
-
   if (!m_dst->empty() && points_different(m_dst->back().end_pt(), c.start_pt()))
     {
       /* if a curve start exactly on the clipping line and leaves
@@ -648,41 +610,15 @@ add_curve_impl(const ClippedCurve &c)
       if (m_dst->back().end_pt()[m_fc] == m_R_value
           && c.start_pt()[m_fc] == m_R_value)
         {
-          CLIP_ERROR_LOG(m_clip_log, "Adding missing edge hugger ");
-          CLIP_ERROR_LOG(m_clip_log, m_dst->back().end_pt() << " vs " << c.start_pt());
-          CLIP_ERROR_LOG(m_clip_log, "while clipping side = " << label(m_clip_side));
-          CLIP_ERROR_LOG(m_clip_log, ", R = " << m_R << "@" << m_R_value);
-          CLIP_ERROR_LOG(m_clip_log, " scr_idx = " << m_num_curves_processed);
-          CLIP_ERROR_LOG(m_clip_log, ", dst_idx = " << m_dst->size() << " on \n");
-          m_clip_log.m_error_encountered = true;
-
+          CLIP_ERROR_LOG(m_clip_log, "Adding missing edge hugger " << m_dst->back().end_pt() << " vs " << c.start_pt() << "while clipping side = " << label(m_clip_side) << ", R = " << m_R << "@" << m_R_value);
           add_edge_hugger(c);
         }
       else
         {
-          #ifdef BAIL_ON_UNMATCHING_CURVES
-            {
-              #ifdef CLIP_LOG_RECORDS
-                {
-                  std::cout << m_clip_log.m_log.str() << "\n";
-                }
-              #endif
-              ASTRALassert(!"Unmatching Curves");
-            }
-          #else
-            {
-              CLIP_ERROR_LOG(m_clip_log, "Warning: forced a match " << m_dst->back().end_pt() << " vs " << c.start_pt());
-              CLIP_ERROR_LOG(m_clip_log, "while clipping side = " << label(m_clip_side));
-              CLIP_ERROR_LOG(m_clip_log, ", R = " << m_R << "@" << m_R_value);
-              CLIP_ERROR_LOG(m_clip_log, " scr_idx = " << m_num_curves_processed);
-              CLIP_ERROR_LOG(m_clip_log, ", dst_idx = " << m_dst->size() << " on \n");
+          CLIP_ERROR_LOG(m_clip_log, "Warning: forced a match " << m_dst->back().end_pt() << " vs " << c.start_pt() << "while clipping side = " << label(m_clip_side) << ", R = " << m_R << "@" << m_R_value);
 
-              ContourCurve C(m_dst->back().end_pt(), c.start_pt(), ContourCurve::not_continuation_curve);
-              m_dst->push_back(ClippedCurve(C, true));
-
-              m_clip_log.m_error_encountered = true;
-            }
-          #endif
+          ContourCurve C(m_dst->back().end_pt(), c.start_pt(), ContourCurve::not_continuation_curve);
+          m_dst->push_back(ClippedCurve(C, true));
         }
     }
 
@@ -706,8 +642,10 @@ add_edge_hugger(const ClippedCurve &curve)
     {
       if (!edge_hugger_detected(curve))
         {
-          CLIP_LOG(m_clip_log, "EdgeHugger requested, but merge curve is not an exact edge hugger");
-          m_clip_log.m_error_encountered = true;
+          CLIP_ERROR_LOG(m_clip_log, "EdgeHugger requested to connect back().end_pt() = "
+                         << m_dst->back().end_pt() << " to curve.start_pt() = "
+                         << curve.start_pt() << " is not an exact edge hugger on coordinate idx = "
+                         << m_fc << " with value " << m_R_value);
         }
 
       ContourCurve C(m_dst->back().end_pt(), curve.start_pt(), ContourCurve::not_continuation_curve);
@@ -719,7 +657,6 @@ void
 astral::Renderer::Implement::Filler::CurveClipper::ClippedContourBuilder::
 add_curve(bool new_curve_clipped, const ClippedCurve &c)
 {
-  CLIP_LOG(m_clip_log, "E" << std::boolalpha << new_curve_clipped);
   if (!m_dst->empty() && m_prev_clipped)
     {
       add_edge_hugger(c);
@@ -751,19 +688,14 @@ close_clipping_contour(void)
         {
           if (!m_prev_clipped && !m_first_element_clipped)
             {
-              CLIP_LOG(m_clip_log, "Warning: adding closing edge hugger although flags do not indicate to do so");
+              CLIP_ERROR_LOG(m_clip_log, "Warning: adding closing edge hugger although flags do not indicate to do so");
             }
 
           add_edge_hugger(m_dst->front());
         }
       else
         {
-          CLIP_ERROR_LOG(m_clip_log, "Warning: contour forced to be closed " << label(m_clip_side));
-          CLIP_ERROR_LOG(m_clip_log, ", R = " << m_R << "@" << m_filler.side_value(m_R, m_clip_side) << "\n");
-          CLIP_ERROR_LOG(m_clip_log, "\tInput:\n");
-          CLIP_ERROR_LOG_CONTOUR(m_clip_log, m_input, 2);
-          CLIP_ERROR_LOG(m_clip_log, "\tOutput:\n");
-          CLIP_ERROR_LOG_CONTOUR(m_clip_log, make_c_array(*m_dst), 2);
+          CLIP_ERROR_LOG(m_clip_log, "Warning: contour forced to be closed " << label(m_clip_side) << ", R = " << m_R << "@" << m_filler.side_value(m_R, m_clip_side));
 
           /* chances are the added curve should be an edge-hugger
            * but numerical round-off prevents us from seeing that,
@@ -772,19 +704,6 @@ close_clipping_contour(void)
            */
           ContourCurve C(m_dst->back().end_pt(), m_dst->front().start_pt(), ContourCurve::not_continuation_curve);
           add_curve_impl(ClippedCurve(C, true));
-
-          m_clip_log.m_error_encountered = true;
-
-          #ifdef BAIL_ON_FORCE_CLOSE
-            {
-              #ifdef CLIP_LOG_RECORDS
-                {
-                 std::cout << m_clip_log.m_log.str() << "\n";
-                }
-              #endif
-              ASTRALassert(!"Forced Curve closing");
-            }
-          #endif
         }
     }
 }
@@ -806,9 +725,6 @@ void
 astral::Renderer::Implement::Filler::CurveClipper::ClippedContourBuilder::
 clip_curve_implement(const ClippedCurve &curve)
 {
-  CLIP_LOG(m_clip_log, "\t\tProcess: " << curve.as_contour());
-  CLIP_LOG(m_clip_log, ", hugs = " << curve.hugs_boundary() << ":");
-
   if (Intersection::on_one_open_side(m_fc, curve.curve(), m_R_value))
     {
       /* Curve is either competely clipped or unclipped because
@@ -823,12 +739,10 @@ clip_curve_implement(const ClippedCurve &curve)
 
       if (inside_region(curve.start_pt()))
         {
-          CLIP_LOG(m_clip_log, "unclipped\n");
           add_curve(false, curve);
         }
       else
         {
-          CLIP_LOG(m_clip_log, "clipped\n");
           m_prev_clipped = true;
         }
 
@@ -867,7 +781,6 @@ clip_curve_implement(const ClippedCurve &curve)
           useS = !inside_region(m);
         }
 
-      CLIP_LOG(m_clip_log, "Perpindicular Segment\n");
       if (useS)
         {
           add_curve(true, SS);
@@ -898,7 +811,6 @@ clip_curve_implement(const ClippedCurve &curve)
    */
   if (!data.empty() && data.front() <= 0.0f)
     {
-      CLIP_LOG(m_clip_log, "Kill: " << data.front() << " ");
       data.pop_front();
     }
 
@@ -908,11 +820,8 @@ clip_curve_implement(const ClippedCurve &curve)
    */
   if (!data.empty() && data.back() >= 1.0f)
     {
-      CLIP_LOG(m_clip_log, "Kill: " << data.back() << " ");
       data.pop_back();
     }
-
-  CLIP_LOG(m_clip_log, "data = " << data);
 
   /* clip the curve against the intersection(s). In exact arithmatic,
    * a complete lack of such intersections means that the curve is
@@ -938,12 +847,10 @@ clip_curve_implement(const ClippedCurve &curve)
       p = 0.5f * (bb.min_point() + bb.max_point());
       if (inside_region(p))
         {
-          CLIP_LOG(m_clip_log, "completely unclipped\n");
           add_curve(false, curve);
         }
       else
         {
-          CLIP_LOG(m_clip_log, "completely clipped\n");
           m_prev_clipped = true;
         }
 
@@ -997,33 +904,25 @@ clip_curve_implement(const ClippedCurve &curve)
 
       if (d0_before > t_max(d1_before, d1_after))
         {
-          CLIP_LOG(m_clip_log, "use d0_before ");
           is_case_A = !inside_region(p0_before);
         }
       else if (d1_before > d1_after)
         {
-          CLIP_LOG(m_clip_log, "use d1_before ");
           is_case_A = inside_region(p1_before);
         }
       else
         {
-          CLIP_LOG(m_clip_log, "use d1_after ");
           is_case_A = !inside_region(p1_after);
         }
 
-      CLIP_LOG(m_clip_log, "2 solutions ");
       if (is_case_A)
         {
-          CLIP_LOG(m_clip_log, "(OneCurve)\n");
-
           ClippedCurve C(S1.before_t(), false);
           add_curve(true, C);
           return;
         }
       else
         {
-          CLIP_LOG(m_clip_log, "(TwoCurve)\n");
-
           ClippedCurve A(S0.before_t(), false);
           ClippedCurve B(S1.after_t(), false);
 
@@ -1043,8 +942,6 @@ clip_curve_implement(const ClippedCurve &curve)
 
       ContourCurveSplit S(false, curve.curve(), data[0]);
       S.force_coordinate(ContourCurveSplit::Coordinate(m_fc), m_R_value);
-
-      CLIP_LOG(m_clip_log, "One solution\n");
 
       /* curve intersects the clip-line once at data[0] which means one of:
        *  A) add the curve restricted to [0.0, data[0]] OR
@@ -1303,12 +1200,6 @@ clip_contour(c_array<const ClippedCurve> in_contour,
 
   ++m_renderer.m_stats[number_sparse_fill_contours_clipped];
 
-  CLIP_LOG(clip_log, "Clip Contour(side = "  << label(side));
-  CLIP_LOG(clip_log, ", row_col = " << box_row_col << "{");
-  CLIP_LOG(clip_log, side_value(box_row_col, side) << "})\n");
-  CLIP_LOG(clip_log, "\tInput:\n");
-  CLIP_LOG_CONTOUR(clip_log, in_contour, 2);
-
   ClippedContourBuilder builder(*this, clip_log, in_contour, side, box_row_col, workroom);
   for (const auto &C : in_contour)
     {
@@ -1323,16 +1214,12 @@ clip_contour(c_array<const ClippedCurve> in_contour,
   c_array<const ClippedCurve> tmp(make_c_array(*workroom));
   while (!tmp.empty() && tmp.front().is_cancelling_edge(tmp.back()))
     {
-      CLIP_LOG(clip_log, "Kill " << tmp.front().as_contour() << ":" << tmp.back().as_contour() << "\n");
       tmp.pop_front();
       if (!tmp.empty())
         {
           tmp.pop_back();
         }
     }
-
-  CLIP_LOG(clip_log, "\tOutput:\n");
-  CLIP_LOG_CONTOUR(clip_log, tmp, 2);
 
   return tmp;
 }
@@ -1342,12 +1229,9 @@ astral::Renderer::Implement::Filler::CurveClipper::
 process_mapped_contour(const MappedContour &contour)
 {
   c_array<const ClippedCurve> current;
-  ClipLog clip_log;
+  ClipLog clip_log(m_renderer, contour);
 
   ASTRALassert(contour.m_subrect_range.x().m_begin < contour.m_subrect_range.x().m_end);
-  CLIP_LOG(clip_log, "\n\nProcess contour col_range = ");
-  CLIP_LOG(clip_log, contour.m_subrect_range.x());
-  CLIP_LOG(clip_log, ", row_range = "<< contour.m_subrect_range.y() << "\n");
 
   unsigned int cnt(contour.m_subrect_range.x().difference() * contour.m_subrect_range.x().difference());
   m_renderer.m_stats[number_sparse_fill_subrects_clipping] += cnt;
@@ -1355,34 +1239,29 @@ process_mapped_contour(const MappedContour &contour)
   /* Step 1: first realize the MappedContour as a
    *         clipped contour
    */
-  CLIP_LOG(clip_log, "Do Step 1\n");
   create_clipped_contour(contour, &m_clipped_contourA[0]);
   current = make_c_array(m_clipped_contourA[0]);
   int work(1);
 
   /* Step 2: clip it against maxx_side on contour.m_subrect_range.x().m_end - 1 */
-  CLIP_LOG(clip_log, "Do Step 2\n");
   current = clip_contour(current, maxx_side,
                          contour.m_subrect_range.x().m_end - 1,
                          clip_log, &m_clipped_contourA[work]);
   work = 1 - work;
 
   /* Step 3: clip it against minx_side on contour.m_subrect_range.x().m_begin */
-  CLIP_LOG(clip_log, "Do Step 3\n");
   current = clip_contour(current, minx_side,
                          contour.m_subrect_range.x().m_begin,
                          clip_log, &m_clipped_contourA[work]);
   work = 1 - work;
 
   /* Step 4: clip it against maxy_side on contour.m_subrect_range.y().m_end - 1 */
-  CLIP_LOG(clip_log, "Do Step 4\n");
   current = clip_contour(current, maxy_side,
                          contour.m_subrect_range.y().m_end - 1,
                          clip_log, &m_clipped_contourA[work]);
   work = 1 - work;
 
   /* Step 5: clip it against miny_side on contour.m_subrect_range.y().m_begin */
-  CLIP_LOG(clip_log, "Do Step 5\n");
   current = clip_contour(current, miny_side,
                          contour.m_subrect_range.y().m_begin,
                          clip_log, &m_clipped_contourA[work]);
@@ -1390,7 +1269,6 @@ process_mapped_contour(const MappedContour &contour)
 
   if (all_are_edge_huggers(current))
     {
-      CLIP_LOG(clip_log, "Very early out, since all curves hug the boundary\n");
       ++m_renderer.m_stats[number_sparse_fill_contour_skip_clipping];
       process_subrects_all_edge_huggers(current, contour.m_subrect_range);
       return;
@@ -1522,8 +1400,6 @@ process_mapped_contour(const MappedContour &contour)
    */
   for (int i = current_range.x().m_begin; i < current_range.x().m_end; ++i)
     {
-      CLIP_LOG(clip_log, "Clip against column " << i << "\n");
-
       /* at entry we have that current is clipped against (minx_side, i).
        * To clip to the column requires that it is clipped against (maxx_side, i)
        */
@@ -1545,18 +1421,6 @@ process_mapped_contour(const MappedContour &contour)
           process_mapped_contour_column(current, clip_log, i, current_range.y());
         }
     }
-
-  if (clip_log.m_error_encountered)
-    {
-      ++m_renderer.m_stats[number_sparse_fill_clipping_errors];
-      #ifdef CLIP_LOG_RECORDS
-        {
-          std::cout << "\nClipping error encountered, log:\n"
-                    << clip_log.m_log.str()
-                    << "\n\n";
-        }
-      #endif
-    }
 }
 
 void
@@ -1577,8 +1441,6 @@ process_mapped_contour_row(c_array<const ClippedCurve> current,
 
   for (int j = box_col_range.m_begin; j < box_col_range.m_end; ++j)
     {
-      CLIP_LOG(clip_log, "Clip against row " << j << "\n");
-
       /* at entry we have that current is clipped against (miny_side, j).
        * To clip to the box requires that it is clipped against (maxy_side, j)
        */
@@ -1594,7 +1456,6 @@ process_mapped_contour_row(c_array<const ClippedCurve> current,
               boxes.y().m_begin = box_row;
               boxes.y().m_end = box_row + 1;
 
-              CLIP_LOG(clip_log, "Early out, since all curves hug the boundary\n");
               process_subrects_all_edge_huggers(current, boxes);
               return;
             }
@@ -1635,8 +1496,6 @@ process_mapped_contour_column(c_array<const ClippedCurve> current,
 
   for (int j = box_row_range.m_begin; j < box_row_range.m_end; ++j)
     {
-      CLIP_LOG(clip_log, "Clip against row " << j << "\n");
-
       /* at entry we have that current is clipped against (miny_side, j).
        * To clip to the box requires that it is clipped against (maxy_side, j)
        */
@@ -1652,7 +1511,6 @@ process_mapped_contour_column(c_array<const ClippedCurve> current,
               boxes.y().m_begin = j;
               boxes.y().m_end = box_row_range.m_end;
 
-              CLIP_LOG(clip_log, "Early out, since all curves hug the boundary\n");
               process_subrects_all_edge_huggers(current, boxes);
               return;
             }

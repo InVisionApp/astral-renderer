@@ -2011,37 +2011,6 @@ draw_frame(void)
           std::cout << "\t" << stats_labels[i] << " = " << stats[i] << "\n";
         }
     }
-
-  if (stats[renderer().stat_index(astral::Renderer::number_sparse_fill_clipping_errors)] != 0)
-    {
-      std::cout << "Clipping error encountered at:\n"
-                << "\tZ = " << print_float_and_bits(m_zoom.transformation().m_scale) << "\n"
-                << "\tTR = " << print_float_and_bits(m_zoom.transformation().m_translation) << "\n"
-                << "\tpre-rotate = " << print_float_and_bits(m_scale_pre_rotate.value()) << "\n"
-                << "\trotate = " << print_float_and_bits(m_rotate_angle.value()) << "\n"
-                << "\tpost-rotate = " << print_float_and_bits(m_scale_post_rotate.value()) << "\n";
-
-      switch (m_path_mode.value())
-        {
-        case number_path_modes:
-          ASTRALfailure("Invalid DrawMode");
-          // fall through
-
-        case animated_path:
-        case animated_path_at_0:
-        case animated_path_at_1:
-          std::cout << "\tt = " << print_float_and_bits(t) << "\n";
-          break;
-
-        case t0_path:
-          std::cout << "\tDraw start path\n";
-          break;
-
-        case t1_path:
-          std::cout << "\tDraw end path\n";
-          break;
-        }
-    }
 }
 
 float

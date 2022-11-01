@@ -45,6 +45,8 @@ class SVGExample:public render_engine_gl3_demo
 public:
   SVGExample(void);
 
+  ~SVGExample();
+
 protected:
   virtual
   void
@@ -108,6 +110,38 @@ private:
 
       number_draw_modes,
     };
+
+  class ClipErrorLogger:public astral::Renderer::ClippingErrorCallback
+  {
+  public:
+    explicit
+    ClipErrorLogger(const SVGExample *p):
+      m_current_path_id(-1),
+      m_current_t(0.0f),
+      m_src(p)
+    {}
+
+    void
+    report_error(const astral::Contour&, const std::string &message) override
+    {
+      report_implement(message);
+    }
+
+    void
+    report_error(const astral::AnimatedContour&, float, const std::string &message) override
+    {
+      report_implement(message);
+    }
+
+    void
+    report_implement(const std::string &message);
+
+    unsigned int m_current_path_id;
+    float m_current_t;
+
+  private:
+    const SVGExample *m_src;
+  };
 
   static
   astral::c_string
@@ -208,6 +242,7 @@ private:
   command_line_argument_value<float> m_stroke_scale_factor;
   command_line_argument_value<float> m_layer_scale_factor;
   command_line_argument_value<int> m_clear_red, m_clear_green, m_clear_blue, m_clear_alpha;
+  command_line_argument_value<bool> m_log_clipping_errors;
 
   enumerated_command_line_argument_value<enum stroke_mode_t> m_stroke_mode;
   enumerated_command_line_argument_value<enum astral::anti_alias_t> m_fill_aa_mode;
@@ -224,6 +259,7 @@ private:
 
   astral::reference_counted_ptr<astral::Image> m_image;
   astral::reference_counted_ptr<astral::TextItem> m_text_item;
+  astral::reference_counted_ptr<ClipErrorLogger> m_clip_error_log;
 
   std::vector<astral::vec4> m_color_list;
 
@@ -241,7 +277,23 @@ private:
 };
 
 //////////////////////////////////////////
-//  methods
+// SVGExample::ClipErrorLogger methods
+void
+SVGExample::ClipErrorLogger::
+report_implement(const std::string &message)
+{
+  std::cout << "Clipping error:\n\n" << message << "\n\n"
+            << "\tencountered on path #" << m_current_path_id
+            << "\tt = " << print_float_and_bits(m_current_t) << "\n"
+            << "\tZ = " << print_float_and_bits(m_src->m_zoom.transformation().m_scale) << "\n"
+            << "\tTR = " << print_float_and_bits(m_src->m_zoom.transformation().m_translation) << "\n"
+            << "\tpre-rotate = " << print_float_and_bits(m_src->m_scale_pre_rotate.value()) << "\n"
+            << "\trotate = " << print_float_and_bits(m_src->m_rotate_angle.value()) << "\n"
+            << "\tpost-rotate = " << print_float_and_bits(m_src->m_scale_post_rotate.value()) << "\n\n\n";
+}
+
+//////////////////////////////////////////
+// SVGExample methods
 SVGExample::
 SVGExample(void):
   m_demo_options("Demo Options", *this),
@@ -268,6 +320,10 @@ SVGExample(void):
   m_clear_green(0, "clear_green", "value (integer) for green channel for clear color in range [0, 255]", *this),
   m_clear_blue(0, "clear_blue", "value (integer) for blue channel for clear color in range [0, 255]", *this),
   m_clear_alpha(0, "clear_alpha", "value (integer) for alpha channel for clear color in range [0, 255]", *this),
+  m_log_clipping_errors(false, "log_clipping_errors",
+                        "if true, log clipping errors to console. "
+                        "Note that clipping errors are recoverable and nearly always "
+                        "the result of numerical round off", *this),
   m_stroke_mode(stroke_svg_width,
                 enumerated_string_type<enum stroke_mode_t>()
                 .add_entry("stroke_svg_width", stroke_svg_width, "Strokes are with width from SVG file")
@@ -480,6 +536,21 @@ init_gl(int w, int h)
           m_svg_transform.translate(-bb.min_x(), -bb.min_y());
         }
     }
+
+  if (m_log_clipping_errors.value())
+    {
+      m_clip_error_log = ASTRALnew ClipErrorLogger(this);
+      renderer().set_clip_error_callback(m_clip_error_log);
+    }
+}
+
+SVGExample::
+~SVGExample()
+{
+  if (m_clip_error_log)
+    {
+      renderer().set_clip_error_callback(nullptr);
+    }
 }
 
 void
@@ -561,6 +632,12 @@ fetch_path(unsigned int idx)
 
     default:
       ASTRALfailure("Invalid draw_mode");
+    }
+
+  if (m_log_clipping_errors.value())
+    {
+      m_clip_error_log->m_current_path_id = idx;
+      m_clip_error_log->m_current_t = t;
     }
 
   return return_value;

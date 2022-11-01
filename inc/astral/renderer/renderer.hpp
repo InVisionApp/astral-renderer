@@ -310,12 +310,6 @@ namespace astral
          */
         number_sparse_fill_awkward_fully_clipped_or_unclipped,
 
-        /*!
-         * Number of mapped contours that encountered
-         * an error in clipping.
-         */
-        number_sparse_fill_clipping_errors,
-
         number_renderer_stats
       };
 
@@ -413,6 +407,34 @@ namespace astral
 
       std::vector<Session> m_sessions;
       std::vector<RectT<int>> m_rects;
+    };
+
+    /*!
+     * Callback class to report clipping errors.
+     */
+    class ClippingErrorCallback:public reference_counted<ClippingErrorCallback>::non_concurrent
+    {
+    public:
+      /*!
+       * To be implemented by a derived class to rector clipping errors
+       * from non-animated contours
+       * \param contour contour that generated the error
+       * \param message string describing clipping error
+       */
+      virtual
+      void
+      report_error(const Contour &contour, const std::string &message) = 0;
+
+      /*!
+       * To be implemented by a derived class to rector clipping errors
+       * from animated contours
+       * \param contour contour that generated the error
+       * \param t animatation interpolate value that generated the error
+       * \param message string describing clipping error
+       */
+      virtual
+      void
+      report_error(const AnimatedContour &contour, float t, const std::string &message) = 0;
     };
 
     /*!
@@ -925,6 +947,13 @@ namespace astral
         || material.emits_partial_coverage();
       return custom_draw_can_overdraw_itself(e, blend_mode);
     }
+
+    /*!
+     * Set the clip error callback; this can be changed at any time during rendering
+     * and takes effect on the next maks generated for path filling.
+     */
+    void
+    set_clip_error_callback(reference_counted_ptr<ClippingErrorCallback> callback);
 
   private:
     friend class RenderClipElement;
