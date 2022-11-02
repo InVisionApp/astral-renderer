@@ -82,7 +82,7 @@ namespace astral
     FillMaskProperties(void):
       m_complement_bbox(nullptr),
       m_restrict_bb(nullptr),
-      m_sparse_mask(fill_method_sparse_line_clipping),
+      m_sparse_mask(fill_method_sparse_curve_clipping),
       m_pixel_threshhold_for_path_shader(0)
     {}
 
