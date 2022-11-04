@@ -149,6 +149,11 @@ search path which can be added to by `DYLD_LIBRARY_PATH`.
 All demos have options which can be see by passing `--help` as the one
 and only command line option to the demo.
 
+NOTE: NVIDIA GPU's appears to have hardware bugs for HW clip planes, to work
+      around these GPU's add `use_hw_clip_window false` to the command line.
+      In applications set `RenderEngineGL3::Config::m_use_hw_clip_window` to
+      false in applications that use Astral when an NVIDIA GPU is detected.
+
 
 Install and Including in Other Projects
 =======================================
