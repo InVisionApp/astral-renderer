@@ -215,7 +215,18 @@
         can use GL_ARB_texture_view instead to alias a GL_SRGB8_ALPHA8
         texture as an GL_RGB8 texture.
 
-10. A different way to do filling. This idea builds strongly off of how
+10. Tighter clipping via geometry when HW clip planes are not available.
+     i. Option 1: Have something in vertex shader that can optionally emit a screen-aligned
+                  bounding box in the same coordinate system as the the clip window. If that
+                  box is compleely clipped by the clip window, then the main vertex shader
+		  will make the w = -1 to clip it.
+     ii. Option 2: Allow for the vertex shader to read the clip window values and from that
+                   if the box would completely clip a triangle, then to just emit a vertices
+		   that don't generate any geoemtry; alternatively have the vertex shader
+		   have the option to emit "completely clipped" and the main() will handle
+		   it.
+
+11. A different way to do filling. This idea builds strongly off of how
     Pathfinder3 performs filling: https://nical.github.io/posts/a-look-at-pathfinder.html.
     Steps:
       a. Pick a tile size; PathFinder has great success with 16x16, so
