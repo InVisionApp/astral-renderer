@@ -257,4 +257,96 @@
      The main fly in the ointment is the interaction with the tile size
      in the image atlas. The simplest way out is to simply draw several
      times to the atlas for the filling tile size and the image atlas tile
-     size to match up. The other issue is to parallize the step in (c).
+     size to match up. The other issue is to parallize the step in (c) so
+     that Renderer can know the full and empty tiles immeidately; though
+     given that it parallizes on the level of curves, the thread join
+     may not be that bad really.
+
+     Another issue is that to do combining we cannot render directly to the
+     atlas because WebGL2 does not one permit to read from a texture and
+     at the same time write to it. Thus the step in (d) on WebGL2 cannot
+     be done directly to the atlas and must be done on the offscreen scratch
+     area.
+
+12. Use/abuse transform feedback to do the binning for path filling, building
+    off of 11.
+      a. Pick a tile size; PathFinder has great success with 16x16, so
+         perhaps we start with that.
+      b. Do NOT use line segments only, but continus to use quadratic bezier
+         curves and line segments.
+      c. When a tessellation LOD is chosen, just like stroking, the error
+         also includes a value for the longest length of any of the curves.
+	 In addition, the length of the longest curve is known as well.
+      d. Knowing the longest curve, we then know the maximum number of tiles
+         any curve may occupy. With that in mind, we can then use transform
+	 feedback to do the binning. We can probably identify a single
+	 curve of a contour with a 16-bit integer, thus a single uvec4
+	 can record 8 curves; it looks like GL requires that feedback
+	 must support atleast 64 scalars, so our transform feedback shader
+	 when processing a single curve, could emit up to 128 seperately
+	 hit tiles. However, one scalar will be used to store the index
+	 into the shader buffer of step f.i.
+      e. This big deal about (d) is that now we are using the GPU to do
+         the binning, not the CPU. The binning itself is what we see
+	 in Random Access Rendering of Generaly Vector Graphics, on the web
+         at https://hhoppe.com/ravg.pdf.
+      f. The tile incrementing is done in two steps. Firstly we have
+         two small one channel FP16 buffers; one for storing the raw
+	 delta values from the binning and another for storing the sums.
+	 There size is one pixel per tile for a path fill. Thus their
+	 sizes can be computed on CPU and we can reserve room that way.
+          i. compute the delta-winding is by using the buffer produced
+	     in (e) as a vertex buffer to then jazz the vertex shader so
+	     that if a curve goes through a tile at the bottom to then
+	     emit a 1-pixel square and the fragment shader emits -1 or
+	     +1 and use additive blending. Instancing should be used
+	     so that we have a single draw and the instance ID decides
+             which of the 64 values to check for the emit. In addition,
+	     we should use glVertexAttribDivisor() so that every full
+	     possible rect advances the attribute. The next question to
+	     answer is how do we draw MANY of these together? The answer
+	     is a single uint attribute will be reserved for reading
+	     into a buffer where are the tiles located and what is the
+	     transformation jazz to apply. Using a UBO to hold the header
+	     means that every several thousand paths means another glDraw
+	     to upload a different set of headers to the UBO.
+	  ii. to sum up the delta winding value we then have ANOTHER
+	      FP16 buffer where we draw to it a single rect that
+	      adds up the buffer values in (i) of elements strictly to
+	      the right. This is done with blending OFF.
+      g. Create a surface buffers storing if a tile is partially covered,
+         fully covered or empty.
+	  i. When doing f.i, we do multiple render targets where the other
+	     buffer in an R8 which is initialized as zero and when a curve
+	     intersects a tile we can have the fragment shader emit 1 for
+	     that buffer and this works with the addive blending.
+	  ii. During f.ii, we do MRT again and can decide if a tile is
+	      completely covered, paritally covered or not at all and
+	      write that to an R8 buffer to indicate its status.
+      h. The evil part: we need to read back what tiles are parially covered,
+         i.e. glReadPixels on that R8 buffer of f.ii. Since we are doing
+         many paths, and it is just pixel per tile, it is a small read and
+	 it is highly amoritized, but it is still a read from GPU to CPU.
+      i. With (h), the tiles are then known on CPU which are partially
+         covered and which are fully covered.
+      j. We can then proceed to draw to the partially covered tiles the
+         partial coverage reusing the vertex buffers of (d), but with
+	 an additional UBO to read where a partially covered tile lives.
+	 The drawing of the partially covered rect content will be directed
+	 to another surface (and we gamble that we can fit all the tiles
+	 always into that surface). This surface is reset on every frame.
+      k. The draw at the level of Renderer does not know what tiles are partial
+         and what tiles are full or what are empty, but it will emit an opaque
+	 draw and a non-opaque draw and the backend will use its data to
+	 do the right thing.
+
+    The biggest stink, besides the immense complexity, is the glReadPixel() in
+    part h. On native, this is not that bad because it happens likely only once
+    per frame and all of the render target changes induce pipeline flushes anyways.
+    However, on WebGL2, this foces a synchronization point between the process
+    of the tab running and the GPU process which may harm performance a great deal.
+
+    Another issue is the combining with previous clipping. WebGL2 does not permit
+    for one to bind a texture for reading and to also to write to it, even if there
+    is no intersect. The upshot is that we would have to rely on analytic interection
+    of clipping on CPU and feed those to Astral. Also not good.
