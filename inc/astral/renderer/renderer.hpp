@@ -17,6 +17,7 @@
 #ifndef ASTRAL_RENDERER_HPP
 #define ASTRAL_RENDERER_HPP
 
+#include <string>
 #include <astral/util/memory_pool.hpp>
 #include <astral/util/rect.hpp>
 #include <astral/util/bounding_box.hpp>
@@ -416,7 +417,7 @@ namespace astral
     {
     public:
       /*!
-       * To be implemented by a derived class to rector clipping errors
+       * To be implemented by a derived class to report clipping errors
        * from non-animated contours
        * \param contour contour that generated the error
        * \param message string describing clipping error
@@ -426,7 +427,7 @@ namespace astral
       report_error(const Contour &contour, const std::string &message) = 0;
 
       /*!
-       * To be implemented by a derived class to rector clipping errors
+       * To be implemented by a derived class to report clipping errors
        * from animated contours
        * \param contour contour that generated the error
        * \param t animatation interpolate value that generated the error
