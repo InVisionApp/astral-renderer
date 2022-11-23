@@ -262,7 +262,7 @@ astral_compute_biarc(in vec2 B0, in vec2 B1, in vec2 B2, out astral_biarc biarc)
       /* The quadratic formula gives the roots
        *
        *  s1 = (-f1 + sqrt(f1^2 - 4 * f0 * f2)) / (2 * f2)
-       *  s2 = (-f1 + sqrt(f1^2 - 4 * f0 * f2)) / (2 * f2)
+       *  s2 = (-f1 - sqrt(f1^2 - 4 * f0 * f2)) / (2 * f2)
        *
        * however, we wish to make the roots more numerically
        * robust which means we use the trick
@@ -276,11 +276,11 @@ astral_compute_biarc(in vec2 B0, in vec2 B1, in vec2 B2, out astral_biarc biarc)
        *                     =  Y / (+X - sqrt(X^2 + Y)
        *
        * we use the above identities to avoid cancellation
-       * on the roots. Plugging in X = f1, Y = 4.0 * f2 * f1
+       * on the roots. Plugging in X = f1, Y = -4.0 * f2 * f1
        * we get for the alternative forms of s1, s2:
        *
-       *  s1 = -2 * f0 / (-f1 + sqrt(descr))
-       *  s2 = -2 * f0 / (-f1 - sqrt(descr))
+       *  s1 = -2 * f0 / (f1 + sqrt(descr)) = 2 * f0 / (-f1 - sqrt(descr))
+       *  s2 = -2 * f0 / (f1 - sqrt(descr)) = 2 * f0 / (-f1 + sqrt(descr))
        *
        * We can optimize further by noting that
        *
