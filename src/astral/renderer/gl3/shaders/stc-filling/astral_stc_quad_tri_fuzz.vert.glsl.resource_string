@@ -28,12 +28,11 @@ astral_vert_shader(in uint sub_shader, in uint item_data_location,
                    in AstralTransformation tr)
 {
   uint tp, static_data_offset;
-  float t, scale_tol_l1;
-  vec2 inverse_scale_factor;
+  float t, scale_tol_l1, inverse_scale_factor, scale_factor, inflate;
   vec2 pt;
   vec4 a0_a1, b0_b1, c0_c1;
   vec3 raw_item_data;
-  vec2 tex, scale_factor, inflate;
+  vec2 tex;
   astral_stc_quadratic_curve Q;
   astral_stc_quadratic_curve_analysis AQ;
 
@@ -46,8 +45,8 @@ astral_vert_shader(in uint sub_shader, in uint item_data_location,
 
   raw_item_data = astral_read_item_dataf(item_data_location).xyz;
   t = raw_item_data.x;
-  inverse_scale_factor = raw_item_data.yz;
-  scale_factor = 1.0 / inverse_scale_factor;
+  inverse_scale_factor = raw_item_data.y;
+  scale_factor = raw_item_data.z;
 
   Q.m_start = astral_apply_transformation(tr, mix(a0_a1.xy, a0_a1.zw, t));
   Q.m_control = astral_apply_transformation(tr, mix(b0_b1.xy, b0_b1.zw, t));
@@ -135,7 +134,7 @@ astral_vert_shader(in uint sub_shader, in uint item_data_location,
       bb.m_min = vec2(0.0, 0.0);
       bb.m_max = vec2(AQ.m_base_line_length, 0.0);
 
-      padding = max(inflate.x, inflate.y);
+      padding = inflate;
 
       /* The Line L0 is given by
        *
@@ -199,7 +198,7 @@ astral_vert_shader(in uint sub_shader, in uint item_data_location,
       s = ((tp & ASTRAL_RENDER_PATH_STC_MAX_MINOR_MASK) == 0u) ? -1.0: 1.0;
 
       /* we need to inflate by values as indicated by the scale factor */
-      pt += s * inflate * AQ.m_minor;
+      pt += (s * inflate) * AQ.m_minor;
       tex.xy = vec2(s, 0.0);
 
       astral_stc_quad_tri_fuzz_type = ASTRAL_STC_LINE;

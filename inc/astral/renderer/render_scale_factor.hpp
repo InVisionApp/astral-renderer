@@ -25,8 +25,6 @@ namespace astral
  * @{
  */
 
-  class RenderUniformScaleFactor;
-
   /*!
    * \brief
    * When rendering to a relative offscreen buffer (via
@@ -45,59 +43,7 @@ namespace astral
      * \param v value with which to initialize \ref m_scale_factor
      * \param r value with which to initialize \ref m_relative
      */
-    RenderScaleFactor(vec2 v = vec2(1.0f, 1.0f), bool r = true):
-      m_scale_factor(v),
-      m_relative(r)
-    {}
-
-    /*!
-     * Ctor
-     * \param v value with which to initialize \ref m_scale_factor
-     * \param r value with which to initialize \ref m_relative
-     */
-    RenderScaleFactor(float v, bool r = true):
-      m_scale_factor(v, v),
-      m_relative(r)
-    {}
-
-    /*!
-     * Implicit ctor from an astral::RenderUniformScaleFactor
-     */
-    RenderScaleFactor(const RenderUniformScaleFactor&);
-
-    /*!
-     * Scaling factor from pixel coordinates of rendering to
-     * the astral::Image, i.e. a value of less than one indicates
-     * that the resolution of the astral::Image is lower than
-     * the pixel coordinate of rendering.
-     */
-    vec2 m_scale_factor;
-
-    /*!
-     * If true, the scaling factor applied is relative to the
-     * astral::RenderEncoderBase objects which generates the
-     * astral::RenderEncoderBase which is used to render, i.e.
-     * the final scaling factor is the product of the values
-     * of \ref astral::RenderEncoderBase::render_scale_factor()
-     * of the generating astral::RenderEncoderBase and \ref
-     * m_scale_factor
-     */
-    bool m_relative;
-  };
-
-  /*!
-   * Analogous to \ref RenderScaleFactor, but the scaling
-   * factor is the same in each dimension.
-   */
-  class RenderUniformScaleFactor
-  {
-  public:
-    /*!
-     * Ctor
-     * \param v value with which to initialize \ref m_scale_factor
-     * \param r value with which to initialize \ref m_relative
-     */
-    RenderUniformScaleFactor(float v = 1.0f, bool r = true):
+    RenderScaleFactor(float v = 1.0f, bool r = true):
       m_scale_factor(v),
       m_relative(r)
     {}
@@ -121,13 +67,6 @@ namespace astral
      */
     bool m_relative;
   };
-
-  inline
-  RenderScaleFactor::
-  RenderScaleFactor(const RenderUniformScaleFactor &obj):
-    m_scale_factor(obj.m_scale_factor, obj.m_scale_factor),
-    m_relative(obj.m_relative)
-  {}
 
 /*! @} */
 

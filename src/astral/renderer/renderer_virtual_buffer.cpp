@@ -2136,7 +2136,7 @@ astral::Renderer::Implement::ClipGeometryGroup
 astral::Renderer::VirtualBuffer::
 child_clip_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox &logical_rect, unsigned int pixel_slack)
 {
-  vec2 sf(in_scale_factor.m_scale_factor);
+  float sf(in_scale_factor.m_scale_factor);
 
   if (in_scale_factor.m_relative)
     {

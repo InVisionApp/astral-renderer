@@ -392,7 +392,7 @@ render_engine(void) const
   return *renderer_implement().m_engine;
 }
 
-astral::vec2
+float
 astral::RenderEncoderBase::
 render_scale_factor(void) const
 {

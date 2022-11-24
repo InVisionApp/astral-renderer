@@ -69,8 +69,8 @@ namespace astral
          * The item data is packed as:
          *  - Size = 1
          *  - ItemData::m_data[0].x().f = time interpolate
-         *  - ItemData::m_data[0].y().f = recirpocal of scale_factor.x()
-         *  - ItemData::m_data[0].z().f = recirpocal of scale_factor.y()
+         *  - ItemData::m_data[0].y().f = recirpocal of scale_factor
+         *  - ItemData::m_data[0].z().f = scale_factor
          */
         item_data_size = 1,
       };
@@ -656,12 +656,12 @@ namespace astral
      */
     static
     void
-    pack_item_data(float t, vec2 scale_factor, c_array<gvec4> dst)
+    pack_item_data(float t, float scale_factor, c_array<gvec4> dst)
     {
       ASTRALassert(dst.size() == item_data_size);
       dst[0].x().f = t;
-      dst[0].y().f = 1.0f / scale_factor.x();
-      dst[0].z().f = 1.0f / scale_factor.y();
+      dst[0].y().f = 1.0f / scale_factor;
+      dst[0].z().f = scale_factor;
     }
 
   private:

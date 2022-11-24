@@ -47,7 +47,7 @@ public:
        const Transformation &pixel_transformation_logical,
        float render_accuracy);
 
-  vec2
+  float
   render_scale_factor(void) const;
 
 private:

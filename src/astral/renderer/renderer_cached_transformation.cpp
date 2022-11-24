@@ -75,7 +75,7 @@ singular_values(void) const
 
 float
 astral::Renderer::Implement::CachedTransformation::
-surface_pixel_size_in_logical_coordinates(vec2 render_scale_factor) const
+surface_pixel_size_in_logical_coordinates(float render_scale_factor) const
 {
   if (render_scale_factor != m_last_render_scale_factor || !m_pixel_size_ready)
     {
@@ -85,8 +85,8 @@ surface_pixel_size_in_logical_coordinates(vec2 render_scale_factor) const
       float2x2 scale_tr, final_tr;
       vec2 sv;
 
-      scale_tr.row_col(0, 0) = render_scale_factor.x();
-      scale_tr.row_col(1, 1) = render_scale_factor.y();
+      scale_tr.row_col(0, 0) = render_scale_factor;
+      scale_tr.row_col(1, 1) = render_scale_factor;
       final_tr = scale_tr * m_transformation.m_matrix;
 
       /* multiplying by a diagnol matrix preserves the matrix type */

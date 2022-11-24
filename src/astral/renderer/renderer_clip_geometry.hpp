@@ -77,10 +77,11 @@ public:
   }
 
   /* Scale factor to apply to rendering */
-  vec2
+  float
   scale_factor(void) const
   {
-    return m_image_transformation_pixel.m_scale;
+    ASTRALassert(m_image_transformation_pixel.m_scale.x() == m_image_transformation_pixel.m_scale.y());
+    return m_image_transformation_pixel.m_scale.x();
   }
 
   /*!
@@ -197,7 +198,7 @@ public:
                RenderBackend::ClipWindowValue *out_clip_window);
 
   /* initialize ClipGeometry to a specific pixel rect */
-  ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, vec2 scale_factor);
+  ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor);
 
   /* Initialize the ClipGeometry from a given convex polygon,
    * for example as computed by compute_intersection()
@@ -207,7 +208,7 @@ public:
    * \param polygon convex polygon specifying the region
    * \param pixel_padding amount in raw pixels to pad
    */
-  ClipGeometry(Backing *backing, vec2 scale_factor,
+  ClipGeometry(Backing *backing, float scale_factor,
                Intersection intersection, int pixel_padding);
 
   /* Initialize the ClipGeometry as the intersection of another
@@ -226,7 +227,7 @@ public:
    *                       T is the value of translate_geom
    */
   ClipGeometry(Backing *backing, const Transformation &tr,
-               float tr_norm, vec2 scale_factor,
+               float tr_norm, float scale_factor,
                const RelativeBoundingBox &logical_rect,
                const ClipGeometry &geom, int pixel_padding,
                vec2 translate_geom = vec2(0.0f, 0.0f));
@@ -369,7 +370,7 @@ private:
 
   void
   set_image_transformation_and_rects(const BoundingBox<float> &in_pixel_rect,
-                                     vec2 scale_factor, int pixel_padding);
+                                     float scale_factor, int pixel_padding);
 
   VirtualArrayPolygon m_polygon;
   VirtualArrayEquation m_equations;
@@ -616,7 +617,7 @@ public:
    * \param intersection define the region that the ClipGeometryGroup will cover
    * \param pixel_padding amount in raw pixels to pad
    */
-  ClipGeometryGroup(Implement &renderer, vec2 scale_factor,
+  ClipGeometryGroup(Implement &renderer, float scale_factor,
                     const Intersection &intersection,
                     int pixel_padding)
   {
@@ -640,7 +641,7 @@ public:
    */
   ClipGeometryGroup(Implement &renderer,
                     const Transformation &tr,
-                    float tr_norm, vec2 scale_factor,
+                    float tr_norm, float scale_factor,
                     const RelativeBoundingBox &logical_rect,
                     const ClipGeometryGroup &geom, int pixel_padding,
                     c_array<const TranslateAndPadding> translate_and_paddings);
@@ -660,7 +661,7 @@ public:
    */
   ClipGeometryGroup(Implement &renderer,
                     const Transformation &tr,
-                    float tr_norm, vec2 scale_factor,
+                    float tr_norm, float scale_factor,
                     const RelativeBoundingBox &logical_rect,
                     const ClipGeometryGroup &geom, int pixel_padding,
                     TranslateAndPadding translate_and_padding = TranslateAndPadding()):
@@ -735,7 +736,7 @@ public:
 
 private:
   void
-  init(Implement &renderer, vec2 scale_factor,
+  init(Implement &renderer, float scale_factor,
        const Intersection &intersection,
        int pixel_padding);
 

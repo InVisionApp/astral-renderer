@@ -223,7 +223,7 @@ namespace astral
      * Set \ref m_render_scale_factor
      */
     StrokeMaskProperties&
-    render_scale_factor(RenderUniformScaleFactor v)
+    render_scale_factor(RenderScaleFactor v)
     {
       m_render_scale_factor = v;
       return *this;
@@ -262,7 +262,7 @@ namespace astral
      * mask. If generating the mask as just a coverage, a value
      * of less than 1.0 will result in blurring.
      */
-    RenderUniformScaleFactor m_render_scale_factor;
+    RenderScaleFactor m_render_scale_factor;
 
     /*!
      * if non-null, provides a bounding box in -pixel- coordinates

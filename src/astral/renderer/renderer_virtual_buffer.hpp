@@ -713,7 +713,7 @@ public:
   /* Gives the scaling factor from coordinates of pixel_rect()
    * to actaul pixels renderer.
    */
-  vec2
+  float
   scale_factor(void) const
   {
     return clip_geometry().bounding_geometry().scale_factor();

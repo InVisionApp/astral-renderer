@@ -28,14 +28,14 @@ astral_vert_shader(in uint sub_shader, in uint item_data_location,
                    in AstralTransformation tr)
 {
   uint static_data_offset;
-  float p_q_picker, perp_sign, t;
-  vec2 pt, p, q, pixel, delta, inverse_scale_factor, L;
+  float p_q_picker, perp_sign, t, inverse_scale_factor, L;
+  vec2 pt, p, q, pixel, delta;
   vec3 raw_item_data;
   vec4 p0_p1, q0_q1;
 
   raw_item_data = astral_read_item_dataf(item_data_location).xyz;
   t = raw_item_data.x;
-  inverse_scale_factor = raw_item_data.yz;
+  inverse_scale_factor = raw_item_data.y;
 
   static_data_offset = floatBitsToUint(in_a0.x);
   p_q_picker = in_a0.y;

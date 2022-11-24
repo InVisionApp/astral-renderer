@@ -1503,7 +1503,7 @@ draw_frame(void)
   if (m_render_to_layer.value())
     {
       render_encoder_layer = render_encoder.begin_layer(drawn_path.compute_bounding_box(),
-                                                        astral::vec2(m_scale_factor.value()),
+                                                        m_scale_factor.value(),
                                                         astral::vec4(1.0f, 1.0f, 1.0f, m_alpha.value()),
                                                         m_blend_mode.value(),
                                                         m_mask_filter.value());

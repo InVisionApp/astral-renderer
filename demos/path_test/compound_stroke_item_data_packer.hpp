@@ -64,7 +64,7 @@ public:
   virtual
   bool
   caps_joins_collapse(const astral::float2x2 &pixel_transformation_logical,
-                      const astral::vec2 &render_scale_factor,
+                      float render_scale_factor,
                       const astral::StrokeParameters &stroke_params) const override
   {
     return m_base.caps_joins_collapse(pixel_transformation_logical,

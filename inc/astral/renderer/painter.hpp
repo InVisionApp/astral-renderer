@@ -983,7 +983,7 @@ namespace astral
      * astral::RenderTarget or an astral::Image).
      * \param layer which LayerIndex to query
      */
-    vec2
+    float
     render_scale_factor(LayerIndex layer = LayerIndex())
     {
       return encoder(layer).render_scale_factor();

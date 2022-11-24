@@ -423,14 +423,6 @@ operator<<(ostream &str, const astral::RenderScaleFactor &obj);
  * \param obj value to stream
  */
 ostream&
-operator<<(ostream &str, const astral::RenderUniformScaleFactor &obj);
-
-/*!
- * operator<< overload for streaming
- * \param str std::ostream to stream to
- * \param obj value to stream
- */
-ostream&
 operator<<(ostream &str, const astral::Transformation &obj);
 
 /////////////////////////////////////////
@@ -635,15 +627,6 @@ operator<<(ostream &str, const astral::RenderScaleFactor &obj)
    *       is a vec2 AND RenderScaleFactor also has an implicit
    *       ctor from a vec2.
    */
-  str << "{factor = " << obj.m_scale_factor << ", relative = "
-      << boolalpha << obj.m_relative << "}";
-  return str;
-}
-
-inline
-ostream&
-operator<<(ostream &str, const astral::RenderUniformScaleFactor &obj)
-{
   str << "{factor = " << obj.m_scale_factor << ", relative = "
       << boolalpha << obj.m_relative << "}";
   return str;

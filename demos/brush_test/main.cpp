@@ -1424,7 +1424,7 @@ draw_frame(void)
         }
       else
         {
-          encoder_layer = render_encoder.begin_layer(bb, astral::vec2(m_scale_factor.value()),
+          encoder_layer = render_encoder.begin_layer(bb, m_scale_factor.value(),
                                                      astral::vec4(1.0f, 1.0f, 1.0f, 0.8f));
 
         }

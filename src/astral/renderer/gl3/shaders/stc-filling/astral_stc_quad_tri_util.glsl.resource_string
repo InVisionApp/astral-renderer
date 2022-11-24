@@ -62,7 +62,7 @@ struct astral_stc_quadratic_curve_analysis
 
 void
 astral_compute_analysis(in astral_stc_quadratic_curve curve,
-                        in vec2 render_scale_factor,
+                        in float render_scale_factor,
                         out astral_stc_quadratic_curve_analysis analysis)
 {
   /* if the height of the conic triangle is less than
@@ -108,7 +108,7 @@ astral_compute_analysis(in astral_stc_quadratic_curve curve,
 
       if (abs(analysis.m_mby) > tol_rel_mby * analysis.m_base_line_length
           && abs(analysis.m_det) > tol_det
-          && abs(analysis.m_mby) * max(render_scale_factor.x, render_scale_factor.y) > tol_real_pixels_mby)
+          && abs(analysis.m_mby) * render_scale_factor > tol_real_pixels_mby)
         {
           analysis.m_classification = ASTRAL_STC_QUAD;
         }

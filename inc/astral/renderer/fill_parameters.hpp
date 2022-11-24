@@ -91,7 +91,7 @@ namespace astral
      * \param v value
      */
     FillMaskProperties&
-    render_scale_factor(RenderUniformScaleFactor v)
+    render_scale_factor(RenderScaleFactor v)
     {
       m_render_scale_factor = v;
       return *this;
@@ -167,7 +167,7 @@ namespace astral
      * if the scale factor is less than 1.0 and the mask
      * type if coverage, blurring will result.
      */
-    RenderUniformScaleFactor m_render_scale_factor;
+    RenderScaleFactor m_render_scale_factor;
 
     /*!
      * If non-null, gives the bounding box of the path to use

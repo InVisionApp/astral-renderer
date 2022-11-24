@@ -206,7 +206,7 @@ namespace astral
        * The value of RenderEncoderBase::render_scale_factor()
        * of the encoder used to draw the effect.
        */
-      vec2 m_render_scale_factor;
+      float m_render_scale_factor;
 
       /*!
        * The rectangle of the area to which the effect will apply

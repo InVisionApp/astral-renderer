@@ -146,7 +146,7 @@ begin_clip_node_pixel_implement(enum blend_mode_t blend_mode,
     {
       Transformation current_tr(transformation());
       unsigned int padding(clip_node_padding());
-      vec2 rel_scale_factor(1.0f);
+      float rel_scale_factor(1.0f);
 
       if (flags & clip_node_clip_in)
         {

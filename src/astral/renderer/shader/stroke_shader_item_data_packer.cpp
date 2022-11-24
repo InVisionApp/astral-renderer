@@ -45,7 +45,7 @@ item_data_size(const StrokeParameters&) const
 bool
 astral::StrokeShaderItemDataPacker::ItemDataPacker::
 caps_joins_collapse(const float2x2 &pixel_transformation_logical,
-                    const vec2 &render_scale_factor,
+                    float render_scale_factor,
                     const StrokeParameters &stroke_params) const
 {
   ASTRALunused(pixel_transformation_logical);

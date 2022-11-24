@@ -696,7 +696,7 @@ render_svg_element(astral::RenderEncoderBase render_encoder,
             astral::RenderEncoderLayer layer_encoder;
 
             layer_encoder = render_encoder.begin_layer(path.compute_bounding_box(),
-                                                       astral::vec2(m_layer_scale_factor.value()),
+                                                       m_layer_scale_factor.value(),
                                                        astral::vec4(1.0f, 1.0f, 1.0f, 0.75f),
                                                        blend_mode,
                                                        m_layer_filter.value());

@@ -247,7 +247,7 @@ compute_overridable_buffer_properties(const astral::Effect::BufferParameters &ef
   raw_radius = effect_params[GaussianBlurParameters::radius_offset].f;
   max_sample_radius = effect_params[GaussianBlurParameters::max_sample_radius_offset].f;
 
-  effective_parent_render_scale = t_min(1.0f, t_sqrt(effect_parameters.m_render_scale_factor.x() * effect_parameters.m_render_scale_factor.y()));
+  effective_parent_render_scale = t_min(1.0f, effect_parameters.m_render_scale_factor);
 
   /* Step 1: convert the logical radius value to pixel radius;
    *         in truth we are lieing some by taking the sqrt of

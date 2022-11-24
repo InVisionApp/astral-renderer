@@ -151,7 +151,7 @@ namespace astral
       virtual
       bool
       caps_joins_collapse(const float2x2 &pixel_transformation_logical,
-                          const vec2 &render_scale_factor,
+                          float render_scale_factor,
                           const StrokeParameters &stroke_params) const = 0;
 
       /*!
@@ -221,7 +221,7 @@ namespace astral
       virtual
       bool
       caps_joins_collapse(const float2x2 &pixel_transformation_logical,
-                          const vec2 &render_scale_factor,
+                          float render_scale_factor,
                           const StrokeParameters &stroke_params) const override;
 
       virtual

@@ -91,7 +91,7 @@ ClipGeometry(Backing *backing, ivec2 size):
 }
 
 astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, vec2 scale_factor):
+ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor):
   m_polygon(backing),
   m_equations(backing),
   m_is_screen_aligned_rect(true)
@@ -130,7 +130,7 @@ ClipGeometry(Backing *backing, ivec2 size, Renderer::Implement &renderer, Render
 
 astral::Renderer::Implement::ClipGeometry::
 ClipGeometry(Backing *backing, const Transformation &tr,
-             float tr_norm, vec2 scale_factor,
+             float tr_norm, float scale_factor,
              const RelativeBoundingBox &logical_rect,
              const ClipGeometry &geom, int pixel_padding,
              vec2 translate_geom):
@@ -141,7 +141,7 @@ ClipGeometry(Backing *backing, const Transformation &tr,
 }
 
 astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, vec2 scale_factor,
+ClipGeometry(Backing *backing, float scale_factor,
              Intersection intersection, int pixel_padding):
   m_polygon(backing),
   m_equations(backing),
@@ -174,6 +174,7 @@ ClipGeometry(Backing *backing, vec2 scale_factor,
       m_is_screen_aligned_rect = true;
     }
 
+  ASTRALassert(m_image_transformation_pixel.m_scale.x() == m_image_transformation_pixel.m_scale.y());
   ASTRALassert(m_pixel_rect.empty() || !std::isnan(m_pixel_rect.as_rect().m_min_point.x()));
   ASTRALassert(m_pixel_rect.empty() || !std::isnan(m_pixel_rect.as_rect().m_min_point.y()));
   ASTRALassert(m_pixel_rect.empty() || !std::isnan(m_pixel_rect.as_rect().m_max_point.x()));
@@ -182,7 +183,7 @@ ClipGeometry(Backing *backing, vec2 scale_factor,
 
 void
 astral::Renderer::Implement::ClipGeometry::
-set_image_transformation_and_rects(const BoundingBox<float> &bb, vec2 scale_factor, int pixel_padding)
+set_image_transformation_and_rects(const BoundingBox<float> &bb, float scale_factor, int pixel_padding)
 {
   vec2 sz, scaled_sz;
   ivec2 iscaled_sz, pp;
@@ -259,12 +260,13 @@ set_image_transformation_and_rects(const BoundingBox<float> &bb, vec2 scale_fact
    *
    *   q --> m_image_transformation_pixel.m_scale * q + m_image_transformation_pixel.m_translate
    */
-  m_image_transformation_pixel.m_scale = scaled_sz / sz;
+  m_image_transformation_pixel.m_scale = vec2(scale_factor, scale_factor);
   m_image_transformation_pixel.m_translate = vec2(pixel_padding)
     - mbb.m_min_point * m_image_transformation_pixel.m_scale;
 
   ASTRALassert(!std::isnan(m_image_transformation_pixel.m_scale.x()));
   ASTRALassert(!std::isnan(m_image_transformation_pixel.m_scale.y()));
+  ASTRALassert(m_image_transformation_pixel.m_scale.x() == m_image_transformation_pixel.m_scale.y());
   ASTRALassert(m_image_transformation_pixel.m_scale.x() != 0.0f);
   ASTRALassert(m_image_transformation_pixel.m_scale.y() != 0.0f);
 
@@ -451,7 +453,7 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
 astral::Renderer::Implement::ClipGeometryGroup::
 ClipGeometryGroup(Implement &renderer,
                   const Transformation &tr,
-                  float tr_norm, vec2 scale_factor,
+                  float tr_norm, float scale_factor,
                   const RelativeBoundingBox &logical_rect,
                   const ClipGeometryGroup &parent_geom, int pixel_padding,
                   c_array<const TranslateAndPadding> translate_and_paddings)
@@ -468,7 +470,7 @@ ClipGeometryGroup(Implement &renderer,
 
 void
 astral::Renderer::Implement::ClipGeometryGroup::
-init(Implement &renderer, vec2 scale_factor,
+init(Implement &renderer, float scale_factor,
      const Intersection &intersection,
      int pixel_padding)
 {

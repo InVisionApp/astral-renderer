@@ -1704,7 +1704,7 @@ namespace astral
      * A value of less than 1.0 means that a single pixel in the
      * render destination is multiple pixels in astral::RenderEncoderBase.
      */
-    vec2
+    float
     render_scale_factor(void) const;
 
     /*!
@@ -4261,7 +4261,7 @@ namespace astral
      * A value of less than 1.0 means that a single pixel in the
      * render destination is multiple pixels in astral::RenderEncoderBase.
      */
-    vec2
+    float
     render_scale_factor(void) const;
 
     /*!

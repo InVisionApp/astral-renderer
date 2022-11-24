@@ -34,7 +34,7 @@ public:
     m_singular_values_ready(true),
     m_singular_values(1.0f, 1.0f),
     m_matrix_type(matrix_diagonal),
-    m_last_render_scale_factor(1.0f, 1.0f),
+    m_last_render_scale_factor(1.0f),
     m_pixel_size(1.0f),
     m_pixel_size_ready(true)
   {}
@@ -64,7 +64,7 @@ public:
    * triggers a recomputation.
    */
   float
-  surface_pixel_size_in_logical_coordinates(vec2 render_scale_factor) const;
+  surface_pixel_size_in_logical_coordinates(float render_scale_factor) const;
 
   enum matrix_type_t
   matrix_type(void) const
@@ -260,7 +260,7 @@ private:
   mutable vecN<float, 2> m_singular_values;
   mutable enum matrix_type_t m_matrix_type;
 
-  mutable vec2 m_last_render_scale_factor;
+  mutable float m_last_render_scale_factor;
   mutable float m_pixel_size;
   mutable bool m_pixel_size_ready;
 };

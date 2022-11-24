@@ -1694,7 +1694,7 @@ build_sparse_image(const ClipElement *clip_element,
   /* create item data *now* because processing the mapped contours needs it */
   vecN<gvec4, FillSTCShader::item_data_size> item_data;
   float time(0.0f);
-  vec2 scale_factor(1.0f, 1.0f);
+  float scale_factor(1.0f);
 
   FillSTCShader::pack_item_data(time, scale_factor, item_data);
   m_item_data = m_renderer.create_item_data(item_data, no_item_data_value_mapping);

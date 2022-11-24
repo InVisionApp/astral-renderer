@@ -287,11 +287,11 @@ init(Renderer::Implement &renderer,
   m_transformation[RenderEncoderStrokeMask::logical_transformation_path].push_back(Transformation());
 }
 
-astral::vec2
+float
 astral::RenderEncoderStrokeMask::Backing::
 render_scale_factor(void) const
 {
-  vec2 sf(m_mask_params.m_render_scale_factor.m_scale_factor);
+  float sf(m_mask_params.m_render_scale_factor.m_scale_factor);
   if (m_mask_params.m_render_scale_factor.m_relative)
     {
       sf *= m_parent_clip_geometry.bounding_geometry().scale_factor();
@@ -906,7 +906,7 @@ mask_params(void) const
   return builder().m_mask_params;
 }
 
-astral::vec2
+float
 astral::RenderEncoderStrokeMask::
 render_scale_factor(void) const
 {
