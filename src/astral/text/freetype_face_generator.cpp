@@ -478,6 +478,15 @@ scalable_glyph_info(unsigned int thread_slot,
         {
           FT_LayerIterator iter;
 
+          /* if grabbing the metrics gave a zero-size glyph, then
+           * we reset the bounding box (otherwise it typically contains
+           * (0, 0) which we may not actually be in the bounding box.
+           */
+          if (empty_size)
+            {
+              out_metrics->m_bb.clear();
+            }
+
           out_layer_colors->resize(num_layers, m_palettes.number_palettes());
 
           /* reset the FT iterator before using it in the loop */
@@ -542,7 +551,7 @@ scalable_glyph_info(unsigned int thread_slot,
               out_metrics->m_vertical_layout_offset.y() = layout_offset;
 
               /* Some guessing here, but we will just assume that like
-               * the y-coordinate, the layou offset for x will match
+               * the y-coordinate, the layout offset for x will match
                * the bounding box.
                */
               layout_offset = out_metrics->m_bb.min_point().x();
