@@ -196,10 +196,10 @@ namespace
              std::vector<enum astral::fill_rule_t> *out_fill_rules);
 
     static
-    void
+    bool
     grab_metrics(FT_GlyphSlot glyph,
                  astral::GlyphMetrics *out_metrics,
-                 bool scale_by_64);
+                 bool is_image_glyph);
 
     static
     bool //returns if the glyph has color, i.e. a pixel with (R, G, B) not all the same
@@ -377,11 +377,11 @@ add_path(FT_Outline &outline,
   OutlineDecompser::extract_path(&out_paths->back(), outline, true);
 }
 
-void
+bool
 GlyphGeneratorFreetype::
 grab_metrics(FT_GlyphSlot glyph,
              astral::GlyphMetrics *out_metrics,
-             bool scale_by_64)
+             bool is_image_glyph)
 {
   using namespace astral;
   const FT_Glyph_Metrics &metrics(glyph->metrics);
@@ -402,7 +402,7 @@ grab_metrics(FT_GlyphSlot glyph,
   out_metrics->m_bb.clear();
   FT_Get_Glyph(glyph, &ggg);
 
-  if (scale_by_64)
+  if (is_image_glyph)
     {
       /* When loading bitmap data, the metrics are in 26.6 units, so
        * we need to divide by 64.0f
@@ -423,6 +423,7 @@ grab_metrics(FT_GlyphSlot glyph,
       out_metrics->m_bb.union_point(vec2(bb.xMax, -bb.yMin));
     }
 
+  return metrics.width == 0 || metrics.height == 0;
 }
 
 void
@@ -439,12 +440,13 @@ scalable_glyph_info(unsigned int thread_slot,
   FT_Face face;
   unsigned int num_layers = 0;
   FT_UInt layer_glyph_index, layer_color_index;
+  bool empty_size;
 
   ASTRALassert(thread_slot < m_faces.size());
   face = m_faces[thread_slot]->face();
 
   FT_Load_Glyph(face, glyph_index.m_value, m_load_flags);
-  grab_metrics(face->glyph, out_metrics, false);
+  empty_size = grab_metrics(face->glyph, out_metrics, false);
 
   #ifdef COLOR_GLYPH_LAYER_SUPPORTED
     {
@@ -501,6 +503,51 @@ scalable_glyph_info(unsigned int thread_slot,
               /* load the glyph specified by layer_glyph_index */
               FT_Load_Glyph(face, layer_glyph_index, m_load_flags);
               add_path(face->glyph->outline, out_paths, out_fill_rules);
+
+              /* if the metrics from the base layer are empty, chances
+               * are the glyph is busted as seen in the font from
+               * https://github.com/mozilla/twemoji-colr/ (as of Dec 22, 2022).
+               * To work-around this, we enlarge the bounding box by the
+               * bounding box of each of the layer glyphs and below
+               * we use the bounding box to compute the various metrics
+               * values.
+               */
+              if (empty_size)
+                {
+                  FT_Glyph ggg;
+                  FT_BBox ft_bb;
+
+                  FT_Get_Glyph(face->glyph, &ggg);
+                  FT_Glyph_Get_CBox(ggg, FT_GLYPH_BBOX_UNSCALED, &ft_bb);
+                  out_metrics->m_bb.union_point(vec2(ft_bb.xMin, -ft_bb.yMax));
+                  out_metrics->m_bb.union_point(vec2(ft_bb.xMax, -ft_bb.yMin));
+                }
+            }
+
+          if (empty_size)
+            {
+              float layout_offset;
+
+              /* The placement of glyphs is as follows:
+               *   - max.y <---> layout_offset
+               *   - min.y <---> max.y - size.y
+               *
+               * So:
+               *  layout_offset = max.y
+               */
+              layout_offset = out_metrics->m_bb.max_point().y();
+
+              out_metrics->m_size = out_metrics->m_bb.size();
+              out_metrics->m_horizontal_layout_offset.y() = layout_offset;
+              out_metrics->m_vertical_layout_offset.y() = layout_offset;
+
+              /* Some guessing here, but we will just assume that like
+               * the y-coordinate, the layou offset for x will match
+               * the bounding box.
+               */
+              layout_offset = out_metrics->m_bb.min_point().x();
+              out_metrics->m_horizontal_layout_offset.x() = layout_offset;
+              out_metrics->m_vertical_layout_offset.x() = layout_offset;
             }
         }
       #endif
