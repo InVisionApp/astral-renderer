@@ -581,9 +581,11 @@ compute_mask(void)
   const float identity_norm(1.0f);
   const int pixel_padding(ImageAtlas::tile_padding);
   Renderer::Implement::ClipGeometryGroup clip_geometry;
+  RelativeBoundingBox relative_bounding_box(bb);
 
+  relative_bounding_box.m_inherit_clipping_of_parent = m_mask_params.m_apply_clip_equations_clipping;
   clip_geometry = Renderer::Implement::ClipGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
-                                                         bb, m_parent_clip_geometry, pixel_padding);
+                                                         relative_bounding_box, m_parent_clip_geometry, pixel_padding);
 
   if (clip_geometry.bounding_geometry().image_size() == ivec2(0, 0))
     {

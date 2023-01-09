@@ -216,7 +216,8 @@ namespace astral
   public:
     StrokeMaskProperties(void):
       m_restrict_bb(nullptr),
-      m_sparse_mask(true)
+      m_sparse_mask(true),
+      m_apply_clip_equations_clipping(true)
     {}
 
     /*!
@@ -251,6 +252,16 @@ namespace astral
     }
 
     /*!
+     * Set \ref m_apply_clip_equations_clipping
+     */
+    StrokeMaskProperties&
+    apply_clip_equations_clipping(bool v)
+    {
+      m_apply_clip_equations_clipping = v;
+      return *this;
+    }
+
+    /*!
      * amount by which to scale rendering of the mask generation;
      * a value greater than one indicates to generate at a higher
      * resolution than the area where as a value less than one
@@ -281,6 +292,18 @@ namespace astral
      * reduce bandwidth and memory consumption.
      */
     bool m_sparse_mask;
+
+    /*!
+     * If true (the default) apply the clipping coming from the
+     * clipping equations of the encoder that generates the mask,
+     * this clipping includes viewport clipping.
+     *
+     * If one wishes to reuse a mask across frames where clipping
+     * is varies across frames, this should be set to false. However,
+     * set to this to false with exteme caution as it can result in
+     * very large masks when the path is zoomed in.
+     */
+    bool m_apply_clip_equations_clipping;
   };
 
 /*! @} */

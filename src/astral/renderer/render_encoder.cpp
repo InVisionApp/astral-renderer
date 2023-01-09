@@ -2158,7 +2158,7 @@ generate_mask(const MaskStrokeShader &shader,
   ASTRALassert(valid());
   ASTRALassert(out_data);
 
-  if (virtual_buffer().type() == VirtualBuffer::degenerate_buffer)
+  if (mask_properties.m_apply_clip_equations_clipping && virtual_buffer().type() == VirtualBuffer::degenerate_buffer)
     {
       out_data->m_mask = nullptr;
       out_data->m_min_corner = astral::vec2(0.0f, 0.0f);
