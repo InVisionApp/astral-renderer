@@ -1031,7 +1031,10 @@ public:
   }
 
   /*!
-   * Tests if this vecN is approximately equal to another vecN
+   * Tests if this vecN is approximately equal to another vecN.
+   * The comparison returns false if any two components are different
+   * by thresh where thresh = max(rel_thresh, abs_tol) where
+   * rel_thresh = rel_tol * max(L1norm(), obj.L1norm()).
    * \param obj vecN to which to compare against
    * \param rel_tol relative tolerance of comparison against the
    *                maximum of the magnitudes of the this and obj
