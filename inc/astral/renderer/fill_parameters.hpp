@@ -83,7 +83,8 @@ namespace astral
       m_complement_bbox(nullptr),
       m_restrict_bb(nullptr),
       m_sparse_mask(fill_method_sparse_curve_clipping),
-      m_pixel_threshhold_for_path_shader(0)
+      m_pixel_threshhold_for_path_shader(0),
+      m_apply_clip_equations_clipping(true)
     {}
 
     /*!
@@ -146,6 +147,16 @@ namespace astral
     path_shader(const MaskItemPathShader &v)
     {
       m_path_shader = v;
+      return *this;
+    }
+
+    /*!
+     * Set \ref m_apply_clip_equations_clipping
+     */
+    FillMaskProperties&
+    apply_clip_equations_clipping(bool v)
+    {
+      m_apply_clip_equations_clipping = v;
       return *this;
     }
 
@@ -215,6 +226,18 @@ namespace astral
      * m_pixel_threshhold_for_path_shader
      */
     MaskItemPathShader m_path_shader;
+
+    /*!
+     * If true (the default) apply the clipping coming from the
+     * clipping equations of the encoder that generates the mask,
+     * this clipping includes viewport clipping.
+     *
+     * If one wishes to reuse a mask across frames where clipping
+     * is varies across frames, this should be set to false. However,
+     * set to this to false with exteme caution as it can result in
+     * very large masks when the path is zoomed in.
+     */
+    bool m_apply_clip_equations_clipping;
   };
 
 /*! @} */

@@ -2000,7 +2000,7 @@ generate_mask(const CombinedPath &paths,
   ASTRALassert(valid());
   ASTRALassert(out_data);
 
-  if (virtual_buffer().type() == VirtualBuffer::degenerate_buffer)
+  if (mask_properties.m_apply_clip_equations_clipping && virtual_buffer().type() == VirtualBuffer::degenerate_buffer)
     {
       out_data->m_mask = nullptr;
       out_data->m_min_corner = astral::vec2(0.0f, 0.0f);
@@ -2042,10 +2042,12 @@ generate_mask(const CombinedPath &paths,
   unsigned int pixel_slack(ImageAtlas::tile_padding);
   Renderer::Implement::ClipGeometryGroup clip_geometry;
   Transformation mask_transformation_logical;
+  RelativeBoundingBox relative_bounding_box(bb, mask_properties.m_restrict_bb);
 
+  relative_bounding_box.m_inherit_clipping_of_parent = mask_properties.m_apply_clip_equations_clipping;
   clip_geometry = virtual_buffer().child_clip_geometry(mask_properties.m_render_scale_factor,
-                                                       RelativeBoundingBox(bb, mask_properties.m_restrict_bb),
-                                                       pixel_slack);
+                                                       relative_bounding_box, pixel_slack);
+
 
   mask_transformation_logical = clip_geometry.bounding_geometry().image_transformation_logical(transformation());
   if (paths.paths<AnimatedPath>().empty() && mask_properties.use_mask_shader(clip_geometry.bounding_geometry().image_size()))
