@@ -251,6 +251,39 @@ void
 astral::gl::RenderEngineGL3::Implement::
 init_gl_state(void)
 {
+  /* make sure rasterization is not discarded */
+  astral_glDisable(ASTRAL_GL_RASTERIZER_DISCARD);
+
+  /* various other rasterization options */
+  astral_glDisable(ASTRAL_GL_DITHER);
+  #ifndef __EMSCRIPTEN__
+    {
+      if (!ContextProperties::is_es())
+        {
+          astral_glDisable(ASTRAL_GL_POLYGON_SMOOTH);
+          astral_glDisable(ASTRAL_GL_COLOR_LOGIC_OP);
+        }
+    }
+  #endif
+
+  /* do not allow depth values to be changed,
+   * note that we only care about drawing triangles
+   * so that is why it is only GL_POLYGON_OFFSET_FILL
+   * we disable
+   */
+  astral_glDisable(ASTRAL_GL_POLYGON_OFFSET_FILL);
+
+  /* primitive restart */
+  astral_glDisable(ASTRAL_GL_PRIMITIVE_RESTART_FIXED_INDEX);
+  #ifndef __EMSCRIPTEN__
+    {
+      if (!ContextProperties::is_es())
+        {
+          astral_glDisable(ASTRAL_GL_PRIMITIVE_RESTART);
+        }
+    }
+  #endif
+
   /* Restore the GL defaults for values that affect
    * pixel upload to a texture
    */
