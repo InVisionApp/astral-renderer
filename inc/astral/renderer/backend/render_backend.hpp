@@ -550,6 +550,10 @@ namespace astral
       Cookie m_cookie;
     };
 
+    /*!
+     * Conveniant class the emcompass an \ref astral::clip_window_value_type_t
+     * and a RenderValue<ClipWindow> value.
+     */
     class ClipWindowValue
     {
     public:

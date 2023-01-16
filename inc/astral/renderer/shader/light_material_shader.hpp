@@ -99,7 +99,7 @@ namespace astral
        * light; the directional light will light a point
        * p if the abs(cos(theta)) is no more than this
        * value where theta is the angle between the vector
-       * p - \ref m_position and \ref m_light_direction.
+       * to the point p from the light and \ref m_light_direction.
        * Note that a value less than -1.0 means that the
        * light is not directional.
        */
@@ -217,7 +217,7 @@ namespace astral
       }
 
       /*!
-       * Set \ref m_shadow_map_length
+       * Set \ref m_shadow_fall_off_length
        */
       LightProperties&
       shadow_fall_off_length(float v)
