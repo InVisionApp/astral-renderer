@@ -28,7 +28,6 @@
 #include <astral/util/reference_counted.hpp>
 #include <astral/util/gl/gl_shader_source.hpp>
 #include <astral/util/gl/astral_gl.hpp>
-#include <astral/util/gl/gl_uniform.hpp>
 
 namespace astral {
 namespace gl {
@@ -463,16 +462,6 @@ public:
   }
 
   /*!
-   * Provided as a conveniance, creates a UniformInitializer
-   * object and adds that via add().
-   * \param uniform_name name of uniform in GLSL to initialize
-   * \param value value with which to set the uniform
-   */
-  template<typename T>
-  ProgramInitializerArray&
-  add_uniform_initializer(const std::string& uniform_name, const T &value);
-
-  /*!
    * Provided as a conveniance, creates a SamplerInitializer
    * object and adds that via add().
    * \param uniform_name name of uniform in GLSL to initialize
@@ -785,23 +774,22 @@ private:
 
 /*!
  * \brief
- * Initialize a uniform via the templated
- * overloaded function astral::gl::Uniform().
+ * Class to intialize the binding points of samplers.
+ * It is an error if the uniform is an array.
  */
-template<typename T>
-class UniformInitializer:public UniformInitalizerBase
+class SamplerInitializer:public UniformInitalizerBase
 {
 public:
   /*!
    * Ctor.
-   * \param uniform_name name of uniform in GLSL to initialize
-   * \param value value with which to set the uniform
+   * \param uniform_name name of uniform sampler in GLSL to initialize
+   * \param value texture unit to which to initialize the sampler to use
    */
   static
-  reference_counted_ptr<UniformInitializer>
-  create(const std::string& uniform_name, const T &value)
+  reference_counted_ptr<SamplerInitializer>
+  create(const std::string& uniform_name, int value)
   {
-    return ASTRALnew UniformInitializer(uniform_name, value);
+    return ASTRALnew SamplerInitializer(uniform_name, value);
   }
 
 protected:
@@ -811,90 +799,17 @@ protected:
   init_uniform(astral_GLuint program, int location) const override final
   {
     ASTRALunused(program);
-    Uniform(location, m_value);
+    astral_glUniform1i(location, m_value);
   }
 
 private:
-  UniformInitializer(const std::string& uniform_name, const T &value):
+  SamplerInitializer(const std::string& uniform_name, int value):
     UniformInitalizerBase(uniform_name),
     m_value(value)
   {}
 
-  T m_value;
+  int m_value;
 };
-
-/*!
- * \brief
- * Specialization for type c_array<const T> for \ref UniformInitializer
- * so that data behind the c_array is copied
- */
-template<typename T>
-class UniformInitializer<c_array<const T>>:public UniformInitalizerBase
-{
-public:
-  /*!
-   * Ctor.
-   * \param uniform_name name of uniform in GLSL to initialize
-   * \param value value with which to set the uniform
-   */
-  static
-  reference_counted_ptr<UniformInitializer>
-  create(const std::string& uniform_name, const c_array<const T> &value)
-  {
-    return ASTRALnew UniformInitializer(uniform_name, value);
-  }
-
-  ~UniformInitializer()
-  {
-    if (m_data != nullptr)
-      {
-        for (unsigned int i = 0; i < m_value.size(); ++i)
-          {
-            m_data[i].~T();
-          }
-        ASTRALfree(m_data);
-      }
-  }
-
-protected:
-
-  virtual
-  void
-  init_uniform(astral_GLuint program, int location) const override final
-  {
-    ASTRALunused(program);
-    Uniform(location, m_value);
-  }
-
-private:
-  UniformInitializer(const std::string& uniform_name, const c_array<const T> &value):
-    UniformInitalizerBase(uniform_name),
-    m_data(nullptr)
-  {
-    if (!value.empty())
-      {
-        m_data = ASTRALmalloc(sizeof(T) * value.size());
-        for (unsigned int i = 0; i < value.size(); ++i)
-          {
-            new (&m_data[i]) T(value[i]);
-          }
-        m_value = c_array<const T>(m_data, value.size());
-      }
-  }
-
-  T *m_data;
-  c_array<const T> m_value;
-};
-
-/*!
- * \brief
- * Class to intialize the binding points of samplers.
- * If the uniform is an array, the first element will
- * be given the specified binding point and successive
- * elements in the array will be given successive
- * binding points.
- */
-typedef UniformInitializer<int> SamplerInitializer;
 
 /*!
  * \brief
@@ -933,14 +848,6 @@ private:
 
 //////////////////////////////////////////////////
 // inlined methods that need above classes defined
-template<typename T>
-ProgramInitializerArray&
-ProgramInitializerArray::
-add_uniform_initializer(const std::string& uniform_name, const T &value)
-{
-  return add(UniformInitializer<T>::create(uniform_name, value));
-}
-
 inline
 ProgramInitializerArray&
 ProgramInitializerArray::
