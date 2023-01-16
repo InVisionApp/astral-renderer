@@ -393,7 +393,7 @@ namespace astral
            * bottom of the surface when rendering. Recall
            * that in GL the bottom pixel of a framebuffer
            * is y = 0. This convention should be used when
-           * rendering to a window system surface of to
+           * rendering to a window system surface or to a
            * texture to be consumed by something else that
            * expects the y = 0 to be the bottom.
            */
