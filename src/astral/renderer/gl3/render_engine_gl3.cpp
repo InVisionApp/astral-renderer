@@ -274,7 +274,11 @@ init_gl_state(void)
   astral_glDisable(ASTRAL_GL_POLYGON_OFFSET_FILL);
 
   /* primitive restart */
-  astral_glDisable(ASTRAL_GL_PRIMITIVE_RESTART_FIXED_INDEX);
+  if (ContextProperties::is_es() || ContextProperties::version() >= ivec2(4, 3))
+    {
+      astral_glDisable(ASTRAL_GL_PRIMITIVE_RESTART_FIXED_INDEX);
+    }
+
   #ifndef __EMSCRIPTEN__
     {
       if (!ContextProperties::is_es())
