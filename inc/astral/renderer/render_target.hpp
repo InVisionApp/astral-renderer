@@ -158,6 +158,8 @@ namespace astral
    *
    * If both a color and depth-stencil buffer are present, their
    * dimensions must match. It is an error for neither to be present.
+   *
+   * The convention in Astral is that y = 0 is the top of the surface.
    */
   class RenderTarget:public reference_counted<RenderTarget>::non_concurrent
   {

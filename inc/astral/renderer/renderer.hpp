@@ -73,7 +73,8 @@ namespace astral
    *    of the astral::Image rendered to from any of
    *    the overloads of RenderEncoderBase::encoder_image(),
    *    RenderEncoderBase::encoder_mask() or
-   *    RenderEncoderBase::encoder_shadow_map()
+   *    RenderEncoderBase::encoder_shadow_map(). The convention
+   *    in Astral is that y = 0 is the TOP of the surface.
    *  - SurfaceCoordinates are the raw pixel coordinates of the
    *    astral::Image rendered to that are spawned by any of
    *    the overloads of RenderEncoderBase::encoder_mask_relative(),
