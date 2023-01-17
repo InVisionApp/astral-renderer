@@ -30,6 +30,7 @@ The key classes are as follows
        images and constant colors.
 - \ref astral::Material is a generalization of \ref astral::Brush where a custom shader in addition to
        or instead of an astral::Brush can be used to compute the color of pixels.
+- \ref astral::Painter which wraps astral::RenderEncoderBase into a more traditional 2d drawing interface.
 @}
 */
 

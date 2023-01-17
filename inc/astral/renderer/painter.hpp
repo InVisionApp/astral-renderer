@@ -26,6 +26,7 @@ namespace astral
  */
 
   /*!
+   * \brief
    * An astral::Painter is a wrapper over astral::RenderEncoderBase
    * that gives a more traditional interface for 2D rendering. The
    * main advantage of astral::Painter over astral::RenderEncoderBase
