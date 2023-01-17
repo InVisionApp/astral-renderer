@@ -204,7 +204,8 @@ namespace astral
      * astral::StaticData to use for the specified strike-index
      * and optionally the underlying image as well.
      * \param engine astral::RenderEngine to use to realize the data
-     * \param strike_index the strike-index to fetch
+     * \param strike_index the strike-index to fetch where strike_index
+     *                     is an index into astral::Typeface::fixed_metrics().
      * \param out_image if non-null, location to which to write
      *                  a reference to the image; the image is two
      *                  pixels larger in each dimension so that it

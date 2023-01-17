@@ -35,7 +35,7 @@ namespace astral
   class Path;
   ///@endcond
 
-/*!\addtogroup TextBackend
+/*!\addtogroup Text
  * @{
  */
 

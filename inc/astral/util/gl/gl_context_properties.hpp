@@ -76,7 +76,7 @@ namespace astral
 
       /*!
        * Returns true if the context is OpenGL ES,
-       * returns value if the context is OpenGL.
+       * returns false if the context is OpenGL.
        */
       bool
       is_es(void);

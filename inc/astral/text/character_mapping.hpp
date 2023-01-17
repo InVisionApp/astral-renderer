@@ -24,7 +24,7 @@
 
 namespace astral
 {
-/*!\addtogroup TextBackend
+/*!\addtogroup Text
  * @{
  */
 

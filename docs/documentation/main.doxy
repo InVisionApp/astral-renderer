@@ -8,8 +8,8 @@
 @{
 \brief
 Utility provides simple utility, the most important and
-commonly used ones being astral::reference_counted_ptr, astral::vecN,
-and astral::c_array.
+commonly used ones being astral::reference_counted_ptr,
+astral::vecN, astral::Transformation and astral::c_array.
 @}
 */
 
@@ -17,7 +17,19 @@ and astral::c_array.
 \defgroup Renderer Renderer
 @{
 \brief
-Renderer provides the how to draw with Astral
+Renderer provides the how to draw with Astral.
+
+The key classes are as follows
+- \ref astral::Renderer represents the class that actually performs the rendering.
+- \ref astral::RenderEncoderBase represents the class to which rendering commands are submitted.
+- \ref astral::RenderEngine represents the class to hold the resources for rendering and is the class
+       that creates the astral::Renderer object an application is to use for rendering.
+- \ref astral::RenderTarget represents a surface that can also be used outside of Astral to which to render
+- \ref astral::Image represents an image.
+- \ref astral::Brush represents a baseline how to compute the color of pixels. It allows for gradients,
+       images and constant colors.
+- \ref astral::Material is a generalization of \ref astral::Brush where a custom shader in addition to
+       or instead of an astral::Brush can be used to compute the color of pixels.
 @}
 */
 
@@ -25,7 +37,11 @@ Renderer provides the how to draw with Astral
 \defgroup RendererBackend Render Backend
 @{
 \brief
-Render Backend provides the interface with which to make a backend for Astral rendering
+Render Backend provides the interface with which to make a backend for Astral rendering.
+
+In general, applications will not touch or see this. Only when bringing Astral to a new
+platform that does not provide GL3/GLES3 will a user need to use and implement an
+astral::RenderBackend.
 @}
 */
 
@@ -34,6 +50,21 @@ Render Backend provides the interface with which to make a backend for Astral re
 @{
 \brief
 Paths provides the definition and creation of paths and animated paths.
+@}
+*/
+
+/*!
+\defgroup Text Text
+@{
+\brief
+Text provides the classes and functions for the rendering of glyphs
+
+Glyphs come in two major flavors: scalable and non-scalable. Scalable
+glyphs are defined by a path (or for color scalable glyphs an array of
+paths and color values) whereas non-scalable glyphs are defined by image
+data. A given face defines an array of pixels sizes where each glyph has
+an image for each of those pixel sizes. Those pixel sizes are called
+strikes.
 @}
 */
 
@@ -49,7 +80,7 @@ GL Utility provides utility for dealing with OpenGL
 \defgroup gl GL
 @{
 \brief
-GL provides the functionality for the GL backend(s) for Astal
+GL provides the functionality for the GL backend for Astral.
 @}
 */
 
@@ -147,10 +178,13 @@ namespace astral
       should be rendered within a single astral::Renderer::begin(),
       astral::Renderer::end() pair. However, rendering commands
       are not processed by astral::Renderer. Instead, the method
-      astral::Renderer::begin() returns an astral::RenderEncoderSurface,
+      astral::Renderer::encoder_surface() returns an astral::RenderEncoderSurface,
       which is a handle. The handle has methods for adding renderer
       content to the astral::RenderTarget passed to the method
-      astral::Renderer::begin().
+      astral::Renderer::encoder_surface(). When astral::Renderer::end()
+      is called, the content is rendered. Within a single begin/end
+      pair, an application can render to multiple surfaces and multiple
+      images as well.
 
     - Through the class astral::Brush, all objects in Astral
       can have a rich brush applied to their pixels. A brush has
@@ -164,38 +198,41 @@ namespace astral
       draw calls of astral::RenderEncoderBase do not accept an
       astral::Brush directly to specify the brush, but instead
       accept an astral::RenderValue<astral::Brush> which
-      represents a handle to data uploaded (or to be uplaoded) to
+      represents a handle to data uploaded (or to be uploaded) to
       a GPU to represent the brush. An astral::RenderValue value
       in valid only within the astral::Renderer::begin() /
       astral::Renderer::end() pair when it was made.
 
     \subsection Clipping
-    - The clipping state for any astral::RenderEncoderBase derived
-      object is immutable. To perform clipping, one uses the methods
-      astral::RenderEncoderBase::clip_node_logical() and
-      astral::RenderEncoderBase::clip_node_pixel() which returns
-      two astral::RenderEncoderImage values: one for content that is
-      to be clipped-in and one for content that is to be clipped-out.
-      One can call astral::RenderEncoderBase::clip_node_logical()
-      on the returned values to intersect clip regions. A clip region
-      can be given by a mask (embodied by astral::Image), a fill of
-      an astral::Path, astral::AnimatedPath, or the collective fill
-      of a collection of astral::Path and astral::AnimatedPath objects.
+    - Clipping in Astral has two stages. The first stage is clip
+      equations clipping which is defined as the intersection of the
+      viewport of the base surface against the chain of rectangles
+      passed to astral::RenderEncoderBase::encoder_image_relative(). The
+      2nd stage of clipping is mask that can be added to each draw
+      call via astral::ItemMaterial::m_clip. Masks can be generated
+      by astral::RenderEncoderBase::generate_mask(), combined with the method
+      astral::RenderEncoderBase::combine_clipping() and intersected with the
+      method astral::RenderEncoderBase::intersect_clipping(). Lastly, Astral
+      supports simutaneous clip-in and clip-out (via masks) so that such
+      content have have partial based coverage clipping without a rendering
+      crack, see astral::RenderEncoderBase::begin_clip_node_pixel(),
+      astral::RenderEncoderBase::begin_clip_node_logical() and
+      astral::RenderEncoderBase::end_clip_node().
 
     \subsection Masks
-    - A mask is emboded by an astral::Image whose astral::Image::format()
-      is astral::image_format_mask. Masks are used to perform clipping,
-      stroke paths and to fill paths. A caller can save renders of masks
-      from one frame to the next to improve performance. In addition when
-      rendering a mask, a caller can elect to render the mask at a lower
-      resolution than that which it projects onto the screen. This works
-      incredibly well for the rendering of fills because a mask also
-      provides a signed distance field value. For most paths, rendering
-      the mask for fills at half the resolution in each dimension is nearly
-      indistinguishable from rendering at full resolution; the half
-      resolution though is only 25% the number of pixels. See the
-      method overloads for astral::RenderEncoderBase::generate_mask()
-      on generating masks from stroking or filling paths.
+    - A mask is embodied by an astral::Image which is used as a mask.
+      Masks are used to perform clipping, stroke paths and to fill paths.
+      A caller can reuse masks across draws and even frames to improve
+      performance. In addition when rendering a mask, a caller can
+      elect to render the mask at a lower resolution than that which
+      it projects onto the screen. This works incredibly well for the
+      rendering of fills because a mask also provides a signed distance
+      field value. For most paths, rendering the mask for fills at half
+      the resolution in each dimension is nearly indistinguishable from
+      rendering at full resolution; the half resolution though is only 25%
+      the number of pixels. See the method overloads for
+      astral::RenderEncoderBase::generate_mask() on generating masks from
+      stroking or filling paths.
 
     \subsection OffscreenRendering Offscreen Rendering
     - Rendering to an offscreen buffer is a first class citizen in
@@ -212,7 +249,8 @@ namespace astral
       applied or to have an effect (such as Gaussian blur) is
       performed by offscreen rendering via rendering to an
       astral::Image via an astral::RenderEncoderImage value,
-      see the overloads of astral::RenderEncoderBase::encoder_layer().
+      see the overloads of astral::RenderEncoderBase::begin_layer()
+      and astral::RenderEncoderBase::end_layer().
 
   \section LowLevel Rendering Concepts: Low Level
   An astral::RenderEngine derived type, for example the class
@@ -221,7 +259,7 @@ namespace astral
   one astral::RenderEngine derived object for its entire lifetime.
   An astral::RenderEngine can then be used to create the gateway
   to rendering an astral::Renderer. In the vast super-majority
-  of situations, there should be onle one astral::Renderer object
+  of situations, there should be only one astral::Renderer object
   for an application lifetime as well.
 
   Astral supports the ability for applications to do custom shading.

@@ -37,7 +37,7 @@ namespace astral
   /*!
    * \brief
    * An astral::Typeface represents the typeface and style of
-   * a font.
+   * a font, essentially a face.
    */
   class Typeface:public reference_counted<Typeface>::non_concurrent
   {

@@ -50,7 +50,7 @@ namespace astral {
  *    can quickly know what line/file triggered an GL error.
  *  - In addition to definining the macro function astral_glFoo() for each
  *    GL and GLES function glFoo(), the header <astral/util/gl/astral_gl.hpp>
- *    also defines the macro-enu value ASTRAL_GL_FOO for each GL_FOO value of
+ *    also defines the macro-enum value ASTRAL_GL_FOO for each GL_FOO value of
  *    the GL core and GLES3.x API's. In addition, for each type GLtype it also
  *    defines the type astral_GLtype. Thus, one can rely on <astral/util/gl/astral_gl.hpp>
  *    to interact with both the GL and GLES API's and it does NOT collide with

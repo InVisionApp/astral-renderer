@@ -483,7 +483,7 @@ namespace astral
 
     /*!
      * Returns the stats returned on the last call to end().
-     * Gives undefined results if within a begin()/end() pair.
+     * Gives undefined results if within a begin() / end() pair.
      */
     c_array<const unsigned int>
     last_stats(void) const;
@@ -601,8 +601,8 @@ namespace astral
      * Recreate a RenderValue from the value returned
      * by RenderValue::cookie(). NOTE: it is an error
      * if the the cookie value did not come from a
-     * RenderValue made within the current begin()/end()
-     * frame.
+     * RenderValue made within the current begin() / end()
+     * pair.
      */
     template<typename T>
     RenderValue<T>
@@ -759,7 +759,7 @@ namespace astral
     /*!
      * Provided as a conveniance, equivalent to
      * \code
-     * begin(rt, colorspace, clear_color.m_value);
+     * encoder_surface(rt, colorspace, clear_color.m_value);
      * \endcode
      */
     template<enum colorspace_t colorspace>
@@ -858,7 +858,7 @@ namespace astral
      *                       to  record the offscreen buffer
      *                       allocation
      * \returns an astral::c_array of the rendering stats
-     *          of the begin()/end() pair ended. The function
+     *          of the begin() / end() pair ended. The function
      *          stats_labels() gives a C-string for the
      *          meaning of each of the rendering stats
      */
@@ -911,7 +911,7 @@ namespace astral
 
     /*!
      * Override rendering properties, it is an error to
-     * call within a begin()/end() pair.
+     * call within a begin() / end() pair.
      */
     void
     overridable_properties(const RenderEngine::OverridableProperties &props);
