@@ -1139,6 +1139,9 @@ namespace astral
          */
         number_index_levels_bit0 = root_tile_z_bit0 + root_tile_z_num_bits,
       };
+    ///@cond
+    ASTRALstatic_assert(uint32_t(number_index_levels_num_bits + number_index_levels_bit0) <= 32u);
+    ///@endcond
 
     /*!
      * Ctor

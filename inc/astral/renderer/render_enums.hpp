@@ -815,6 +815,13 @@ namespace astral
       mipmap_none,
 
       /*!
+       * Indicates to use an LOD which is closes to
+       * to log2 of the minification factor of the
+       * sampled image.
+       */
+      mipmap_nearest,
+
+      /*!
        * Indicates to use the LOD which is the ceiling
        * of the log2 of the minification factor of the
        * sampled image. This will guarantee that the

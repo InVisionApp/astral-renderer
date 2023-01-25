@@ -48,7 +48,7 @@ namespace astral
         /*!
          * Number of bits needed to encode astral::mipmap_t
          */
-        mipmap_num_bits = 2,
+        mipmap_num_bits = 3,
 
         /*!
          * Number of bits needed to encode the maximum LOD allowed.

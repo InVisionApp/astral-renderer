@@ -2341,6 +2341,7 @@ create_base_lib(void)
     .add_macro_u32("ASTRAL_FILTER_NUM_BITS", ImageSamplerBits::filter_num_bits)
     // minification mipmap mode enums
     .add_macro_u32("ASTRAL_MIPMAP_NONE", mipmap_none)
+    .add_macro_u32("ASTRAL_MIPMAP_NEAREST", mipmap_nearest)
     .add_macro_u32("ASTRAL_MIPMAP_CEILING", mipmap_ceiling)
     .add_macro_u32("ASTRAL_MIPMAP_FLOOR", mipmap_floor)
     .add_macro_u32("ASTRAL_MIPMAP_CHOSEN", mipmap_chosen)

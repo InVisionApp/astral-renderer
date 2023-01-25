@@ -351,26 +351,34 @@ astral_compute_raw_lod(in vec2 dx, in vec2 dy)
 uint
 astral_compute_raw_lod_fast(in uint mipmap_mode, in vec2 dx, in vec2 dy)
 {
-  float rho, pow2uv;
+  float rho_squared, effective_rho_squared;
   int iv;
   uint uv;
 
   /* compute rho as the max of how fast
    * the x-texture coordinate changes and
-   * the y-texture coordinate changes;
+   * the y-texture coordinate changes.
+   * We store rho_squared beause we can avoid the
+   * sqrt().
    */
-  rho = max(dot(dx, dx), dot(dy, dy));
+  rho_squared = max(dot(dx, dx), dot(dy, dy));
 
-  /* we want the log2(sqrt) which is same
-   * as multiplying by 0.5 after the log2;
+  /* we want the log2(sqrt(rho_squared)) which is same
+   * as multiplying by 0.5 after the log2. The
+   * function astral_fast_log2() does not perform
+   * log2(), instead it does bit-ops to extract the
+   * exponent and thus returns an integer.
    */
-  iv = max(0, astral_fast_log2(rho));
+  iv = max(0, astral_fast_log2(rho_squared));
   uv = uint(iv);
 
   /* multiply by 0.5 */
   uv = (uv >> 1u);
 
-  pow2uv = float(1u << (2u * uv));
+  /* effective_rho_squared is the value of the minification
+   * factor that perfectly agrees with using lod level uv.
+   */
+  effective_rho_squared = float(1u << (2u * uv));
 
   if (mipmap_mode == ASTRAL_MIPMAP_CEILING)
     {
@@ -379,19 +387,47 @@ astral_compute_raw_lod_fast(in uint mipmap_mode, in vec2 dx, in vec2 dy)
        * fudge factor so that images displayed at 1:1 resolution don't
        * have pixels accidentally cross the threshold to miplevel 1.
        */
-      if (rho > 0.01 + pow2uv)
+      if (rho_squared > 0.01 + effective_rho_squared)
         {
           ++uv;
         }
     }
-  else
+  else if (mipmap_mode == ASTRAL_MIPMAP_NEAREST)
     {
-      /* This is mipmap-floor where we favor to take lower LOD values,
-       * which means we favor higher resolution images.
+      /* The usual, but special arithmatic heavy way
+       * to compute the mipmap level is just:
+       *
+       * uv = round(0.5 * log2(rho_squared))
+       *
+       * and we are working quite hard to avoid that log2()
+       * on a floating point value. We want the decimal
+       * part of 0.5 * log2(rho_squared) and to see if
+       * it is greater than or equal to 0.5.
+       *
+       * Let
+       *
+       *  A = 0.5 * log2(rho_squared)
+       *  B = A - floor(A)
+       *
+       * We want to increment uv by one if B >= 0.5.
+       * which is the same as if exp2(B) >= sqrt(2)
+       * Compute:
+       *
+       *  exp2(B) = 2^A / 2^floor(A)
+       *          = sqrt(rho_squared) / sqrt(effective_rho_squared)
+       *
+       * So, exp2(B) >= sqrt(2) if and only if
+       *
+       *  sqrt(rho_squared) >= sqrt(2) * sqrt(effective_rho_squared)
+       *
+       * which is the same as
+       *
+       *  rho_squared >= 2.0 * effective_rho_squared
+       *
        */
-      if (uv > 0u && rho < pow2uv)
+      if (rho_squared >= 2.0 * effective_rho_squared)
         {
-          --uv;
+          ++uv;
         }
     }
 
