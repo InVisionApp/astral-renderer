@@ -2203,7 +2203,8 @@ create_base_lib(void)
         {
           dst
             .specify_extension("GL_EXT_clip_cull_distance", ShaderSource::enable_extension)
-            .specify_extension("GL_APPLE_clip_distance", ShaderSource::enable_extension);
+            .specify_extension("GL_APPLE_clip_distance", ShaderSource::enable_extension)
+            .specify_extension("GL_ANGLE_clip_cull_distance", ShaderSource::enable_extension);
         }
       dst.add_source("astral_gles_precisions.glsl.resource_string",  ShaderSource::from_resource);
     }

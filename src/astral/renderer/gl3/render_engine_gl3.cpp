@@ -367,7 +367,9 @@ create(const Config &in_config)
   if (ContextProperties::is_es())
     {
       has_hw_clip_planes = ContextProperties::has_extension("GL_EXT_clip_cull_distance")
-        || ContextProperties::has_extension("GL_APPLE_clip_distance");
+        || ContextProperties::has_extension("GL_APPLE_clip_distance")
+        || ContextProperties::has_extension("GL_ANGLE_clip_cull_distance")
+        || ContextProperties::has_extension("WEBGL_clip_cull_distance");
 
       /* if one day we support native mobile, check
        * for TBO support either by extensions and/or
