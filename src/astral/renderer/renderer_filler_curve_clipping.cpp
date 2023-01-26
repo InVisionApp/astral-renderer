@@ -50,7 +50,7 @@ public:
     m_current(current)
   {}
 
-  reference_counted_ptr<ClippingErrorCallback> m_logger;
+  reference_counted_ptr<SparseFillingErrorCallBack> m_logger;
   const MappedContour &m_current;
 };
 

@@ -341,7 +341,7 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
 
   if (logical_rect.m_bb.empty()
       || (logical_rect.m_pixel_bb && logical_rect.m_pixel_bb->empty())
-      || (m_pixel_rect.empty() && logical_rect.m_inherit_clipping_of_parent))
+      || (m_pixel_rect.empty() && logical_rect.m_inherit_culling_of_parent))
     {
       return polygon;
     }
@@ -378,7 +378,7 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
   backing->m_scratch_rect_pts[2] = tr.apply_to_point(vec2(bb.as_rect().max_x(), bb.as_rect().max_y()));
   backing->m_scratch_rect_pts[3] = tr.apply_to_point(vec2(bb.as_rect().max_x(), bb.as_rect().min_y()));
 
-  if (logical_rect.m_inherit_clipping_of_parent)
+  if (logical_rect.m_inherit_culling_of_parent)
     {
       backing->m_scratch_eqs.clear();
       backing->m_scratch_eqs.reserve(m_equations.size());

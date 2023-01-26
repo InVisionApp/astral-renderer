@@ -2044,7 +2044,7 @@ generate_mask(const CombinedPath &paths,
   Transformation mask_transformation_logical;
   RelativeBoundingBox relative_bounding_box(bb, mask_properties.m_restrict_bb);
 
-  relative_bounding_box.m_inherit_clipping_of_parent = mask_properties.m_apply_clip_equations_clipping;
+  relative_bounding_box.m_inherit_culling_of_parent = mask_properties.m_apply_clip_equations_clipping;
   clip_geometry = virtual_buffer().child_clip_geometry(mask_properties.m_render_scale_factor,
                                                        relative_bounding_box, pixel_slack);
 

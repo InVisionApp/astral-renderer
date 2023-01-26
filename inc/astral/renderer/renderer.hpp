@@ -114,16 +114,17 @@ namespace astral
    *  - The coverage and color value computed above are sent blending
    *  .
    *
-   * The clipping in Renderer is as follows:
-   *  - The first stage of clipping is clip-equations clipping. For encoders
+   * The culling and clipping in Renderer is as follows:
+   *  - The first stage is culling via clip-equations. For encoders
    *    returned by Renderer (via Renderer::encoder_image() or encoder_surface()),
    *    this clipping is the rectangle realized by the surface. For encoders
    *    coming from RenderEncoderBase::encoder_image_relative() (and similair
-   *    methods) the clip-equations clipping is the intersection of the parent
-   *    encoder and the bounding box passed. The tiles of the backing image
-   *    outside of that region may not even be backed and the contents of such
-   *    tiles is undefined.
-   *  - The second stage of clipping comes from ItemMaterial::m_clip which can
+   *    methods) the clip-equations culling is the intersection of the parent
+   *    encoder and the bounding box passed. Pixels outside of this convex polygon
+   *    may or maynot be rendered. The tiles of the backing image outside of that
+   *    region may not even be backed and the contents of such tiles is undefined.
+   *
+   *  - The second stage is clipping and comes from ItemMaterial::m_clip which can
    *    vary draw to draw. The clipping is applied to the item drawn and pixels
    *    that are clipped are unaffected by the draw.
    *  .
@@ -412,27 +413,28 @@ namespace astral
     };
 
     /*!
-     * Callback class to report clipping errors.
+     * Callback class to report errors that are encountered when
+     * doing sparse filling.
      */
-    class ClippingErrorCallback:public reference_counted<ClippingErrorCallback>::non_concurrent
+    class SparseFillingErrorCallBack:public reference_counted<SparseFillingErrorCallBack>::non_concurrent
     {
     public:
       /*!
-       * To be implemented by a derived class to report clipping errors
+       * To be implemented by a derived class to report errors
        * from non-animated contours
        * \param contour contour that generated the error
-       * \param message string describing clipping error
+       * \param message string describing error
        */
       virtual
       void
       report_error(const Contour &contour, const std::string &message) = 0;
 
       /*!
-       * To be implemented by a derived class to report clipping errors
+       * To be implemented by a derived class to report errors
        * from animated contours
        * \param contour contour that generated the error
        * \param t animatation interpolate value that generated the error
-       * \param message string describing clipping error
+       * \param message string describing error
        */
       virtual
       void
@@ -951,11 +953,12 @@ namespace astral
     }
 
     /*!
-     * Set the clip error callback; this can be changed at any time during rendering
-     * and takes effect on the next maks generated for path filling.
+     * Set the callback that is called when an error is encountered
+     * on sparse filling; this can be changed at any time during rendering
+     * and takes effect on the next mask generated for path filling.
      */
     void
-    set_clip_error_callback(reference_counted_ptr<ClippingErrorCallback> callback);
+    set_clip_error_callback(reference_counted_ptr<SparseFillingErrorCallBack> callback);
 
   private:
     friend class RenderClipElement;

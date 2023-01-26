@@ -2105,7 +2105,7 @@ generate_child_buffer(const RelativeBoundingBox &logical_rect,
 {
   RenderEncoderBase return_value;
 
-  if (!logical_rect.m_bb.empty() && (m_type != degenerate_buffer || !logical_rect.m_inherit_clipping_of_parent))
+  if (!logical_rect.m_bb.empty() && (m_type != degenerate_buffer || !logical_rect.m_inherit_culling_of_parent))
     {
       Implement::ClipGeometryGroup clip_geometry;
 

@@ -583,7 +583,7 @@ compute_mask(void)
   Renderer::Implement::ClipGeometryGroup clip_geometry;
   RelativeBoundingBox relative_bounding_box(bb);
 
-  relative_bounding_box.m_inherit_clipping_of_parent = m_mask_params.m_apply_clip_equations_clipping;
+  relative_bounding_box.m_inherit_culling_of_parent = m_mask_params.m_apply_clip_equations_clipping;
   clip_geometry = Renderer::Implement::ClipGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
                                                          relative_bounding_box, m_parent_clip_geometry, pixel_padding);
 

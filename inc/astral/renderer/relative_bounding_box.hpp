@@ -37,7 +37,7 @@ namespace astral
     RelativeBoundingBox(void):
       m_padding(0.0f),
       m_pixel_bb(nullptr),
-      m_inherit_clipping_of_parent(true)
+      m_inherit_culling_of_parent(true)
     {}
 
     /*!
@@ -52,7 +52,7 @@ namespace astral
       m_bb(bb),
       m_padding(padding),
       m_pixel_bb(pixel_bb),
-      m_inherit_clipping_of_parent(true)
+      m_inherit_culling_of_parent(true)
     {}
 
     /*!
@@ -67,7 +67,7 @@ namespace astral
       m_bb(bb),
       m_padding(padding),
       m_pixel_bb(pixel_bb),
-      m_inherit_clipping_of_parent(true)
+      m_inherit_culling_of_parent(true)
     {}
 
     /*!
@@ -109,9 +109,9 @@ namespace astral
 
     /*!
      * If true (the default) when computing the region, inherit
-     * the clipping from the parent.
+     * the culling from the parent.
      */
-    bool m_inherit_clipping_of_parent;
+    bool m_inherit_culling_of_parent;
   };
 /*! @} */
 

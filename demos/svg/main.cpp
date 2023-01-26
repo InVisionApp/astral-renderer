@@ -111,7 +111,7 @@ private:
       number_draw_modes,
     };
 
-  class ClipErrorLogger:public astral::Renderer::ClippingErrorCallback
+  class ClipErrorLogger:public astral::Renderer::SparseFillingErrorCallBack
   {
   public:
     explicit

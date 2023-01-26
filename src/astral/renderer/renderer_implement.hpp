@@ -183,7 +183,7 @@ public:
    */
   std::vector<range_type<unsigned int>> m_virtual_buffer_to_render_target_subregion_same_surface;
 
-  reference_counted_ptr<ClippingErrorCallback> m_clipping_error_callback;
+  reference_counted_ptr<SparseFillingErrorCallBack> m_clipping_error_callback;
   vecN<reference_counted_ptr<Filler>, number_fill_method_t> m_filler;
   reference_counted_ptr<WorkRoom> m_workroom;
   reference_counted_ptr<VertexStreamer> m_vertex_streamer;

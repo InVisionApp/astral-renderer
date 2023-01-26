@@ -1675,7 +1675,7 @@ create_image(ivec2 sz)
 
 void
 astral::Renderer::
-set_clip_error_callback(reference_counted_ptr<ClippingErrorCallback> callback)
+set_clip_error_callback(reference_counted_ptr<SparseFillingErrorCallBack> callback)
 {
   implement().m_clipping_error_callback = callback;
 }
