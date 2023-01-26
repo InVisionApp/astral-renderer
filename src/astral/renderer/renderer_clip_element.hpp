@@ -19,7 +19,7 @@
 
 #include <astral/renderer/renderer.hpp>
 #include "renderer_implement.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_filler.hpp"
 
 class astral::Renderer::Implement::ClipElement:public RenderClipElement
@@ -31,16 +31,16 @@ public:
 
   void
   init(Renderer::Implement &renderer,
-       const ClipGeometrySimple &clip_geometry,
-       ClipGeometryGroup::Token token,
+       const CullGeometrySimple &clip_geometry,
+       CullGeometryGroup::Token token,
        const reference_counted_ptr<const Image> &image,
        enum mask_type_t mask_type,
        enum mask_channel_t mask_channel);
 
   void
   init(Renderer::Implement &renderer,
-       const ClipGeometrySimple &clip_geometry,
-       ClipGeometryGroup::Token token,
+       const CullGeometrySimple &clip_geometry,
+       CullGeometryGroup::Token token,
        const reference_counted_ptr<const Image> &image,
        vecN<enum mask_channel_t, number_mask_type> channels,
        enum mask_type_t preferred_mask_type);
@@ -52,13 +52,13 @@ public:
   ~ClipElement()
   {}
 
-  const ClipGeometrySimple&
+  const CullGeometrySimple&
   clip_geometry(void) const
   {
     return m_clip_geometry;
   }
 
-  ClipGeometryGroup::Token
+  CullGeometryGroup::Token
   clip_geometry_token(void) const
   {
     return m_clip_geometry_token;
@@ -120,8 +120,8 @@ private:
   friend class RenderClipElement;
 
   Renderer::Implement *m_renderer;
-  ClipGeometrySimple m_clip_geometry;
-  ClipGeometryGroup::Token m_clip_geometry_token;
+  CullGeometrySimple m_clip_geometry;
+  CullGeometryGroup::Token m_clip_geometry_token;
   reference_counted_ptr<const ImageMipElement> m_mip_front;
   MaskDetails m_mask_details;
 
@@ -273,7 +273,7 @@ public:
   create_clip(Renderer::Implement &renderer,
               const vecN<enum mask_channel_t, number_mask_type> &mask_channels,
               const Image &image, const vecN<range_type<unsigned int>, 2> &tile_range,
-              const ClipGeometrySimple &clip_geometry, ClipGeometryGroup::Token token,
+              const CullGeometrySimple &clip_geometry, CullGeometryGroup::Token token,
               enum mask_type_t preferred_mask_type)
   {
     return create_clip_implement(renderer, nullptr,
@@ -321,14 +321,14 @@ private:
   create_clip_implement(Renderer::Implement &renderer, ClipCombineResult *pthis,
                         const vecN<enum mask_channel_t, number_mask_type> &mask_channels,
                         const Image &image, const vecN<range_type<unsigned int>, 2> &tile_range,
-                        const ClipGeometrySimple &clip_geometry, ClipGeometryGroup::Token token,
+                        const CullGeometrySimple &clip_geometry, CullGeometryGroup::Token token,
                         enum ImageMipElement::element_type_t TileProperties::*v,
                         enum mask_type_t preferred_mask_type);
 
   reference_counted_ptr<const RenderClipElement>
   create_clip(const vecN<enum mask_channel_t, number_mask_type> &mask_channels,
               const Image &image, const vecN<range_type<unsigned int>, 2> &tile_range,
-              const ClipGeometrySimple &clip_geometry, ClipGeometryGroup::Token token,
+              const CullGeometrySimple &clip_geometry, CullGeometryGroup::Token token,
               enum ImageMipElement::element_type_t TileProperties::*v,
               enum mask_type_t preferred_mask_type)
   {

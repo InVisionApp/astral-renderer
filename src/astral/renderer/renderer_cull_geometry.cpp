@@ -1,6 +1,6 @@
 /*!
- * \file renderer_clip_geometry.cpp
- * \brief file renderer_clip_geometry.cpp
+ * \file renderer_cull_geometry.cpp
+ * \brief file renderer_cull_geometry.cpp
  *
  * Copyright 2020 by InvisionApp.
  *
@@ -17,16 +17,16 @@
 #include <cmath>
 #include <astral/util/clip_util.hpp>
 #include <astral/util/ostream_utility.hpp>
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_storage.hpp"
 
 /////////////////////////////////////////
-// astral::Renderer::Implement::ClipGeometrySimple methods
-astral::Renderer::Implement::ClipGeometrySimple
-astral::Renderer::Implement::ClipGeometrySimple::
+// astral::Renderer::Implement::CullGeometrySimple methods
+astral::Renderer::Implement::CullGeometrySimple
+astral::Renderer::Implement::CullGeometrySimple::
 sub_geometry(uvec2 begin, uvec2 end) const
 {
-  ClipGeometrySimple return_value;
+  CullGeometrySimple return_value;
 
   end.x() = t_min(end.x(), static_cast<unsigned int>(m_image_size.x()));
   end.y() = t_min(end.y(), static_cast<unsigned int>(m_image_size.y()));
@@ -52,9 +52,9 @@ sub_geometry(uvec2 begin, uvec2 end) const
 }
 
 //////////////////////////////////////////
-// astral::Renderer::Implement::ClipGeometry methods
-astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, ivec2 size):
+// astral::Renderer::Implement::CullGeometry methods
+astral::Renderer::Implement::CullGeometry::
+CullGeometry(Backing *backing, ivec2 size):
   m_polygon(backing),
   m_equations(backing),
   m_is_screen_aligned_rect(true)
@@ -90,8 +90,8 @@ ClipGeometry(Backing *backing, ivec2 size):
     }
 }
 
-astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor):
+astral::Renderer::Implement::CullGeometry::
+CullGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor):
   m_polygon(backing),
   m_equations(backing),
   m_is_screen_aligned_rect(true)
@@ -121,27 +121,27 @@ ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale
   set_image_transformation_and_rects(pixel_rect, scale_factor, pixel_padding);
 }
 
-astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, ivec2 size, Renderer::Implement &renderer, RenderBackend::ClipWindowValue *out_clip_window):
-  ClipGeometry(backing, size)
+astral::Renderer::Implement::CullGeometry::
+CullGeometry(Backing *backing, ivec2 size, Renderer::Implement &renderer, RenderBackend::ClipWindowValue *out_clip_window):
+  CullGeometry(backing, size)
 {
   *out_clip_window = renderer.create_clip_window(vec2(0.0f), vec2(size));
 }
 
-astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, const Transformation &tr,
+astral::Renderer::Implement::CullGeometry::
+CullGeometry(Backing *backing, const Transformation &tr,
              float tr_norm, float scale_factor,
              const RelativeBoundingBox &logical_rect,
-             const ClipGeometry &geom, int pixel_padding,
+             const CullGeometry &geom, int pixel_padding,
              vec2 translate_geom):
-  ClipGeometry(backing, scale_factor,
+  CullGeometry(backing, scale_factor,
                geom.compute_intersection(backing, tr, tr_norm, logical_rect, translate_geom),
                pixel_padding)
 {
 }
 
-astral::Renderer::Implement::ClipGeometry::
-ClipGeometry(Backing *backing, float scale_factor,
+astral::Renderer::Implement::CullGeometry::
+CullGeometry(Backing *backing, float scale_factor,
              Intersection intersection, int pixel_padding):
   m_polygon(backing),
   m_equations(backing),
@@ -182,7 +182,7 @@ ClipGeometry(Backing *backing, float scale_factor,
 }
 
 void
-astral::Renderer::Implement::ClipGeometry::
+astral::Renderer::Implement::CullGeometry::
 set_image_transformation_and_rects(const BoundingBox<float> &bb, float scale_factor, int pixel_padding)
 {
   vec2 sz, scaled_sz;
@@ -277,7 +277,7 @@ set_image_transformation_and_rects(const BoundingBox<float> &bb, float scale_fac
 }
 
 void
-astral::Renderer::Implement::ClipGeometry::
+astral::Renderer::Implement::CullGeometry::
 set_equations_and_bb_from_polygon(Backing *backing, BoundingBox<float> *bb)
 {
   bb->clear();
@@ -331,8 +331,8 @@ set_equations_and_bb_from_polygon(Backing *backing, BoundingBox<float> *bb)
     }
 }
 
-astral::Renderer::Implement::ClipGeometry::Intersection
-astral::Renderer::Implement::ClipGeometry::
+astral::Renderer::Implement::CullGeometry::Intersection
+astral::Renderer::Implement::CullGeometry::
 compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
                      const RelativeBoundingBox &logical_rect,
                      vec2 translate_this) const
@@ -449,13 +449,13 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
 }
 
 ///////////////////////////////////////////////////
-// astral::Renderer::Implement::ClipGeometryGroup methods
-astral::Renderer::Implement::ClipGeometryGroup::
-ClipGeometryGroup(Implement &renderer,
+// astral::Renderer::Implement::CullGeometryGroup methods
+astral::Renderer::Implement::CullGeometryGroup::
+CullGeometryGroup(Implement &renderer,
                   const Transformation &tr,
                   float tr_norm, float scale_factor,
                   const RelativeBoundingBox &logical_rect,
-                  const ClipGeometryGroup &parent_geom, int pixel_padding,
+                  const CullGeometryGroup &parent_geom, int pixel_padding,
                   c_array<const TranslateAndPadding> translate_and_paddings)
 {
   Intersection &tmp(renderer.m_workroom->m_clip_geometry_intersection);
@@ -469,12 +469,12 @@ ClipGeometryGroup(Implement &renderer,
 }
 
 void
-astral::Renderer::Implement::ClipGeometryGroup::
+astral::Renderer::Implement::CullGeometryGroup::
 init(Implement &renderer, float scale_factor,
      const Intersection &intersection,
      int pixel_padding)
 {
-  std::vector<ClipGeometry> &workroom(renderer.m_workroom->m_clip_geometries);
+  std::vector<CullGeometry> &workroom(renderer.m_workroom->m_clip_geometries);
   BoundingBox<float> bb;
 
   ASTRALassert(workroom.empty());
@@ -482,8 +482,8 @@ init(Implement &renderer, float scale_factor,
     {
       for (unsigned int P = 0, endP = intersection.number_polygons(G); P < endP; ++P)
         {
-          ClipGeometry::Intersection polygon;
-          ClipGeometry C;
+          CullGeometry::Intersection polygon;
+          CullGeometry C;
 
           polygon.m_pts = intersection.polygon(G, P);
           polygon.m_is_screen_aligned_rect = intersection.polygon_is_screen_aligned_rect(G, P);
@@ -514,7 +514,7 @@ init(Implement &renderer, float scale_factor,
   if (workroom.empty())
     {
       /* all the resulting clip-geoemetries are empty, so this will be empty too */
-      m_bounding_geometry = ClipGeometry();
+      m_bounding_geometry = CullGeometry();
       m_sub_clips = range_type<unsigned int>(0, 0);
     }
   else if (workroom.size() == 1)
@@ -537,7 +537,7 @@ init(Implement &renderer, float scale_factor,
 
       /* compute the sub-rects */
       c_array<BoundingBox<float>> subrects;
-      c_array<const ClipGeometry> clips;
+      c_array<const CullGeometry> clips;
 
       clips = renderer.m_storage->backed_clip_geometries(m_sub_clips);
       subrects = renderer.m_storage->backed_clip_geometry_sub_rects(m_sub_rects);
@@ -560,7 +560,7 @@ init(Implement &renderer, float scale_factor,
 }
 
 void
-astral::Renderer::Implement::ClipGeometryGroup::
+astral::Renderer::Implement::CullGeometryGroup::
 compute_intersection(Storage &storage,
                      const Transformation &tr, float tr_norm,
                      const RelativeBoundingBox &in_logical_rect,
@@ -651,9 +651,9 @@ compute_intersection(Storage &storage,
       offset = tr.apply_to_direction(translate_and_paddings[src].m_logical_translate);
       logical_rect.m_padding += translate_and_paddings[src].m_logical_padding;
 
-      for (const ClipGeometry &C : sub_clip_geometries(storage))
+      for (const CullGeometry &C : sub_clip_geometries(storage))
         {
-          ClipGeometry::Intersection pts;
+          CullGeometry::Intersection pts;
 
           pts = C.compute_intersection(&storage.clip_geometry_backing(),
                                        tr, tr_norm, logical_rect,
@@ -673,15 +673,15 @@ compute_intersection(Storage &storage,
     }
 }
 
-astral::c_array<const astral::Renderer::Implement::ClipGeometry>
-astral::Renderer::Implement::ClipGeometryGroup::
+astral::c_array<const astral::Renderer::Implement::CullGeometry>
+astral::Renderer::Implement::CullGeometryGroup::
 sub_clip_geometries(Storage &storage) const
 {
   ASTRALassert(m_sub_clips.difference() == m_sub_rects.difference());
   if (m_sub_clips.m_begin == m_sub_clips.m_end)
     {
       ASTRALassert(m_sub_clips.m_begin == 0);
-      return c_array<const ClipGeometry>(&m_bounding_geometry, 1);
+      return c_array<const CullGeometry>(&m_bounding_geometry, 1);
     }
   else
     {
@@ -690,9 +690,9 @@ sub_clip_geometries(Storage &storage) const
 }
 
 //////////////////////////////////////////
-// astral::Renderer::Implement::ClipGeometryGroup::Token methods
+// astral::Renderer::Implement::CullGeometryGroup::Token methods
 astral::c_array<const astral::BoundingBox<float>>
-astral::Renderer::Implement::ClipGeometryGroup::Token::
+astral::Renderer::Implement::CullGeometryGroup::Token::
 sub_rects(Storage &storage) const
 {
   if (m_begin == m_end)
@@ -706,8 +706,8 @@ sub_rects(Storage &storage) const
     }
 }
 
-astral::Renderer::Implement::ClipGeometryGroup::Token
-astral::Renderer::Implement::ClipGeometryGroup::Token::
+astral::Renderer::Implement::CullGeometryGroup::Token
+astral::Renderer::Implement::CullGeometryGroup::Token::
 intersect_against(Storage &storage, const BoundingBox<float> &pixel_rect) const
 {
   if (m_begin == m_end)

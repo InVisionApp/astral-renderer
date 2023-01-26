@@ -38,8 +38,8 @@ public:
 
   /* Computes what tiles are empty, the returned array is
    * valid until compute_empty_tiles() is called again.
-   * \param storage Storage object holding the backing for the ClipGeometryGroup
-   * \param geometry ClipGeometryGroup from which to derive the
+   * \param storage Storage object holding the backing for the CullGeometryGroup
+   * \param geometry CullGeometryGroup from which to derive the
    *                 transformation between the image and drawing
    *                 commands and to also specify the regions that
    *                 can be backed
@@ -47,14 +47,14 @@ public:
    *             by any command are regarded as empty tiles
    * \param use_pixel_rect_tile_culling if true instead of using
    *                                    the clip-equations of the
-   *                                    ClipGeometry values, just use
+   *                                    CullGeometry values, just use
    *                                    the pixel rects instead.
    * \param out_image_bounding_box location to which to write the
    *                               bounding box of the portion of
    *                               the image hit.
    */
   c_array<const uvec2>
-  compute_empty_tiles(Storage &storage, const ClipGeometryGroup &geometry,
+  compute_empty_tiles(Storage &storage, const CullGeometryGroup &geometry,
                       const DrawCommandList &cmds,
                       bool use_pixel_rect_tile_culling,
                       BoundingBox<int> *out_image_bounding_box)
@@ -66,20 +66,20 @@ public:
 
   /* Computes what tiles are empty, the returned array is
    * valid until compute_empty_tiles() is called again.
-   * \param storage Storage object holding the backing for the ClipGeometryGroup
-   * \param geometry ClipGeometryGroup specifying the regions
+   * \param storage Storage object holding the backing for the CullGeometryGroup
+   * \param geometry CullGeometryGroup specifying the regions
    *                 that can be backed; tiles outside of the regions
    *                 are regarded as empty tiles.
    * \param use_pixel_rect_tile_culling if true instead of using
    *                                    the clip-equations of the
-   *                                    ClipGeometry values, just use
+   *                                    CullGeometry values, just use
    *                                    the pixel rects instead.
    * \param out_image_bounding_box location to which to write the
    *                               bounding box of the portion of
    *                               the image hit.
    */
   c_array<const uvec2>
-  compute_empty_tiles(Storage &storage, const ClipGeometryGroup &geometry,
+  compute_empty_tiles(Storage &storage, const CullGeometryGroup &geometry,
                       bool use_pixel_rect_tile_culling,
                       BoundingBox<int> *out_image_bounding_box)
   {
@@ -142,7 +142,7 @@ private:
     void
     mark_is_completely_backed(void) = 0;
 
-    /* box is in "pixel" coordinates coming from ClipGeometry */
+    /* box is in "pixel" coordinates coming from CullGeometry */
     virtual
     void
     add_hits(const TransformedBoundingBox &pixel_rect) = 0;
@@ -150,7 +150,7 @@ private:
     void
     add_backed_region(Storage &storage, ClipEqStack &eq_stack,
                       bool use_pixel_rect_tile_culling,
-                      const ClipGeometry &geometry);
+                      const CullGeometry &geometry);
 
     virtual
     void
@@ -161,7 +161,7 @@ private:
     add_backed_region_clip_eq(const BoundingBox<float> &pixel_rect, ClipEqStack &eq_stack) = 0;
 
   protected:
-    /* padded box in "pixel" coordinates coming from ClipGeometry */
+    /* padded box in "pixel" coordinates coming from CullGeometry */
     BoundingBox<float> m_padded_box;
 
     enum backing_status_t m_backing_status;
@@ -328,7 +328,7 @@ private:
   };
 
   c_array<const uvec2>
-  compute_empty_tiles_implement(Storage &storage, const ClipGeometryGroup &geometry,
+  compute_empty_tiles_implement(Storage &storage, const CullGeometryGroup &geometry,
                                 const DrawCommandList *cmds,
                                 bool use_pixel_rect_tile_culling,
                                 BoundingBox<int> *out_image_bounding_box);

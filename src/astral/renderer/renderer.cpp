@@ -50,7 +50,7 @@
  *   where multiple virtual offscreen buffers are drawn to a single
  *   3D API render target. A single virtual buffer is embodied by
  *   an instance of VirtualBuffer. To inherit clipping and to reduce
- *   the pixel rect of a virtual buffer, the class ClipGeometry is
+ *   the pixel rect of a virtual buffer, the class CullGeometry is
  *   employed. It also computes the transformation from pixel coordinates
  *   of the virtual buffer region to the image coordindates of the Image
  *   that backs the virtual buffer for reading. When RenderEncoderBase::finish()

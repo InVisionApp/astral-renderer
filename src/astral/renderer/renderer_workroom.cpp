@@ -18,7 +18,7 @@
 
 #include "renderer_virtual_buffer.hpp"
 #include "renderer_storage.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_workroom.hpp"
 
 /* A Choose embodies a region allocator on a single rectangle

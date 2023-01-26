@@ -25,7 +25,7 @@
 
 #include "renderer_implement.hpp"
 #include "renderer_draw_command.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "render_clip_node.hpp"
 #include "renderer_uber_shading_key_collection.hpp"
 #include "renderer_tile_hit_detection.hpp"
@@ -285,11 +285,11 @@ public:
   /* workroom to figure out what tiles of a color render are hit */
   TileHitDetection m_tile_hit_detection;
 
-  /* work room for an array of ClipGeometry values; used when
-   * constructing a ClipGeometryGroup
+  /* work room for an array of CullGeometry values; used when
+   * constructing a CullGeometryGroup
    */
-  std::vector<ClipGeometry> m_clip_geometries;
-  ClipGeometryGroup::Intersection m_clip_geometry_intersection;
+  std::vector<CullGeometry> m_clip_geometries;
+  CullGeometryGroup::Intersection m_clip_geometry_intersection;
 
   /* scratch space for RenderEncoderLayer */
   RenderEncoderLayer::Backing::ScratchSpace m_render_encoder_layer;

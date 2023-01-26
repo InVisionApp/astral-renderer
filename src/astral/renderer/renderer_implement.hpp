@@ -27,9 +27,9 @@ public:
   class DrawCommand;
   class DrawCommandList;
   class CachedTransformation;
-  class ClipGeometry;
-  class ClipGeometryGroup;
-  class ClipGeometrySimple;
+  class CullGeometry;
+  class CullGeometryGroup;
+  class CullGeometrySimple;
   class Storage;
   class STCData;
   class Streamer;

@@ -19,7 +19,7 @@
 
 #include <astral/renderer/renderer.hpp>
 
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 
 /* The class that is the backing for RenderSupportTypes::Proxy.
  * Its purpose is to specify a redering region and is also
@@ -28,7 +28,7 @@
 class astral::RenderSupportTypes::Proxy::Backing
 {
 public:
-  Backing(const Transformation &tr, const Renderer::Implement::ClipGeometryGroup &geom):
+  Backing(const Transformation &tr, const Renderer::Implement::CullGeometryGroup &geom):
     m_transformation(tr),
     m_clip_geometry(geom)
   {}
@@ -39,7 +39,7 @@ public:
   Transformation m_transformation;
 
   /* The clipping region defined by the Proxy. */
-  Renderer::Implement::ClipGeometryGroup m_clip_geometry;
+  Renderer::Implement::CullGeometryGroup m_clip_geometry;
 };
 
 #endif

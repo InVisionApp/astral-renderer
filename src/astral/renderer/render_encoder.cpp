@@ -2017,8 +2017,8 @@ generate_mask(const CombinedPath &paths,
           mask_channels[mask_type_coverage] = MaskUsage::mask_channel(mask_type_coverage);
           mask_channels[mask_type_distance_field] = MaskUsage::mask_channel(mask_type_distance_field);
 
-          p = renderer_implement().m_storage->create_clip_element(Renderer::Implement::ClipGeometrySimple(),
-                                                                  Renderer::Implement::ClipGeometryGroup::Token(),
+          p = renderer_implement().m_storage->create_clip_element(Renderer::Implement::CullGeometrySimple(),
+                                                                  Renderer::Implement::CullGeometryGroup::Token(),
                                                                   out_data->m_mask, mask_channels, mask_type);
           *out_clip_element = p;
         }
@@ -2040,7 +2040,7 @@ generate_mask(const CombinedPath &paths,
    * when params.m_render_scale_factor is small.
    */
   unsigned int pixel_slack(ImageAtlas::tile_padding);
-  Renderer::Implement::ClipGeometryGroup clip_geometry;
+  Renderer::Implement::CullGeometryGroup clip_geometry;
   Transformation mask_transformation_logical;
   RelativeBoundingBox relative_bounding_box(bb, mask_properties.m_restrict_bb);
 

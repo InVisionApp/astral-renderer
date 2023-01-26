@@ -63,7 +63,7 @@ namespace
 astral::Renderer::VirtualBuffer::
 VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
               const Transformation &initial_transformation,
-              const Implement::ClipGeometryGroup &clip_geometry,
+              const Implement::CullGeometryGroup &clip_geometry,
               enum Implement::DrawCommandList::render_type_t render_type,
               enum image_blit_processing_t blit_processing,
               enum colorspace_t colorspace,
@@ -156,7 +156,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
 
   if (image_size.x() > 0 && image_size.y() > 0)
     {
-      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(image_size, renderer, &m_clip_window));
+      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(image_size, renderer, &m_clip_window));
 
       m_type = image_buffer;
       m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_clip_geometry.bounding_geometry().pixel_rect());
@@ -174,7 +174,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   else
     {
       m_type = degenerate_buffer;
-      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(ivec2(0, 0)));
+      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(ivec2(0, 0)));
     }
 }
 
@@ -444,7 +444,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   if (region)
     {
       m_region = *region;
-      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(region->m_size));
+      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(region->m_size));
 
       /* Recall that the clip-window is in coordinates BEFORE the ScaleTranslate that places
        * it on the surface.
@@ -460,7 +460,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
     }
   else
     {
-      m_clip_geometry = Implement::ClipGeometryGroup(renderer.m_storage->create_clip(rt.size()));
+      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(rt.size()));
     }
   m_command_list = renderer.m_storage->allocate_command_list(Implement::DrawCommandList::render_color_image,
                                                              image_processing_none,
@@ -587,7 +587,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
 astral::Renderer::VirtualBuffer::
 VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
               const Transformation &initial_transformation,
-              Implement::ClipGeometryGroup &geometry,
+              Implement::CullGeometryGroup &geometry,
               enum Implement::DrawCommandList::render_type_t render_type,
               enum image_blit_processing_t blit_processing,
               enum colorspace_t colorspace,
@@ -2046,7 +2046,7 @@ generate_child_proxy(const RelativeBoundingBox &logical_rect,
 
   if (!logical_rect.m_bb.empty() && m_type != degenerate_buffer)
     {
-      Implement::ClipGeometryGroup clip_geometry;
+      Implement::CullGeometryGroup clip_geometry;
 
       clip_geometry = child_clip_geometry(scale_factor, logical_rect, pixel_slack);
       return_value = m_renderer.m_storage->create_virtual_buffer_proxy(transformation(), clip_geometry);
@@ -2107,7 +2107,7 @@ generate_child_buffer(const RelativeBoundingBox &logical_rect,
 
   if (!logical_rect.m_bb.empty() && (m_type != degenerate_buffer || !logical_rect.m_inherit_culling_of_parent))
     {
-      Implement::ClipGeometryGroup clip_geometry;
+      Implement::CullGeometryGroup clip_geometry;
 
       clip_geometry = child_clip_geometry(in_scale_factor, logical_rect, pixel_slack);
       return_value = m_renderer.m_storage->create_virtual_buffer(VB_TAG, transformation(), clip_geometry,
@@ -2132,7 +2132,7 @@ generate_child_buffer(const RelativeBoundingBox &logical_rect,
   return return_value;
 }
 
-astral::Renderer::Implement::ClipGeometryGroup
+astral::Renderer::Implement::CullGeometryGroup
 astral::Renderer::VirtualBuffer::
 child_clip_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox &logical_rect, unsigned int pixel_slack)
 {
@@ -2143,7 +2143,7 @@ child_clip_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox
       sf *= scale_factor();
     }
 
-  return Implement::ClipGeometryGroup(m_renderer, transformation(),
+  return Implement::CullGeometryGroup(m_renderer, transformation(),
                                       m_transformation_stack.back().singular_values().x(),
                                       sf, logical_rect, clip_geometry(), pixel_slack);
 }

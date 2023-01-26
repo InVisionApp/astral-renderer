@@ -26,7 +26,7 @@ void
 astral::Renderer::Implement::Filler::
 create_mask(float logical_tol,
             enum fill_rule_t fill_rule, enum anti_alias_t aa_mode,
-            const CombinedPath &path, const ClipGeometrySimple &clip_geometry,
+            const CombinedPath &path, const CullGeometrySimple &clip_geometry,
             c_array<const BoundingBox<float>> restrict_bbs,
             const Transformation &image_transformation_logical,
             const ClipElement *clip_element,
@@ -59,7 +59,7 @@ create_mask(float logical_tol,
 
 void
 astral::Renderer::Implement::Filler::
-compute_mask_details(const ClipGeometrySimple &clip_geometry,
+compute_mask_details(const CullGeometrySimple &clip_geometry,
                      const reference_counted_ptr<const Image> &mask_image,
                      MaskDetails *out_data)
 {
@@ -145,7 +145,7 @@ void
 astral::Renderer::Implement::Filler::
 create_mask_via_item_path_shader(Renderer::Implement &renderer, const MaskItemPathShader &shader,
                                  float tol, enum fill_rule_t fill_rule,
-                                 const CombinedPath &combined_path, const ClipGeometrySimple &clip_geometry,
+                                 const CombinedPath &combined_path, const CullGeometrySimple &clip_geometry,
                                  const Transformation &image_transformation_logical,
                                  const ClipElement *clip_element,
                                  TileTypeTable *out_clip_combine_tile_data, MaskDetails *out_data)

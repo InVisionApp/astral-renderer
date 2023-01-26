@@ -1,6 +1,6 @@
 /*!
- * \file renderer_clip_geometry.hpp
- * \brief file renderer_clip_geometry.hpp
+ * \file renderer_cull_geometry.hpp
+ * \brief file renderer_cull_geometry.hpp
  *
  * Copyright 2020 by InvisionApp.
  *
@@ -14,25 +14,25 @@
  *
  */
 
-#ifndef ASTRAL_RENDERER_CLIP_GEOMETRY_HPP
-#define ASTRAL_RENDERER_CLIP_GEOMETRY_HPP
+#ifndef ASTRAL_RENDERER_CULL_GEOMETRY_HPP
+#define ASTRAL_RENDERER_CULL_GEOMETRY_HPP
 
 #include <tuple>
 #include <astral/renderer/renderer.hpp>
 #include "renderer_implement.hpp"
 
 /*!
- * A ClipGeometrySimple represents essentially
+ * A CullGeometrySimple represents essentially
  * just the information on the bounding box and
  * transformation values.
  */
-class astral::Renderer::Implement::ClipGeometrySimple
+class astral::Renderer::Implement::CullGeometrySimple
 {
 public:
-  /* default ctor initializes as ClipGeometrySimple
+  /* default ctor initializes as CullGeometrySimple
    * representing an empty region.
    */
-  ClipGeometrySimple(void):
+  CullGeometrySimple(void):
     m_image_size(0, 0)
   {}
 
@@ -107,14 +107,14 @@ public:
     return Transformation(m_image_transformation_pixel) * pixel_transformation_logical;
   }
 
-  /* Computes and returns the ClipGeometrySimple corresponding to
+  /* Computes and returns the CullGeometrySimple corresponding to
    * a sub-image of the usual backing image.
    */
-  ClipGeometrySimple
+  CullGeometrySimple
   sub_geometry(uvec2 begin, uvec2 end) const;
 
 private:
-  friend class ClipGeometry;
+  friend class CullGeometry;
 
   ivec2 m_image_size;
   BoundingBox<float> m_pixel_rect;
@@ -122,18 +122,18 @@ private:
 };
 
 /*!
- * A ClipGeometry represents the functionality of
- * tracking the current clip from previous rectangles
+ * A CullGeometry represents the functionality of
+ * tracking the current culling from previous rectangles
  * (including the possibility of rotated rectangles)
- * and clipping a rectangle against that clip to produce
+ * and clipping a rectangle against that cull to produce
  * smaller region screen-aligned rect that is tighter
- * to the clipping polygon.
+ * to the culling polygon.
  */
-class astral::Renderer::Implement::ClipGeometry:public ClipGeometrySimple
+class astral::Renderer::Implement::CullGeometry:public CullGeometrySimple
 {
 public:
   /* Backing for the polygon points and the clip
-   * equations of a ClipGeometry; the expectation
+   * equations of a CullGeometry; the expectation
    * is that a single Backing is used; in addition
    * Backing also provides scratch space to compute
    * the clip-planes and points of the polygon.
@@ -151,7 +151,7 @@ public:
     }
 
   private:
-    friend class ClipGeometry;
+    friend class CullGeometry;
 
     vecN<std::vector<vec2>, 2> m_scratch_clip_pts;
     std::vector<vec2> m_scratch_aux_pts;
@@ -159,7 +159,7 @@ public:
     vecN<vec2, 4> m_scratch_rect_pts;
   };
 
-  /* Class to codify an intersection of a ClipGeometry
+  /* Class to codify an intersection of a CullGeometry
    * against a transformed rectangle
    */
   class Intersection
@@ -170,7 +170,7 @@ public:
     {}
 
     /* Array of points codifying the clipped polygon; the array
-     * becomes invalid when ClipGeometry::compute_intersection()
+     * becomes invalid when CullGeometry::compute_intersection()
      * is called (directly or indirectly).
      */
     c_array<const vec2> m_pts;
@@ -180,60 +180,60 @@ public:
   };
 
   /* Special ctor to indicate nothing */
-  ClipGeometry(void):
+  CullGeometry(void):
     m_polygon(nullptr),
     m_equations(nullptr)
   {}
 
-  /* initialize the ClipGeometry for rendering to a region
+  /* initialize the CullGeometry for rendering to a region
    * of the specified size
    */
-  ClipGeometry(Backing *backing, ivec2 size);
+  CullGeometry(Backing *backing, ivec2 size);
 
-  /* initialize the ClipGeometry for rendering to a region
+  /* initialize the CullGeometry for rendering to a region
    * of the specified size. In addition, initalize a
    * RenderBackend::ClipWindowValue for clipping to that region.
    */
-  ClipGeometry(Backing *backing, ivec2 size, Renderer::Implement &renderer,
+  CullGeometry(Backing *backing, ivec2 size, Renderer::Implement &renderer,
                RenderBackend::ClipWindowValue *out_clip_window);
 
-  /* initialize ClipGeometry to a specific pixel rect */
-  ClipGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor);
+  /* initialize CullGeometry to a specific pixel rect */
+  CullGeometry(Backing *backing, const BoundingBox<float> &pixel_rect, float scale_factor);
 
-  /* Initialize the ClipGeometry from a given convex polygon,
+  /* Initialize the CullGeometry from a given convex polygon,
    * for example as computed by compute_intersection()
-   * ClipGeometry and a rectangle in logical coordinates.
+   * CullGeometry and a rectangle in logical coordinates.
    * \param backing object that backs the clip-equations and clip-polygon
    * \param scale_factor amount by which to scale rendering
    * \param polygon convex polygon specifying the region
    * \param pixel_padding amount in raw pixels to pad
    */
-  ClipGeometry(Backing *backing, float scale_factor,
+  CullGeometry(Backing *backing, float scale_factor,
                Intersection intersection, int pixel_padding);
 
-  /* Initialize the ClipGeometry as the intersection of another
-   * ClipGeometry and a rectangle in logical coordinates.
+  /* Initialize the CullGeometry as the intersection of another
+   * CullGeometry and a rectangle in logical coordinates.
    * \param backing object that backs the clip-equations and clip-polygon
    * \param tr transformation from logical to pixel coordinates
    * \param tr_norm operartor norm of tr which is the largest
    *                singular value of the matrix of tr
    * \param scale_factor amount by which to scale rendering
    * \param logical_rect rect in logical coordinate to clip
-   * \param geom ClipGeometry from which to inherit clipping
+   * \param geom CullGeometry from which to inherit clipping
    * \param pixel_padding amount in raw pixels to pad
    * \param translate_geom if non-zero, instead of intersection against
    *                       the region degined by geom, interset against
    *                       the region G = { p - T | p in geom } where
    *                       T is the value of translate_geom
    */
-  ClipGeometry(Backing *backing, const Transformation &tr,
+  CullGeometry(Backing *backing, const Transformation &tr,
                float tr_norm, float scale_factor,
                const RelativeBoundingBox &logical_rect,
-               const ClipGeometry &geom, int pixel_padding,
+               const CullGeometry &geom, int pixel_padding,
                vec2 translate_geom = vec2(0.0f, 0.0f));
 
   /*!
-   * Computes the intersection of this ClipGeometry against a
+   * Computes the intersection of this CullGeometry against a
    * RelativeBoundingBox.
    * \param backing object that backs the clip-equations and clip-polygon
    * \param tr transformation from logical to pixel coordinates
@@ -377,12 +377,12 @@ private:
   bool m_is_screen_aligned_rect;
 };
 
-/* A ClipGeometryGroup represents an array of ClipGeometry values.
+/* A CullGeometryGroup represents an array of CullGeometry values.
  * These are necessary when the VirtualBuffer backing area is a
  * collection of convex regions; this happens when handling an array
  * of Effect objects at once.
  */
-class astral::Renderer::Implement::ClipGeometryGroup
+class astral::Renderer::Implement::CullGeometryGroup
 {
 public:
   /* Class to encapsulate a translate and padding.
@@ -409,7 +409,7 @@ public:
     float m_logical_padding;
   };
 
-  /* Class to store an Intersection of a ClipGeometryGroup
+  /* Class to store an Intersection of a CullGeometryGroup
    * against a RelativeBoundingBox. This is an expensive
    * object whose instances should be reused.
    */
@@ -419,7 +419,7 @@ public:
     /* Returns the number of polygon groups; a single
      * polygon group represents the intersection of
      * a translated RelativeBoundingBox against a
-     * ClipGeometryGroup
+     * CullGeometryGroup
      */
     unsigned int
     num_polygon_groups(void) const
@@ -428,7 +428,7 @@ public:
     }
 
     /* Returns the index into the translates argument
-     * of ClipGeometryGroup::compute_intersection()
+     * of CullGeometryGroup::compute_intersection()
      * that the named polygon group sources from.
      */
     unsigned int
@@ -477,7 +477,7 @@ public:
     }
 
   private:
-    friend class ClipGeometryGroup;
+    friend class CullGeometryGroup;
 
     class Polygon
     {
@@ -549,13 +549,13 @@ public:
 
     /* A PolygronGroup represents the intersection of
      * a single translated RelativeBoundingBox against
-     * a ClipGeometryGroup
+     * a CullGeometryGroup
      */
     std::vector<PolygonGroup> m_polygon_groups;
   };
 
   /* An opaque value that holds a value that can be used
-   * to fetch the value of ClipGeometryGroup::sub_rects().
+   * to fetch the value of CullGeometryGroup::sub_rects().
    */
   class Token:private range_type<unsigned int>
   {
@@ -574,7 +574,7 @@ public:
     intersect_against(Storage &storage, const BoundingBox<float> &pixel_rect) const;
 
   private:
-    friend class ClipGeometryGroup;
+    friend class CullGeometryGroup;
 
     Token(const range_type<unsigned int> &R):
       range_type<unsigned int>(R)
@@ -586,46 +586,46 @@ public:
   };
 
   /* Special ctor to indicate nothing */
-  ClipGeometryGroup(void):
+  CullGeometryGroup(void):
     m_bounding_geometry(),
     m_sub_clips(0, 0)
   {}
 
-  /* ctor where ClipGeometryGroup does not have sub-regions */
+  /* ctor where CullGeometryGroup does not have sub-regions */
   explicit
-  ClipGeometryGroup(const ClipGeometry &v):
+  CullGeometryGroup(const CullGeometry &v):
     m_bounding_geometry(v),
     m_sub_clips(0, 0)
   {}
 
-  /* ctor where ClipGeometryGroup does not have sub-regions */
-  ClipGeometryGroup(ClipGeometry::Backing *backing, ivec2 size):
+  /* ctor where CullGeometryGroup does not have sub-regions */
+  CullGeometryGroup(CullGeometry::Backing *backing, ivec2 size):
     m_bounding_geometry(backing, size),
     m_sub_clips(0, 0)
   {}
 
-  /* ctor where ClipGeometryGroup does not have sub-regions */
-  ClipGeometryGroup(ClipGeometry::Backing *backing, ivec2 size, Renderer::Implement &renderer,
+  /* ctor where CullGeometryGroup does not have sub-regions */
+  CullGeometryGroup(CullGeometry::Backing *backing, ivec2 size, Renderer::Implement &renderer,
                     RenderBackend::ClipWindowValue *out_clip_window):
     m_bounding_geometry(backing, size, renderer, out_clip_window),
     m_sub_clips(0, 0)
   {}
 
-  /* ctor where the ClipGeometryGroup region is defined by an Intersection
+  /* ctor where the CullGeometryGroup region is defined by an Intersection
    * \param renderer Renderer::Implement object that runs the show
    * \param scale_factor amount by which to scale rendering
-   * \param intersection define the region that the ClipGeometryGroup will cover
+   * \param intersection define the region that the CullGeometryGroup will cover
    * \param pixel_padding amount in raw pixels to pad
    */
-  ClipGeometryGroup(Implement &renderer, float scale_factor,
+  CullGeometryGroup(Implement &renderer, float scale_factor,
                     const Intersection &intersection,
                     int pixel_padding)
   {
     init(renderer, scale_factor, intersection, pixel_padding);
   }
 
-  /* ctor where ClipGeometryGroup as the intersection of another
-   * ClipGeometryGroup and a rectangle instanced multiple times
+  /* ctor where CullGeometryGroup as the intersection of another
+   * CullGeometryGroup and a rectangle instanced multiple times
    * with different translates
    * \param renderer Renderer::Implement object that runs the show
    * \param backing object that backs the clip-equations and clip-polygon
@@ -634,20 +634,20 @@ public:
    *                singular value of the matrix of tr
    * \param scale_factor amount by which to scale the resulting rectangle
    * \param logical_rect rect in logical coordinate to clip
-   * \param geom ClipGeometryGroup from which to inherit clipping
+   * \param geom CullGeometryGroup from which to inherit clipping
    * \param pixel_padding amount in raw pixels to pad
    * \param translates array of translates and paddings to apply to
    *                   logical_rect; cannot be empty
    */
-  ClipGeometryGroup(Implement &renderer,
+  CullGeometryGroup(Implement &renderer,
                     const Transformation &tr,
                     float tr_norm, float scale_factor,
                     const RelativeBoundingBox &logical_rect,
-                    const ClipGeometryGroup &geom, int pixel_padding,
+                    const CullGeometryGroup &geom, int pixel_padding,
                     c_array<const TranslateAndPadding> translate_and_paddings);
 
-  /* ctor where ClipGeometryGroup as the intersection of another
-   * ClipGeometryGroup and a rectangle instanced once.
+  /* ctor where CullGeometryGroup as the intersection of another
+   * CullGeometryGroup and a rectangle instanced once.
    * \param renderer Renderer::Implement object that runs the show
    * \param backing object that backs the clip-equations and clip-polygon
    * \param tr transformation from logical to pixel coordinates
@@ -655,22 +655,22 @@ public:
    *                singular value of the matrix of tr
    * \param scale_factor amount by which to scale the resulting rectangle
    * \param logical_rect rect in logical coordinate to clip
-   * \param geom ClipGeometryGroup from which to inherit clipping
+   * \param geom CullGeometryGroup from which to inherit clipping
    * \param pixel_padding amount in raw pixels to pad
    * \param translate translate and padding to apply to logical_rect
    */
-  ClipGeometryGroup(Implement &renderer,
+  CullGeometryGroup(Implement &renderer,
                     const Transformation &tr,
                     float tr_norm, float scale_factor,
                     const RelativeBoundingBox &logical_rect,
-                    const ClipGeometryGroup &geom, int pixel_padding,
+                    const CullGeometryGroup &geom, int pixel_padding,
                     TranslateAndPadding translate_and_padding = TranslateAndPadding()):
-    ClipGeometryGroup(renderer, tr, tr_norm, scale_factor, logical_rect,
+    CullGeometryGroup(renderer, tr, tr_norm, scale_factor, logical_rect,
                       geom, pixel_padding,
                       c_array<const TranslateAndPadding>(&translate_and_padding, 1))
   {}
 
-  /* Computes the interscection of this ClipGeometryGroup against
+  /* Computes the interscection of this CullGeometryGroup against
    * a sequence of translates and paddings of a RelativeBoundingBox
    */
   void
@@ -684,13 +684,13 @@ public:
    * all sub-regions; this can cover much more area than
    * the union indiviual sub-regions.
    */
-  const ClipGeometry&
+  const CullGeometry&
   bounding_geometry(void) const
   {
     return m_bounding_geometry;
   }
 
-  /* Returns true if there are sub-regions to this ClipGeometryGroup;
+  /* Returns true if there are sub-regions to this CullGeometryGroup;
    * in this case the actual area covered is given by the union of
    * the elements of sub_clip_geometries(). If false, then the region
    * covered is exactly the region returned by bounding_geometry().
@@ -707,7 +707,7 @@ public:
    * that has_sub_geometries() is false, returns a array
    * of length one whose sole element is bounding_geometry().
    */
-  c_array<const ClipGeometry>
+  c_array<const CullGeometry>
   sub_clip_geometries(Storage &storage) const;
 
   /* Array of sub-rects in Image coordinates of the
@@ -740,7 +740,7 @@ private:
        const Intersection &intersection,
        int pixel_padding);
 
-  ClipGeometry m_bounding_geometry;
+  CullGeometry m_bounding_geometry;
   range_type<unsigned int> m_sub_clips;
   Token m_sub_rects;
 };

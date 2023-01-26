@@ -115,14 +115,15 @@ namespace astral
    *  .
    *
    * The culling and clipping in Renderer is as follows:
-   *  - The first stage is culling via clip-equations. For encoders
-   *    returned by Renderer (via Renderer::encoder_image() or encoder_surface()),
-   *    this clipping is the rectangle realized by the surface. For encoders
-   *    coming from RenderEncoderBase::encoder_image_relative() (and similair
-   *    methods) the clip-equations culling is the intersection of the parent
-   *    encoder and the bounding box passed. Pixels outside of this convex polygon
-   *    may or maynot be rendered. The tiles of the backing image outside of that
-   *    region may not even be backed and the contents of such tiles is undefined.
+   *  - The first stage is culling. For encoders returned by Renderer (via
+   *    Renderer::encoder_image() or encoder_surface()), this culling is the
+   *    rectangle realized by the surface. For encoders coming from
+   *    RenderEncoderBase::encoder_image_relative() (and similair methods) the
+   *    region depends on the value RelativeBoundingBox::m_inherit_culling_of_parent.
+   *    When it is true, the region is the intersection of the parent encoder's region
+   *    against the bouning box passed, when it is false it just the bounding box
+   *    passed. Pixels outside of this convex polygon may or maynot be rendered. The
+   *    tiles of the backing image outside of that region may not even be backed.
    *
    *  - The second stage is clipping and comes from ItemMaterial::m_clip which can
    *    vary draw to draw. The clipping is applied to the item drawn and pixels

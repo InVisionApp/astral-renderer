@@ -192,7 +192,7 @@ public:
    * \param fill_rule the fill rule to apply
    * \param aa_mode specifies if to generate with anti-aliasing
    * \param path CombinedPath to fill
-   * \param clip_geometry ClipGeometry specifying the bounding region
+   * \param clip_geometry CullGeometry specifying the bounding region
    *                      of the mask to generate
    * \param image_transformation_logical transformation from CombinedPath
    *                                     coordinates to image coordinates of the
@@ -210,14 +210,14 @@ public:
    */
   void
   create_mask(float tol, enum fill_rule_t fill_rule, enum anti_alias_t aa_mode,
-              const CombinedPath &path, const ClipGeometrySimple &clip_geometry,
+              const CombinedPath &path, const CullGeometrySimple &clip_geometry,
               c_array<const BoundingBox<float>> restrict_bbs,
               const Transformation &image_transformation_logical,
               const ClipElement *clip_element, enum clip_combine_mode_t clip_combine_mode,
               TileTypeTable *out_clip_combine_tile_data, MaskDetails *out_data);
   void
   create_mask(float tol, enum fill_rule_t fill_rule, enum anti_alias_t aa_mode,
-              const CombinedPath &path, const ClipGeometrySimple &clip_geometry,
+              const CombinedPath &path, const CullGeometrySimple &clip_geometry,
               c_array<const BoundingBox<float>> restrict_bbs,
               const Transformation &image_transformation_logical,
               MaskDetails *out_data)
@@ -241,7 +241,7 @@ public:
   void
   create_mask_via_item_path_shader(Renderer::Implement &renderer, const MaskItemPathShader &shader,
                                    float tol, enum fill_rule_t fill_rule,
-                                   const CombinedPath &path, const ClipGeometrySimple &clip_geometry,
+                                   const CombinedPath &path, const CullGeometrySimple &clip_geometry,
                                    const Transformation &image_transformation_logical,
                                    const ClipElement *clip_element,
                                    TileTypeTable *out_clip_combine_tile_data, MaskDetails *out_data);
@@ -249,7 +249,7 @@ public:
   void
   create_mask_via_item_path_shader(Renderer::Implement &renderer, const MaskItemPathShader &shader,
                                    float tol, enum fill_rule_t fill_rule,
-                                   const CombinedPath &path, const ClipGeometrySimple &clip_geometry,
+                                   const CombinedPath &path, const CullGeometrySimple &clip_geometry,
                                    const Transformation &image_transformation_logical,
                                    MaskDetails *out_data)
   {
@@ -357,13 +357,13 @@ private:
                              TileTypeTable *out_clip_combine_tile_data);
 
   /*!
-   * Giventhe the ClipGeometrySimple value passed to create_mask(),
+   * Giventhe the CullGeometrySimple value passed to create_mask(),
    * and the reference_counted_ptr<Image> holdng the mask, compute the
    * MaskDetails value.
    */
   static
   void
-  compute_mask_details(const ClipGeometrySimple &clip_geometry,
+  compute_mask_details(const CullGeometrySimple &clip_geometry,
                        const reference_counted_ptr<const Image> &mask_image,
                        MaskDetails *out_data);
 

@@ -251,7 +251,7 @@ clear(void)
 void
 astral::RenderEncoderStrokeMask::Backing::
 init(Renderer::Implement &renderer,
-     const Renderer::Implement::ClipGeometryGroup &parent_clip_geometry,
+     const Renderer::Implement::CullGeometryGroup &parent_clip_geometry,
      const StrokeMaskProperties &mask_params,
      const Transformation &pixel_transformation_logical,
      float render_accuracy)
@@ -580,11 +580,11 @@ compute_mask(void)
   const Transformation identity;
   const float identity_norm(1.0f);
   const int pixel_padding(ImageAtlas::tile_padding);
-  Renderer::Implement::ClipGeometryGroup clip_geometry;
+  Renderer::Implement::CullGeometryGroup clip_geometry;
   RelativeBoundingBox relative_bounding_box(bb);
 
   relative_bounding_box.m_inherit_culling_of_parent = m_mask_params.m_apply_clip_equations_clipping;
-  clip_geometry = Renderer::Implement::ClipGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
+  clip_geometry = Renderer::Implement::CullGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
                                                          relative_bounding_box, m_parent_clip_geometry, pixel_padding);
 
   if (clip_geometry.bounding_geometry().image_size() == ivec2(0, 0))

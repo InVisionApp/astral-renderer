@@ -16,7 +16,7 @@
 
 #include <astral/util/clip_util.hpp>
 #include "renderer_tile_hit_detection.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_draw_command.hpp"
 #include "renderer_storage.hpp"
 
@@ -145,7 +145,7 @@ void
 astral::Renderer::Implement::TileHitDetection::Base::
 add_backed_region(Storage &storage, ClipEqStack &eq_stack,
                   bool use_pixel_rect_tile_culling,
-                  const ClipGeometry &geometry)
+                  const CullGeometry &geometry)
 {
   if (use_pixel_rect_tile_culling || geometry.is_screen_aligned_rect())
     {
@@ -153,7 +153,7 @@ add_backed_region(Storage &storage, ClipEqStack &eq_stack,
     }
   else
     {
-      ClipGeometry::Backing *backing(&storage.clip_geometry_backing());
+      CullGeometry::Backing *backing(&storage.clip_geometry_backing());
 
       eq_stack.init(geometry.equations(backing));
       if (!eq_stack.current_clipping().empty())
@@ -431,7 +431,7 @@ create(const ScaleTranslate &pixel_transformation_image,
 astral::c_array<const astral::uvec2>
 astral::Renderer::Implement::TileHitDetection::
 compute_empty_tiles_implement(Storage &storage,
-                              const ClipGeometryGroup &geometry,
+                              const CullGeometryGroup &geometry,
                               const DrawCommandList *cmds,
                               bool use_pixel_rect_tile_culling,
                               BoundingBox<int> *out_image_bounding_box)
@@ -454,10 +454,10 @@ compute_empty_tiles_implement(Storage &storage,
                          tile_range, geometry.bounding_geometry().pixel_rect());
 
   /* Maybe: Instead "rasterize" the convex regions of each
-   *        ClipGeometry directly to the tiles and then do
+   *        CullGeometry directly to the tiles and then do
    *        the walk up the heierarchy.
    */
-  for (const ClipGeometry &C : geometry.sub_clip_geometries(storage))
+  for (const CullGeometry &C : geometry.sub_clip_geometries(storage))
     {
       m_root->add_backed_region(storage, m_eq_stack, use_pixel_rect_tile_culling, C);
     }

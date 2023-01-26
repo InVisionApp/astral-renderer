@@ -273,7 +273,7 @@ Backing(RenderEncoderBase pparent_encoder,
     }
 
   /* Construct the clip-geometry encompasing the zones that the effects hit */
-  Renderer::Implement::ClipGeometryGroup clip_geometry(renderer,
+  Renderer::Implement::CullGeometryGroup clip_geometry(renderer,
                                                        effect_render_scale_factor,
                                                        scratch.m_intersection,
                                                        effect_pixel_slack);

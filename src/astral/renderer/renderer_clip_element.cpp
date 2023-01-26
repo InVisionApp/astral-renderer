@@ -296,8 +296,8 @@ private:
 void
 astral::Renderer::Implement::ClipElement::
 init(Renderer::Implement &renderer,
-     const ClipGeometrySimple &clip_geometry,
-     ClipGeometryGroup::Token token,
+     const CullGeometrySimple &clip_geometry,
+     CullGeometryGroup::Token token,
      const reference_counted_ptr<const Image> &image,
      enum mask_type_t mask_type,
      enum mask_channel_t mask_channel)
@@ -335,8 +335,8 @@ init(Renderer::Implement &renderer,
 void
 astral::Renderer::Implement::ClipElement::
 init(Renderer::Implement &renderer,
-     const ClipGeometrySimple &clip_geometry,
-     ClipGeometryGroup::Token token,
+     const CullGeometrySimple &clip_geometry,
+     CullGeometryGroup::Token token,
      const reference_counted_ptr<const Image> &image,
      vecN<enum mask_channel_t, number_mask_type> mask_channels,
      enum mask_type_t preferred_mask_type)
@@ -664,15 +664,15 @@ astral::Renderer::Implement::ClipCombineResult::
 create_clip_implement(Renderer::Implement &renderer, ClipCombineResult *pthis,
                       const vecN<enum mask_channel_t, number_mask_type> &mask_channels,
                       const Image &image, const vecN<range_type<unsigned int>, 2> &tile_range,
-                      const ClipGeometrySimple &clip_geometry,
-                      ClipGeometryGroup::Token token,
+                      const CullGeometrySimple &clip_geometry,
+                      CullGeometryGroup::Token token,
                       enum ImageMipElement::element_type_t TileProperties::*v,
                       enum mask_type_t preferred_mask_type)
 {
   reference_counted_ptr<astral::RenderClipElement> return_value;
   reference_counted_ptr<const Image> sub_image;
-  ClipGeometrySimple sub_geometry;
-  ClipGeometryGroup::Token sub_token;
+  CullGeometrySimple sub_geometry;
+  CullGeometryGroup::Token sub_token;
   uvec2 first_tile, last_tile, image_begin, image_end;
   const ImageMipElement *mip;
 
@@ -760,8 +760,8 @@ init(Renderer::Implement &renderer, float render_tol,
 
   if (!clip_element->image())
     {
-      ClipGeometrySimple empty;
-      ClipGeometryGroup::Token empty_token;
+      CullGeometrySimple empty;
+      CullGeometryGroup::Token empty_token;
 
       m_renderer = &renderer;
 

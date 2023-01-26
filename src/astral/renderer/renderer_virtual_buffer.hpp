@@ -23,7 +23,7 @@
 
 #include "renderer_draw_command.hpp"
 #include "renderer_cached_transformation.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_stc_data.hpp"
 #include "renderer_cached_combined_path.hpp"
 #include "renderer_workroom.hpp"
@@ -204,7 +204,7 @@ public:
    */
   VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
                 const Transformation &initial_transformation,
-                const Implement::ClipGeometryGroup &geometry,
+                const Implement::CullGeometryGroup &geometry,
                 enum Implement::DrawCommandList::render_type_t render_type,
                 enum image_blit_processing_t blit_processing,
                 enum colorspace_t colorspace,
@@ -224,7 +224,7 @@ public:
    */
   VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
                 const Transformation &initial_transformation,
-                const Implement::ClipGeometryGroup &geometry, enum colorspace_t colorspace,
+                const Implement::CullGeometryGroup &geometry, enum colorspace_t colorspace,
                 ImageCreationSpec image_create_spec):
     VirtualBuffer(C, render_index, renderer, initial_transformation,
                   geometry, Implement::DrawCommandList::render_color_image,
@@ -248,7 +248,7 @@ public:
    */
   VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
                 const Transformation &initial_transformation,
-                const Implement::ClipGeometryGroup &geometry, enum fill_rule_t stc_fill_rule,
+                const Implement::CullGeometryGroup &geometry, enum fill_rule_t stc_fill_rule,
                 ImageCreationSpec image_create_spec):
     VirtualBuffer(C, render_index, renderer, initial_transformation,
                   geometry, Implement::DrawCommandList::render_mask_image,
@@ -344,7 +344,7 @@ public:
    */
   VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
                 const Transformation &initial_transformation,
-                Implement::ClipGeometryGroup &geometry,
+                Implement::CullGeometryGroup &geometry,
                 enum Implement::DrawCommandList::render_type_t render_type,
                 enum image_blit_processing_t blit_processing,
                 enum colorspace_t colorspace,
@@ -354,7 +354,7 @@ public:
 
   VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
                 const Transformation &initial_transformation,
-                Implement::ClipGeometryGroup &geometry,
+                Implement::CullGeometryGroup &geometry,
                 enum fill_rule_t stc_fill_rule,
                 c_array<const vecN<range_type<int>, 2>> tile_regions,
                 c_array<VirtualBuffer*> out_virtual_buffers):
@@ -902,10 +902,10 @@ public:
   c_array<const Implement::STCData>
   stc_data_values(enum FillSTCShader::pass_t p) const;
 
-  /* Returns ClipGeometry of this VirtualBuffer which specifies
+  /* Returns CullGeometry of this VirtualBuffer which specifies
    * the clip-planes of the VirtualBuffer.
    */
-  const Implement::ClipGeometryGroup&
+  const Implement::CullGeometryGroup&
   clip_geometry(void) const
   {
     return m_clip_geometry;
@@ -1169,7 +1169,7 @@ public:
    * \param pixel_slack number of pixels of padding of the output ClipGeoemtry's
    *                    pixel_rect()
    */
-  Implement::ClipGeometryGroup
+  Implement::CullGeometryGroup
   child_clip_geometry(RenderScaleFactor scale_factor,
                       const RelativeBoundingBox &logical_rect, unsigned int pixel_slack);
 
@@ -1480,7 +1480,7 @@ private:
   RenderValue<ScaleTranslate> m_render_scale_translate;
 
   /* The geometry of the clipping region */
-  Implement::ClipGeometryGroup m_clip_geometry;
+  Implement::CullGeometryGroup m_clip_geometry;
 
   /* counter for begin_pause_snapshot() / end_pause_snapshot() */
   int m_pause_snapshot_counter;

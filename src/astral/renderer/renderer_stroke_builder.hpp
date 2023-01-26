@@ -21,7 +21,7 @@
 #include <astral/renderer/shader/stroke_query.hpp>
 #include "renderer_implement.hpp"
 #include "renderer_cached_transformation.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 
 class astral::RenderEncoderStrokeMask::Backing:astral::noncopyable
 {
@@ -42,7 +42,7 @@ public:
 
   void
   init(Renderer::Implement &renderer,
-       const Renderer::Implement::ClipGeometryGroup &parent_clip_geometry,
+       const Renderer::Implement::CullGeometryGroup &parent_clip_geometry,
        const StrokeMaskProperties &mask_params,
        const Transformation &pixel_transformation_logical,
        float render_accuracy);
@@ -156,7 +156,7 @@ private:
   StrokeMaskProperties m_mask_params;
   BoundingBox<float> m_restrict_bb_backing;
   float m_render_accuracy;
-  Renderer::Implement::ClipGeometryGroup m_parent_clip_geometry;
+  Renderer::Implement::CullGeometryGroup m_parent_clip_geometry;
 
   vecN<std::vector<Renderer::Implement::CachedTransformation>, 2> m_transformation;
 

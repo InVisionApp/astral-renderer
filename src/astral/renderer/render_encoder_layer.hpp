@@ -18,7 +18,7 @@
 #define ASTRAL_RENDER_ENCODER_LAYER_HPP
 
 #include <astral/renderer/renderer.hpp>
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 
 class astral::RenderEncoderLayer::Backing
 {
@@ -77,10 +77,10 @@ public:
   {
   public:
     std::vector<generic_data> m_generic_data;
-    std::vector<Renderer::Implement::ClipGeometryGroup::TranslateAndPadding> m_translate_and_paddings;
+    std::vector<Renderer::Implement::CullGeometryGroup::TranslateAndPadding> m_translate_and_paddings;
     std::vector<vec2> m_effect_transformation_logical;
     std::vector<vec2> m_translate_capture_bb;
-    Renderer::Implement::ClipGeometryGroup::Intersection m_intersection;
+    Renderer::Implement::CullGeometryGroup::Intersection m_intersection;
 
     std::vector<Effect::BufferParameters> m_buffer_parameters;
     std::vector<Effect::OverridableBufferProperties> m_overridable_properties;

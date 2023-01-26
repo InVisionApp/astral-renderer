@@ -24,7 +24,7 @@ ASTRAL_SOURCES += $(call filelist, \
 	renderer_mask_drawer.cpp \
 	renderer_draw_command.cpp \
 	renderer_clip_element.cpp \
-	renderer_clip_geometry.cpp \
+	renderer_cull_geometry.cpp \
 	renderer_cached_transformation.cpp \
 	renderer_virtual_buffer.cpp \
 	renderer_filler.cpp \

@@ -25,7 +25,7 @@
 
 #include "renderer_implement.hpp"
 #include "renderer_draw_command.hpp"
-#include "renderer_clip_geometry.hpp"
+#include "renderer_cull_geometry.hpp"
 #include "renderer_clip_element.hpp"
 #include "renderer_stc_data.hpp"
 #include "renderer_virtual_buffer.hpp"
@@ -130,26 +130,26 @@ public:
   }
 
   template<typename ...Args>
-  ClipGeometry
+  CullGeometry
   create_clip(Args&&... args)
   {
-    return ClipGeometry(&m_clip_geometry_backing, std::forward<Args>(args)...);
+    return CullGeometry(&m_clip_geometry_backing, std::forward<Args>(args)...);
   }
 
   /*!
-   * Have an internal array store copies of ClipGeometry values,
+   * Have an internal array store copies of CullGeometry values,
    * these values can be fetched by calling backed_clip_geometries().
    * In addition, allocate backing rects which are fetched by
    * backed_clip_geometry_sub_rects() using the value written to
    * out_rects_token
    */
   range_type<unsigned int>
-  create_backed_rects_and_clips(c_array<const ClipGeometry> values, range_type<unsigned int> *out_rects_token)
+  create_backed_rects_and_clips(c_array<const CullGeometry> values, range_type<unsigned int> *out_rects_token)
   {
     range_type<unsigned int> return_value;
 
     return_value.m_begin = m_clip_geometries.size();
-    for (const ClipGeometry &V: values)
+    for (const CullGeometry &V: values)
       {
         m_clip_geometries.push_back(V);
       }
@@ -162,13 +162,13 @@ public:
     return return_value;
   }
 
-  /* Return a c-array of ClipGeometry values made
+  /* Return a c-array of CullGeometry values made
    * with create_backed_rects_and_clips().
    */
-  c_array<const ClipGeometry>
+  c_array<const CullGeometry>
   backed_clip_geometries(range_type<unsigned int> R)
   {
-    c_array<const ClipGeometry> Q;
+    c_array<const CullGeometry> Q;
 
     Q = make_c_array(m_clip_geometries);
     return Q.sub_array(R);
@@ -412,8 +412,8 @@ public:
     mask_channels[mask_type_coverage] = MaskUsage::mask_channel(mask_type_coverage);
     mask_channels[mask_type_distance_field] = MaskUsage::mask_channel(mask_type_distance_field);
 
-    return create_clip_element(ClipGeometrySimple(),
-                               ClipGeometryGroup::Token(),
+    return create_clip_element(CullGeometrySimple(),
+                               CullGeometryGroup::Token(),
                                nullptr, mask_channels, preferred_mask_type);
   }
 
@@ -424,7 +424,7 @@ public:
   }
 
   RenderEncoderStrokeMask::Backing*
-  create_stroke_builder(const ClipGeometryGroup &parent_clip_geometry,
+  create_stroke_builder(const CullGeometryGroup &parent_clip_geometry,
                         const StrokeMaskProperties &mask_params,
                         const Transformation &pixel_transformation_logical,
                         float render_accuracy)
@@ -504,7 +504,7 @@ public:
     return m_virtual_buffers.created_objects().size();
   }
 
-  ClipGeometry::Backing&
+  CullGeometry::Backing&
   clip_geometry_backing(void)
   {
     return m_clip_geometry_backing;
@@ -518,7 +518,7 @@ private:
   STCData::DataSet m_stc_data_set;
   ObjectPoolClear<std::vector<unsigned int>> m_unsigned_int_array_pool;
   MemoryPool<RenderSupportTypes::Proxy::Backing, 4096> m_virtual_buffer_proxies;
-  std::vector<ClipGeometry> m_clip_geometries;
+  std::vector<CullGeometry> m_clip_geometries;
   std::vector<BoundingBox<float>> m_clip_geometry_sub_rects;
   std::vector<std::pair<unsigned int, range_type<int>>> m_vertex_ranges;
   std::vector<pointer<const ItemShader>> m_shader_ptrs;
@@ -528,7 +528,7 @@ private:
   MemoryObjectPool<RenderEncoderLayer::Backing, 4096> m_encoder_layers;
   ObjectPoolClear<RenderEncoderLayer::Backing::EffectData> m_render_effect_data;
   ObjectPoolClear<RenderEncoderStrokeMask::Backing> m_stroke_builders;
-  ClipGeometry::Backing m_clip_geometry_backing;
+  CullGeometry::Backing m_clip_geometry_backing;
 
   /* These are NOT cleared every frame since clip objects
    * can be reused across frames.
