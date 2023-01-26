@@ -273,12 +273,14 @@ init_gl_state(void)
    */
   astral_glDisable(ASTRAL_GL_POLYGON_OFFSET_FILL);
 
-  /* primitive restart */
-  if (ContextProperties::is_es() || ContextProperties::version() >= ivec2(4, 3))
-    {
-      astral_glDisable(ASTRAL_GL_PRIMITIVE_RESTART_FIXED_INDEX);
-    }
-
+  /* primitive restart, note that we only need to disable it in GL,
+   * and we do not bother disabling GL_PRIMITIVE_RESTART_FIXED_INDEX.
+   * The reason is two fold: we used GLuint for the index type meaning
+   * that we will not use the index ~0u forcing a primitive restart.
+   * In addition, WebGL2 does not allow for one to disable primitive
+   * restart on a fixed index, it is specified to act as-if it is always
+   * on.
+   */
   #ifndef __EMSCRIPTEN__
     {
       if (!ContextProperties::is_es())
