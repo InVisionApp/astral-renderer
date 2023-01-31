@@ -54,7 +54,7 @@ ENVIRONMENTALDESCRIPTIONS += "INSTALL_LOCATION: provides install location for ma
 ## use Clang's address sanitizer
 ##
 ## Set the default to 1 if we detect clang++ for the C++ compiler
-CLANG_GREP_RESULT := ${shell $(CXX) --version | grep 'clang'}
+CLANG_GREP_RESULT := ${shell $(TARGET_CXX) --version | grep 'clang'}
 ifeq ($(CLANG_GREP_RESULT),)
     ASTRAL_DEFAULT_USE_SANTIZER_IN_DEBUG = 0
 else
