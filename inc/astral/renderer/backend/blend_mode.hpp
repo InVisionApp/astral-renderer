@@ -170,7 +170,7 @@ namespace astral
 
       r = (m_value >= 2u * number_blend_modes) ?
         m_value - 2u * number_blend_modes:
-        ItemShader::color_item_shader;
+	static_cast<uint32_t>(ItemShader::color_item_shader);
 
       ASTRALassert(valid());
       return static_cast<enum ItemShader::type_t>(r);
