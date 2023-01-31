@@ -554,6 +554,9 @@ compute_shader_clipping(void)
     case clip_window_strategy_depth_occlude_hinted:
       return clip_window_present_optional;
     }
+
+  ASTRALfailure("Invalid value for m_overridable_properties.m_clip_window_strategy");
+  return clip_window_present_enforce;
 }
 
 void
