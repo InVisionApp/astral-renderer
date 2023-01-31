@@ -103,6 +103,7 @@ label(enum mipmap_t tp)
   const static c_string values[number_mipmap_modes] =
     {
       LABEL_MACRO(mipmap_none),
+      LABEL_MACRO(mipmap_nearest),
       LABEL_MACRO(mipmap_ceiling),
       LABEL_MACRO(mipmap_floor),
       LABEL_MACRO(mipmap_chosen),
