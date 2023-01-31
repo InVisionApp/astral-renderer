@@ -88,7 +88,9 @@ namespace astral
      * The number of font units per EM for the glyphs.
      * The conversion from font coordinates to pixel
      * coordiantes is given by:
-     * \f$PixelCoordinates = FontCoordinates * PixelSize / units_per_EM\f$
+     * \code
+     * PixelCoordinates = FontCoordinates * PixelSize / m_units_per_EM
+     * \endcode
      */
     float m_units_per_EM;
   };
