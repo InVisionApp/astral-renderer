@@ -26,16 +26,16 @@ include $(dir)/Rules.mk
 ##################################################
 # To make it easier to build Astral in other build
 # systems that might be doing cross build, we do NOT
-# include the NGL generated source file when listing
+# include the Astral GL generated source file when listing
 # the soruces in PrintCppSources.
-ASTRAL_SOURCES_WITHOUT_NGL := $(ASTRAL_SOURCES)
+ASTRAL_SOURCES_WITHOUT_ASTRAL_GL := $(ASTRAL_SOURCES)
 
 targets:
 	@echo "Info:"
 	@echo "=============================="
 	@echo "PrintCppSources: list C++ sources used to build Astral library"
 	@echo "PrintGLSLSources: list GLSL sources used to build Astral library"
-	@echo "PrintNGLInfo: list NGL headers and sources for different targets"
+	@echo "PrintAstralGLInfo: list AstralGL headers and sources for different targets"
 	@echo "PrintFlags: print comiler and liker flags to build Astral library"
 	@echo
 	@echo "Individual Demos available:"
@@ -52,13 +52,13 @@ targets:
 	@printf "%s\n" $(ENVIRONMENTALDESCRIPTIONS)
 
 PrintCppSources:
-	@echo "$(ASTRAL_SOURCES_WITHOUT_NGL)"
+	@echo "$(ASTRAL_SOURCES_WITHOUT_ASTRAL_GL)"
 
 PrintGLSLSources:
 	@echo "$(ASTRAL_SHADERS)"
 
-PrintNGLInfo:
-	@echo "Generated files for AstralGL:"
+PrintAstralGLInfo:
+	@echo "Generated files for Astral GL:"
 	@echo "\tSource: src/astral/util/gl/astral_gl.cpp"
 	@echo "\tHeader: inc/astral/util/gl/astral_gl.hpp"
 
