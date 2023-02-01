@@ -204,21 +204,21 @@ namespace astral
       in valid only within the astral::Renderer::begin() /
       astral::Renderer::end() pair when it was made.
 
-    \subsection Clipping
-    - Clipping in Astral has two stages. The first stage is clip
-      equations clipping which is defined as the intersection of the
-      viewport of the base surface against the chain of rectangles
-      passed to astral::RenderEncoderBase::encoder_image_relative(). The
-      2nd stage of clipping is mask that can be added to each draw
-      call via astral::ItemMaterial::m_clip. Masks can be generated
-      by astral::RenderEncoderBase::generate_mask(), combined with the method
-      astral::RenderEncoderBase::combine_clipping() and intersected with the
-      method astral::RenderEncoderBase::intersect_clipping(). Lastly, Astral
-      supports simutaneous clip-in and clip-out (via masks) so that such
-      content have have partial based coverage clipping without a rendering
-      crack, see astral::RenderEncoderBase::begin_clip_node_pixel(),
-      astral::RenderEncoderBase::begin_clip_node_logical() and
-      astral::RenderEncoderBase::end_clip_node().
+    \subsection Clipping and Culling
+    Clipping and culling in Astral has two stages.
+     - The first stage is culling. For encoders returned by Renderer (via
+       Renderer::encoder_image() or encoder_surface()), this culling is the
+       rectangle realized by the surface. For encoders coming from
+       RenderEncoderBase::encoder_image_relative() (and similair methods) the
+       region depends on the value RelativeBoundingBox::m_inherit_culling_of_parent.
+       When it is true, the region is the intersection of the parent encoder's region
+       against the bouning box passed, when it is false it just the bounding box
+       passed. Pixels outside of this convex polygon may or maynot be rendered. The
+       tiles of the backing image outside of that region may not even be backed.
+
+     - The second stage is clipping and comes from ItemMaterial::m_clip which can
+       vary draw to draw. The clipping is specified as a mask that provides partial
+       coverage information which enables anti-aliased clipping.
 
     \subsection Masks
     - A mask is embodied by an astral::Image which is used as a mask.
