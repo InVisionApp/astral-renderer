@@ -126,8 +126,12 @@ namespace astral
    *    tiles of the backing image outside of that region may not even be backed.
    *
    *  - The second stage is clipping and comes from ItemMaterial::m_clip which can
-   *    vary draw to draw. The clipping is applied to the item drawn and pixels
-   *    that are clipped are unaffected by the draw.
+   *    vary draw to draw. The clipping is specified as a mask that provides partial
+   *    coverage information which enables anti-aliased clipping. Masks can be generated
+   *    from fills, renders to images. The class astral::RenderClipElement provides
+   *    the means to clip-in, clip-out and can be used with the method
+   *    astral::RenderEncoderBase::combine_clipping() to combine clipping against a
+   *    path fill.
    *  .
    *
    * All color content is realized as pre-multiplied by alpha, i.e. the
