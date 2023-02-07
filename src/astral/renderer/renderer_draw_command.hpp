@@ -497,7 +497,7 @@ public:
                 pixel_transformation_region, DependencyList());
   }
 
-  /* Copy the draw commands of this DrawCommandList
+  /* Copy the draw commands of another DrawCommandList
    * that intersect the given bounding box into this
    * DrawCommandList
    * \param src DrawCommandList from which to take commands
