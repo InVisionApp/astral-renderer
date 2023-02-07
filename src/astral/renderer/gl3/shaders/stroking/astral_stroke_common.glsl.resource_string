@@ -123,7 +123,8 @@ astral_stroke_radius_info(in float packed_stroke_radius, in AstralMatrix tr, in 
         {
           return_value.m_fragment_radius = abs(packed_stroke_radius);
         }
-      return_value.m_vertex_radius = return_value.m_fragment_radius +  ASTRAL_STROKE_HARILINE_PIXEL_RADIUS * inverse_operator_norm;
+      //                        value to pass on to fragment shader + slack needed to capture fuzz
+      return_value.m_vertex_radius = return_value.m_fragment_radius + ASTRAL_HALF_SQRT2 * inverse_operator_norm;
     }
 
   return return_value;
