@@ -140,11 +140,8 @@ namespace astral
      * The stroking *radius* in pixels of hairline strokes.
      */
     static
-    constexpr float
-    hairline_pixel_radius(void)
-    {
-      return 1.2f;
-    }
+    float
+    hairline_pixel_radius(void);
 
     /*!
      * Specifies the stroking width, a value of

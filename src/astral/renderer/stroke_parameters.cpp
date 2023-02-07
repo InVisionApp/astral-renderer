@@ -15,3 +15,9 @@
  */
 
 #include <astral/renderer/stroke_parameters.hpp>
+
+float
+astral::StrokeParameters::hairline_pixel_radius(void)
+{
+  return ASTRAL_HALF_SQRT2;
+}
