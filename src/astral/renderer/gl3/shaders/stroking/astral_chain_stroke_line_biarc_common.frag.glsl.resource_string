@@ -29,7 +29,12 @@ astral_line_biarc_frag_shader(in uint sub_shader, in uint item_data_location,
   dy = astral_chain_stroke_perp_distance_to_curve_gradient_y;
   signed_distance *= inversesqrt(dx * dx + dy * dy);
 
-  /* A value of <= 0.0 indicates a hairline stroke */
+  /* A value of <= 0.0 indicates a hairline stroke.
+   * Notice that the increment is done AFTER normalizing
+   * by the magnitude of the gradient. This is because
+   * a hairline stroke is to have a stroking width in *pixels*
+   * (not local width) of ASTRAL_STROKE_HARILINE_PIXEL_RADIUS
+   */
   if (astral_chain_stroke_radius <= 0.0)
     {
       signed_distance += ASTRAL_STROKE_HARILINE_PIXEL_RADIUS;
