@@ -42,12 +42,12 @@
 #else
 
   /* RenderEngineGL3::VertexBacking is backed by a TEXTURE_BUFFER */
-  uniform samplerBuffer astral_vertex_backing;
+  uniform usamplerBuffer astral_vertex_backing;
 
   vec4
   astral_read_vertex(in uint v)
   {
-    return texelFetch(astral_vertex_backing, int(v));
+    return uintBitsToFloat(texelFetch(astral_vertex_backing, int(v)));
   }
 
 #endif
