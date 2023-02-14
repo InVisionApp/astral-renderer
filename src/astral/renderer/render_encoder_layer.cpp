@@ -138,8 +138,8 @@ Backing(RenderEncoderBase pparent_encoder,
   m_effect_data(storage.allocate_effect_data()),
   m_end_layer_called(false)
 {
-  float effect_render_scale_factor;
-  unsigned int effect_pixel_slack, num_effects;
+  float effect_render_scale_factor = 0.0f;
+  unsigned int effect_pixel_slack = 0u, num_effects;
 
   ASTRALassert(m_effect_data && !m_effect_data->m_effect);
 
@@ -208,15 +208,8 @@ Backing(RenderEncoderBase pparent_encoder,
       int src;
 
       src = scratch.m_intersection.polygon_group_source(G);
-      if (G == 0)
-        {
-          effect_render_scale_factor = scratch.m_overridable_properties[src].m_render_scale_factor;
-        }
-      else
-        {
-          effect_render_scale_factor = t_max(scratch.m_overridable_properties[src].m_render_scale_factor,
-                                             effect_render_scale_factor);
-        }
+      effect_render_scale_factor = t_max(scratch.m_overridable_properties[src].m_render_scale_factor,
+                                         effect_render_scale_factor);
     }
 
   /* Step 4: prepare m_effect_data->m_collection only taking those effects
@@ -260,30 +253,35 @@ Backing(RenderEncoderBase pparent_encoder,
                 m_effect_data->m_processed_params.begin() + R.m_begin);
 
       m_effect_data->m_collection[G].m_processed_params_range = R;
-
-      if (G == 0)
-        {
-          effect_pixel_slack = m_effect_data->m_collection[G].m_buffer_properties.m_pixel_slack;
-        }
-      else
-        {
-          effect_pixel_slack = t_max(effect_pixel_slack,
+      effect_pixel_slack = t_max(effect_pixel_slack,
                                      m_effect_data->m_collection[G].m_buffer_properties.m_pixel_slack);
-        }
     }
 
-  /* Construct the clip-geometry encompasing the zones that the effects hit */
-  Renderer::Implement::CullGeometryGroup clip_geometry(renderer,
-                                                       effect_render_scale_factor,
-                                                       scratch.m_intersection,
-                                                       effect_pixel_slack);
+  if (num_active_effects == 0)
+    {
+      /* create a degenerate buffer */
+      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, ivec2(0, 0),
+                                                            Renderer::Implement::DrawCommandList::render_color_image,
+                                                            image_processing_none, colorspace,
+                                                            number_fill_rule,
+                                                            Renderer::VirtualBuffer::ImageCreationSpec());
+      m_encoder.transformation(m_transformation);
+    }
+  else
+    {
+      /* Construct the clip-geometry encompasing the zones that the effects hit */
+      Renderer::Implement::CullGeometryGroup clip_geometry(renderer,
+                                                           effect_render_scale_factor,
+                                                           scratch.m_intersection,
+                                                           effect_pixel_slack);
 
-  /* Generate m_encoder */
-  m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, clip_geometry,
-                                                        Renderer::Implement::DrawCommandList::render_color_image,
-                                                        image_processing_none, colorspace,
-                                                        number_fill_rule,
-                                                        Renderer::VirtualBuffer::ImageCreationSpec());
+      /* Generate m_encoder */
+      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, clip_geometry,
+                                                            Renderer::Implement::DrawCommandList::render_color_image,
+                                                            image_processing_none, colorspace,
+                                                            number_fill_rule,
+                                                            Renderer::VirtualBuffer::ImageCreationSpec());
+    }
 }
 
 astral::RelativeBoundingBox
