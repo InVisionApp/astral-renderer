@@ -346,6 +346,8 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
       return polygon;
     }
 
+  ASTRALassert(tr_norm > 0.0f);
+
   BoundingBox<float> bb;
   float padding_in_pixel_units;
 
@@ -431,7 +433,7 @@ compute_intersection(Backing *backing, const Transformation &tr, float tr_norm,
       pp_eqs[0] = vec3(1.0f, 0.0f, -pixel_rect.min_x() + translate_this.x() + padding_in_pixel_units);
       pp_eqs[1] = vec3(0.0f, 1.0f, -pixel_rect.min_y() + translate_this.y() + padding_in_pixel_units);
       pp_eqs[2] = vec3(-1.0f, 0.0f, pixel_rect.max_x() - translate_this.x() + padding_in_pixel_units);
-      pp_eqs[3] = vec3(1.0f, -1.0f, pixel_rect.max_y() - translate_this.y() + padding_in_pixel_units);
+      pp_eqs[3] = vec3(0.0f, -1.0f, pixel_rect.max_y() - translate_this.y() + padding_in_pixel_units);
 
       /* We can't use polygon directly as the input to clip_against_planes
        * because it may point to backing->m_scratch_clip_pts; so stash it into
