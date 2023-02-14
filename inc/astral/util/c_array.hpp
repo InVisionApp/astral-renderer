@@ -21,7 +21,6 @@
 #ifndef ASTRAL_C_ARRAY_HPP
 #define ASTRAL_C_ARRAY_HPP
 
-#include <cstdint>
 #include <vector>
 #include <astral/util/util.hpp>
 #include <astral/util/vecN.hpp>
@@ -413,26 +412,6 @@ public:
   {
     ASTRALassert(R.m_end >= R.m_begin);
     return sub_array(R.m_begin, R.m_end - R.m_begin);
-  }
-
-  /*!
-   * Returns true if this c_array and another c_array overlap
-   * in memory.
-   * \param obj c_array to test against
-   */
-  bool
-  overlapping_memory(c_array<const T> obj) const
-  {
-    std::uintptr_t this_begin, this_end;
-    std::uintptr_t obj_begin, obj_end;
-
-    this_begin = reinterpret_cast<std::uintptr_t>(this->c_ptr());
-    this_end = reinterpret_cast<std::uintptr_t>(this->end_c_ptr());
-
-    obj_begin = reinterpret_cast<std::uintptr_t>(obj.c_ptr());
-    obj_end = reinterpret_cast<std::uintptr_t>(obj.end_c_ptr());
-
-    return std::max(this_begin, obj_begin) < std::min(this_end, obj_end);
   }
 
   /*!
