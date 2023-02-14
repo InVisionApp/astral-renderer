@@ -254,34 +254,21 @@ Backing(RenderEncoderBase pparent_encoder,
 
       m_effect_data->m_collection[G].m_processed_params_range = R;
       effect_pixel_slack = t_max(effect_pixel_slack,
-                                     m_effect_data->m_collection[G].m_buffer_properties.m_pixel_slack);
+                                 m_effect_data->m_collection[G].m_buffer_properties.m_pixel_slack);
     }
 
-  if (num_active_effects == 0)
-    {
-      /* create a degenerate buffer */
-      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, ivec2(0, 0),
-                                                            Renderer::Implement::DrawCommandList::render_color_image,
-                                                            image_processing_none, colorspace,
-                                                            number_fill_rule,
-                                                            Renderer::VirtualBuffer::ImageCreationSpec());
-      m_encoder.transformation(m_transformation);
-    }
-  else
-    {
-      /* Construct the clip-geometry encompasing the zones that the effects hit */
-      Renderer::Implement::CullGeometryGroup cull_geometry(renderer,
-                                                           effect_render_scale_factor,
-                                                           scratch.m_intersection,
-                                                           effect_pixel_slack);
+  /* Construct the clip-geometry encompasing the zones that the effects hit */
+  Renderer::Implement::CullGeometryGroup cull_geometry(renderer,
+                                                       effect_render_scale_factor,
+                                                       scratch.m_intersection,
+                                                       effect_pixel_slack);
 
-      /* Generate m_encoder */
-      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, cull_geometry,
-                                                            Renderer::Implement::DrawCommandList::render_color_image,
-                                                            image_processing_none, colorspace,
-                                                            number_fill_rule,
-                                                            Renderer::VirtualBuffer::ImageCreationSpec());
-    }
+  /* Generate m_encoder */
+  m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, cull_geometry,
+                                                        Renderer::Implement::DrawCommandList::render_color_image,
+                                                        image_processing_none, colorspace,
+                                                        number_fill_rule,
+                                                        Renderer::VirtualBuffer::ImageCreationSpec());
 }
 
 astral::RelativeBoundingBox
