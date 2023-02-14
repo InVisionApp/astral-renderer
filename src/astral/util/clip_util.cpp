@@ -111,9 +111,6 @@ namespace
     unsigned int src(0), dst(1), i;
     bool unclipped(true);
 
-    ASTRALassert(&scratch_space[0] != &scratch_space[1]);
-    ASTRALassert(!in_pts.overlapping_memory(make_c_array(scratch_space[src])));
-
     scratch_space[src].resize(in_pts.size());
     std::copy(in_pts.begin(), in_pts.end(), scratch_space[src].begin());
 

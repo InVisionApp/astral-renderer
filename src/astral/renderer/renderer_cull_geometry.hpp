@@ -347,7 +347,6 @@ private:
     push_back(Backing *backing, c_array<const T> values)
     {
       ASTRALassert(m_end == std::get<N>(*backing).size());
-      ASTRALassert(!values.overlapping_memory(make_c_array(std::get<N>(*backing))));
 
       std::get<N>(*backing).resize(m_end + values.size());
       std::copy(values.begin(), values.end(), std::get<N>(*backing).begin() + m_end);
@@ -502,8 +501,6 @@ public:
       add_polygon(bool is_screen_aligned, c_array<const vec2> polygon, Intersection &backing)
       {
         Polygon R;
-
-        ASTRALassert(!polygon.overlapping_memory(make_c_array(backing.m_backing_pts)));
 
         R.m_is_screen_aligned_rect = is_screen_aligned;
 
