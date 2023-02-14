@@ -296,7 +296,7 @@ private:
 void
 astral::Renderer::Implement::ClipElement::
 init(Renderer::Implement &renderer,
-     const CullGeometrySimple &clip_geometry,
+     const CullGeometrySimple &cull_geometry,
      CullGeometryGroup::Token token,
      const reference_counted_ptr<const Image> &image,
      enum mask_type_t mask_type,
@@ -305,7 +305,7 @@ init(Renderer::Implement &renderer,
   vecN<enum mask_channel_t, 2> mask_channels(number_mask_channel);
 
   mask_channels[mask_type] = mask_channel;
-  init(renderer, clip_geometry, token, image, mask_channels, mask_type);
+  init(renderer, cull_geometry, token, image, mask_channels, mask_type);
 }
 
 void
@@ -319,8 +319,8 @@ init(Renderer::Implement &renderer,
   ASTRALunused(renderer);
 
   m_renderer = src.m_renderer;
-  m_clip_geometry = src.m_clip_geometry;
-  m_clip_geometry_token = src.m_clip_geometry_token;
+  m_cull_geometry = src.m_cull_geometry;
+  m_cull_geometry_token = src.m_cull_geometry_token;
   m_mip_front = src.m_mip_front;
   m_mask_channels = src.m_mask_channels;
 
@@ -335,7 +335,7 @@ init(Renderer::Implement &renderer,
 void
 astral::Renderer::Implement::ClipElement::
 init(Renderer::Implement &renderer,
-     const CullGeometrySimple &clip_geometry,
+     const CullGeometrySimple &cull_geometry,
      CullGeometryGroup::Token token,
      const reference_counted_ptr<const Image> &image,
      vecN<enum mask_channel_t, number_mask_type> mask_channels,
@@ -346,8 +346,8 @@ init(Renderer::Implement &renderer,
   ASTRALassert(!m_mip_front);
 
   m_renderer = &renderer;
-  m_clip_geometry = clip_geometry;
-  m_clip_geometry_token = token;
+  m_cull_geometry = cull_geometry;
+  m_cull_geometry_token = token;
   m_mask_details.m_mask = image;
   m_mask_channels = mask_channels;
 
@@ -375,12 +375,12 @@ init(Renderer::Implement &renderer,
       m_mask_details.m_mask_type = m_preferred_mask_type;
       m_mask_details.m_mask_channel = m_mask_channels[m_preferred_mask_type];
 
-      /* m_clip_geometry.image_transformation_pixel() is the transformation
+      /* m_cull_geometry.image_transformation_pixel() is the transformation
        * from pixel coordinate to image coordinates. However, we need the
        * transformation to the sub-image that starts at the sub-image starting
        * at padding.
        */
-      m_mask_details.m_mask_transformation_pixel = m_clip_geometry.image_transformation_pixel();
+      m_mask_details.m_mask_transformation_pixel = m_cull_geometry.image_transformation_pixel();
       m_mask_details.m_mask_transformation_pixel.m_translate -= padding;
     }
 }
@@ -468,7 +468,7 @@ intersect(BoundingBox<float> pixel_rect) const
 
   /* map to image coordnates to figure what tiles are hit by Q */
   BoundingBox<float> Q;
-  Q = p->clip_geometry().image_transformation_pixel().apply_to_bb(pixel_rect);
+  Q = p->cull_geometry().image_transformation_pixel().apply_to_bb(pixel_rect);
 
   /* enlarge Q by 2 pixels on each side to make sure that pixel
    * padding is captured. Is this really needed?
@@ -487,8 +487,8 @@ intersect(BoundingBox<float> pixel_rect) const
 
   return_value = Renderer::Implement::ClipCombineResult::create_clip(*p->m_renderer, p->mask_channels(),
                                                                      *p->m_mask_details.m_mask, tile_range,
-                                                                     p->clip_geometry(),
-                                                                     p->clip_geometry_token(),
+                                                                     p->cull_geometry(),
+                                                                     p->cull_geometry_token(),
                                                                      p->preferred_mask_type());
 
   /* almost done, now we need to apply again pixel_rect
@@ -664,7 +664,7 @@ astral::Renderer::Implement::ClipCombineResult::
 create_clip_implement(Renderer::Implement &renderer, ClipCombineResult *pthis,
                       const vecN<enum mask_channel_t, number_mask_type> &mask_channels,
                       const Image &image, const vecN<range_type<unsigned int>, 2> &tile_range,
-                      const CullGeometrySimple &clip_geometry,
+                      const CullGeometrySimple &cull_geometry,
                       CullGeometryGroup::Token token,
                       enum ImageMipElement::element_type_t TileProperties::*v,
                       enum mask_type_t preferred_mask_type)
@@ -691,7 +691,7 @@ create_clip_implement(Renderer::Implement &renderer, ClipCombineResult *pthis,
   image_begin = mip->tile_location(first_tile);
   image_end = mip->tile_location(last_tile) + mip->tile_size(last_tile);
 
-  sub_geometry = clip_geometry.sub_geometry(image_begin, image_end);
+  sub_geometry = cull_geometry.sub_geometry(image_begin, image_end);
   sub_token = token.intersect_against(*renderer.m_storage, sub_geometry.pixel_rect());
 
   return_value = renderer.m_storage->create_clip_element(sub_geometry, token, sub_image, mask_channels, preferred_mask_type);
@@ -786,7 +786,7 @@ init(Renderer::Implement &renderer, float render_tol,
   mip = clip_element->mip_front();
   ASTRALassert(mip);
 
-  mask_transformation_pixel = clip_element->clip_geometry().image_transformation_pixel();
+  mask_transformation_pixel = clip_element->cull_geometry().image_transformation_pixel();
   mask_transformation_logical = Transformation(mask_transformation_pixel) * pixel_transformation_logical;
 
   /* used the -CombinePath- bounding box, not the clip-geometry bounding box,
@@ -799,7 +799,7 @@ init(Renderer::Implement &renderer, float render_tol,
       ivec2 sz;
 
       bb = mask_transformation_logical.apply_to_bb(path.compute_bounding_box());
-      bb.intersect_against(clip_element->clip_geometry().pixel_rect());
+      bb.intersect_against(clip_element->cull_geometry().pixel_rect());
       sz = ivec2(bb.size());
 
       use_mask_shader = params.use_mask_shader(sz);
@@ -809,7 +809,7 @@ init(Renderer::Implement &renderer, float render_tol,
     {
       Renderer::Implement::Filler::create_mask_via_item_path_shader(renderer, params.m_path_shader,
                                                          render_tol, params.m_fill_rule,
-                                                         path, clip_element->clip_geometry(),
+                                                         path, clip_element->cull_geometry(),
                                                          mask_transformation_logical,
                                                          clip_element,
                                                          &m_mask_tiles_before_combine,
@@ -819,8 +819,8 @@ init(Renderer::Implement &renderer, float render_tol,
     {
       m_renderer->m_filler[params.m_sparse]->create_mask(render_tol, params.m_fill_rule, params.m_aa_mode,
                                                          path,
-                                                         clip_element->clip_geometry(),
-                                                         clip_element->clip_geometry_token().sub_rects(*m_renderer->m_storage),
+                                                         clip_element->cull_geometry(),
+                                                         clip_element->cull_geometry_token().sub_rects(*m_renderer->m_storage),
                                                          mask_transformation_logical,
                                                          clip_element,
                                                          clip_combine_mode,
@@ -894,8 +894,8 @@ init(Renderer::Implement &renderer, float render_tol,
         number_mask_channel;
 
       m_clip_in = create_clip(mask_channels, *m_raw_fill.m_mask, clip_in_range.value(),
-                              clip_element->clip_geometry(),
-                              clip_element->clip_geometry_token(),
+                              clip_element->cull_geometry(),
+                              clip_element->cull_geometry_token(),
                               &TileProperties::m_clip_in_tile_type,
                               clip_element->preferred_mask_type());
     }
@@ -918,8 +918,8 @@ init(Renderer::Implement &renderer, float render_tol,
         number_mask_channel;
 
       m_clip_out = create_clip(mask_channels, *m_raw_fill.m_mask, clip_out_range.value(),
-                               clip_element->clip_geometry(),
-                               clip_element->clip_geometry_token(),
+                               clip_element->cull_geometry(),
+                               clip_element->cull_geometry_token(),
                                &TileProperties::m_clip_out_tile_type,
                                clip_element->preferred_mask_type());
     }

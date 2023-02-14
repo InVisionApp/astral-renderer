@@ -30,7 +30,7 @@ class astral::RenderSupportTypes::Proxy::Backing
 public:
   Backing(const Transformation &tr, const Renderer::Implement::CullGeometryGroup &geom):
     m_transformation(tr),
-    m_clip_geometry(geom)
+    m_cull_geometry(geom)
   {}
 
   /* The value of transformation() of the VirtualBuffer
@@ -39,7 +39,7 @@ public:
   Transformation m_transformation;
 
   /* The clipping region defined by the Proxy. */
-  Renderer::Implement::CullGeometryGroup m_clip_geometry;
+  Renderer::Implement::CullGeometryGroup m_cull_geometry;
 };
 
 #endif

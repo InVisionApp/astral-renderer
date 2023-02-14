@@ -682,7 +682,7 @@ public:
   const BoundingBox<float>&
   pixel_rect(void) const
   {
-    return clip_geometry().bounding_geometry().pixel_rect();
+    return cull_geometry().bounding_geometry().pixel_rect();
   }
 
   /*!
@@ -693,7 +693,7 @@ public:
   const ScaleTranslate&
   image_transformation_pixel(void) const
   {
-    return clip_geometry().bounding_geometry().image_transformation_pixel();
+    return cull_geometry().bounding_geometry().image_transformation_pixel();
   }
 
   /* image-processing to perform on blit to image atlas */
@@ -716,7 +716,7 @@ public:
   float
   scale_factor(void) const
   {
-    return clip_geometry().bounding_geometry().scale_factor();
+    return cull_geometry().bounding_geometry().scale_factor();
   }
 
   /* Gives the area of the actual render target covered
@@ -906,9 +906,9 @@ public:
    * the clip-planes of the VirtualBuffer.
    */
   const Implement::CullGeometryGroup&
-  clip_geometry(void) const
+  cull_geometry(void) const
   {
-    return m_clip_geometry;
+    return m_cull_geometry;
   }
 
   /* Returns a ClipElement corresponding to using a channel
@@ -1170,7 +1170,7 @@ public:
    *                    pixel_rect()
    */
   Implement::CullGeometryGroup
-  child_clip_geometry(RenderScaleFactor scale_factor,
+  child_cull_geometry(RenderScaleFactor scale_factor,
                       const RelativeBoundingBox &logical_rect, unsigned int pixel_slack);
 
   /* "Real" implementation of RenderEncoderBase::begin_pause_snapshot() */
@@ -1480,7 +1480,7 @@ private:
   RenderValue<ScaleTranslate> m_render_scale_translate;
 
   /* The geometry of the clipping region */
-  Implement::CullGeometryGroup m_clip_geometry;
+  Implement::CullGeometryGroup m_cull_geometry;
 
   /* counter for begin_pause_snapshot() / end_pause_snapshot() */
   int m_pause_snapshot_counter;

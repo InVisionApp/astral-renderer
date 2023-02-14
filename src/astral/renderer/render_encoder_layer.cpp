@@ -191,7 +191,7 @@ Backing(RenderEncoderBase pparent_encoder,
   Renderer::VirtualBuffer &virtual_buffer(*m_parent_encoder.m_virtual_buffer);
   Renderer::Implement &renderer(virtual_buffer.m_renderer);
 
-  virtual_buffer.clip_geometry().compute_intersection(storage, m_transformation,
+  virtual_buffer.cull_geometry().compute_intersection(storage, m_transformation,
                                                       m_parent_encoder.singular_values().x(),
                                                       rr,
                                                       make_c_array(scratch.m_translate_and_paddings),
@@ -270,13 +270,13 @@ Backing(RenderEncoderBase pparent_encoder,
   else
     {
       /* Construct the clip-geometry encompasing the zones that the effects hit */
-      Renderer::Implement::CullGeometryGroup clip_geometry(renderer,
+      Renderer::Implement::CullGeometryGroup cull_geometry(renderer,
                                                            effect_render_scale_factor,
                                                            scratch.m_intersection,
                                                            effect_pixel_slack);
 
       /* Generate m_encoder */
-      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, clip_geometry,
+      m_encoder = renderer.m_storage->create_virtual_buffer(VB_TAG, m_transformation, cull_geometry,
                                                             Renderer::Implement::DrawCommandList::render_color_image,
                                                             image_processing_none, colorspace,
                                                             number_fill_rule,

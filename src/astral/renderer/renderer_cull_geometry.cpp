@@ -460,7 +460,7 @@ CullGeometryGroup(Implement &renderer,
                   const CullGeometryGroup &parent_geom, int pixel_padding,
                   c_array<const TranslateAndPadding> translate_and_paddings)
 {
-  Intersection &tmp(renderer.m_workroom->m_clip_geometry_intersection);
+  Intersection &tmp(renderer.m_workroom->m_cull_geometry_intersection);
 
   ASTRALhard_assert(!translate_and_paddings.empty());
   parent_geom.compute_intersection(*renderer.m_storage,
@@ -542,7 +542,7 @@ init(Implement &renderer, float scale_factor,
       c_array<const CullGeometry> clips;
 
       clips = renderer.m_storage->backed_clip_geometries(m_sub_clips);
-      subrects = renderer.m_storage->backed_clip_geometry_sub_rects(m_sub_rects);
+      subrects = renderer.m_storage->backed_cull_geometry_sub_rects(m_sub_rects);
 
       ASTRALassert(clips.size() == subrects.size());
       for (unsigned int i = 0, endi = clips.size(); i < endi; ++i)
@@ -657,7 +657,7 @@ compute_intersection(Storage &storage,
         {
           CullGeometry::Intersection pts;
 
-          pts = C.compute_intersection(&storage.clip_geometry_backing(),
+          pts = C.compute_intersection(&storage.cull_geometry_backing(),
                                        tr, tr_norm, logical_rect,
                                        offset);
           if (!pts.m_pts.empty())
@@ -704,7 +704,7 @@ sub_rects(Storage &storage) const
     }
   else
     {
-      return storage.backed_clip_geometry_sub_rects(*this);
+      return storage.backed_cull_geometry_sub_rects(*this);
     }
 }
 
@@ -721,5 +721,5 @@ intersect_against(Storage &storage, const BoundingBox<float> &pixel_rect) const
   /* create an array of subrects whose values are the ones
    * we have intersected against the passed pixel rect
    */
-  return storage.create_intersected_backed_clip_geometry_rects(*this, pixel_rect);
+  return storage.create_intersected_backed_cull_geometry_rects(*this, pixel_rect);
 }

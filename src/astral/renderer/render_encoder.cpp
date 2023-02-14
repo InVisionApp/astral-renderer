@@ -283,7 +283,7 @@ pixel_bounding_box(void) const
 
   if (m_data)
     {
-      return_value = m_data->m_clip_geometry.bounding_geometry().pixel_rect();
+      return_value = m_data->m_cull_geometry.bounding_geometry().pixel_rect();
     }
   return return_value;
 }
@@ -296,7 +296,7 @@ image_transformation_pixel(void) const
 
   if (m_data)
     {
-      return_value = m_data->m_clip_geometry.bounding_geometry().image_transformation_pixel();
+      return_value = m_data->m_cull_geometry.bounding_geometry().image_transformation_pixel();
     }
   return return_value;
 }
@@ -309,7 +309,7 @@ image_size(void) const
 
   if (m_data)
     {
-      return_value = m_data->m_clip_geometry.bounding_geometry().image_size();
+      return_value = m_data->m_cull_geometry.bounding_geometry().image_size();
     }
   return return_value;
 }
@@ -2040,29 +2040,29 @@ generate_mask(const CombinedPath &paths,
    * when params.m_render_scale_factor is small.
    */
   unsigned int pixel_slack(ImageAtlas::tile_padding);
-  Renderer::Implement::CullGeometryGroup clip_geometry;
+  Renderer::Implement::CullGeometryGroup cull_geometry;
   Transformation mask_transformation_logical;
   RelativeBoundingBox relative_bounding_box(bb, mask_properties.m_restrict_bb);
 
   relative_bounding_box.m_inherit_culling_of_parent = mask_properties.m_apply_clip_equations_clipping;
-  clip_geometry = virtual_buffer().child_clip_geometry(mask_properties.m_render_scale_factor,
+  cull_geometry = virtual_buffer().child_cull_geometry(mask_properties.m_render_scale_factor,
                                                        relative_bounding_box, pixel_slack);
 
 
-  mask_transformation_logical = clip_geometry.bounding_geometry().image_transformation_logical(transformation());
-  if (paths.paths<AnimatedPath>().empty() && mask_properties.use_mask_shader(clip_geometry.bounding_geometry().image_size()))
+  mask_transformation_logical = cull_geometry.bounding_geometry().image_transformation_logical(transformation());
+  if (paths.paths<AnimatedPath>().empty() && mask_properties.use_mask_shader(cull_geometry.bounding_geometry().image_size()))
     {
       Renderer::Implement::Filler::create_mask_via_item_path_shader(renderer_implement(), mask_properties.m_path_shader,
                                                                     virtual_buffer().logical_rendering_accuracy(),
-                                                                    params.m_fill_rule, paths, clip_geometry.bounding_geometry(),
+                                                                    params.m_fill_rule, paths, cull_geometry.bounding_geometry(),
                                                                     mask_transformation_logical, out_data);
     }
   else
     {
       renderer_implement().m_filler[mask_properties.m_sparse_mask]->create_mask(virtual_buffer().logical_rendering_accuracy(),
                                                                                 params.m_fill_rule, params.m_aa_mode, paths,
-                                                                                clip_geometry.bounding_geometry(),
-                                                                                clip_geometry.sub_rects(*renderer_implement().m_storage),
+                                                                                cull_geometry.bounding_geometry(),
+                                                                                cull_geometry.sub_rects(*renderer_implement().m_storage),
                                                                                 mask_transformation_logical,
                                                                                 out_data);
     }
@@ -2083,8 +2083,8 @@ generate_mask(const CombinedPath &paths,
       mask_channels[mask_type_coverage] = mask_channel_red;
       mask_channels[mask_type_distance_field] = mask_channel_green;
 
-      p = renderer_implement().m_storage->create_clip_element(clip_geometry.bounding_geometry(),
-                                                              clip_geometry.token(),
+      p = renderer_implement().m_storage->create_clip_element(cull_geometry.bounding_geometry(),
+                                                              cull_geometry.token(),
                                                               out_data->m_mask, mask_channels, mask_type);
 
       *out_clip_element = p;
@@ -2219,7 +2219,7 @@ encoder_stroke(const StrokeMaskProperties &mask_properties) const
 {
   RenderEncoderStrokeMask return_value;
 
-  return_value = renderer_implement().m_storage->create_stroke_builder(virtual_buffer().clip_geometry(),
+  return_value = renderer_implement().m_storage->create_stroke_builder(virtual_buffer().cull_geometry(),
                                                                        mask_properties,
                                                                        transformation(),
                                                                        render_accuracy());

@@ -63,7 +63,7 @@ namespace
 astral::Renderer::VirtualBuffer::
 VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &renderer,
               const Transformation &initial_transformation,
-              const Implement::CullGeometryGroup &clip_geometry,
+              const Implement::CullGeometryGroup &cull_geometry,
               enum Implement::DrawCommandList::render_type_t render_type,
               enum image_blit_processing_t blit_processing,
               enum colorspace_t colorspace,
@@ -84,7 +84,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_remaining_dependencies(0u),
   m_users_that_completed_rendering(0u),
   m_command_list(nullptr),
-  m_clip_geometry(clip_geometry),
+  m_cull_geometry(cull_geometry),
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(stc_fill_rule),
@@ -94,20 +94,20 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
 {
-  uvec2 sz(m_clip_geometry.bounding_geometry().image_size());
+  uvec2 sz(m_cull_geometry.bounding_geometry().image_size());
 
   m_transformation_stack.push_back(initial_transformation);
   if (sz.x() > 0 && sz.y() > 0)
     {
-      m_clip_window = renderer.create_clip_window(m_clip_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
-                                                  m_clip_geometry.bounding_geometry().pixel_rect().as_rect().size());
+      m_clip_window = renderer.create_clip_window(m_cull_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
+                                                  m_cull_geometry.bounding_geometry().pixel_rect().as_rect().size());
 
       m_type = image_buffer;
-      m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_clip_geometry.bounding_geometry().pixel_rect());
+      m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_cull_geometry.bounding_geometry().pixel_rect());
       m_uses_this_buffer_list = renderer.m_storage->allocate_buffer_list();
       m_dependency_list = renderer.m_storage->allocate_buffer_list();
 
-      /* NOTE: create_backing_image() requires m_clip_geometry to be ready
+      /* NOTE: create_backing_image() requires m_cull_geometry to be ready
        *       AND that m_command_list is not nullptr.
        */
       if (m_image_create_spec.m_create_immediately)
@@ -156,14 +156,14 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
 
   if (image_size.x() > 0 && image_size.y() > 0)
     {
-      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(image_size, renderer, &m_clip_window));
+      m_cull_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(image_size, renderer, &m_clip_window));
 
       m_type = image_buffer;
-      m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_clip_geometry.bounding_geometry().pixel_rect());
+      m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_cull_geometry.bounding_geometry().pixel_rect());
       m_uses_this_buffer_list = renderer.m_storage->allocate_buffer_list();
       m_dependency_list = renderer.m_storage->allocate_buffer_list();
 
-      /* NOTE: create_backing_image() requires m_clip_geometry to be ready
+      /* NOTE: create_backing_image() requires m_cull_geometry to be ready
        *       AND that m_command_list is not nullptr.
        */
       if (m_image_create_spec.m_create_immediately)
@@ -174,7 +174,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   else
     {
       m_type = degenerate_buffer;
-      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(ivec2(0, 0)));
+      m_cull_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(ivec2(0, 0)));
     }
 }
 
@@ -444,13 +444,13 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   if (region)
     {
       m_region = *region;
-      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(region->m_size));
+      m_cull_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(region->m_size));
 
       /* Recall that the clip-window is in coordinates BEFORE the ScaleTranslate that places
        * it on the surface.
        */
-      m_clip_window = renderer.create_clip_window(m_clip_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
-                                                  m_clip_geometry.bounding_geometry().pixel_rect().as_rect().size());
+      m_clip_window = renderer.create_clip_window(m_cull_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
+                                                  m_cull_geometry.bounding_geometry().pixel_rect().as_rect().size());
 
       /* Now place the virtual buffer onto the render target by setting m_render_scale_translate */
       ScaleTranslate tr;
@@ -460,11 +460,11 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
     }
   else
     {
-      m_clip_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(rt.size()));
+      m_cull_geometry = Implement::CullGeometryGroup(renderer.m_storage->create_clip(rt.size()));
     }
   m_command_list = renderer.m_storage->allocate_command_list(Implement::DrawCommandList::render_color_image,
                                                              image_processing_none,
-                                                             m_clip_geometry.bounding_geometry().pixel_rect());
+                                                             m_cull_geometry.bounding_geometry().pixel_rect());
 }
 
 astral::Renderer::VirtualBuffer::
@@ -488,7 +488,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_remaining_dependencies(0u),
   m_users_that_completed_rendering(0u),
   m_command_list(nullptr),
-  m_clip_geometry(src_buffer.m_clip_geometry),
+  m_cull_geometry(src_buffer.m_cull_geometry),
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(src_buffer.m_stc_fill_rule),
@@ -512,7 +512,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
     }
 
   /* map image coordinates to pixel coordinates */
-  pixel_region = m_clip_geometry.bounding_geometry().image_transformation_pixel().inverse().apply_to_bb(BoundingBox<float>(image_region));
+  pixel_region = m_cull_geometry.bounding_geometry().image_transformation_pixel().inverse().apply_to_bb(BoundingBox<float>(image_region));
 
   /* create m_clip_window */
   m_clip_window = renderer.create_clip_window(pixel_region.as_rect().m_min_point,
@@ -610,7 +610,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_remaining_dependencies(0u),
   m_users_that_completed_rendering(0u),
   m_command_list(nullptr),
-  m_clip_geometry(geometry),
+  m_cull_geometry(geometry),
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(stc_fill_rule),
@@ -619,12 +619,12 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
 {
-  ASTRALassert(m_clip_geometry.bounding_geometry().image_size().x() > 0 && m_clip_geometry.bounding_geometry().image_size().y() > 0);
+  ASTRALassert(m_cull_geometry.bounding_geometry().image_size().x() > 0 && m_cull_geometry.bounding_geometry().image_size().y() > 0);
   ASTRALassert(out_virtual_buffers.size() == tile_regions.size());
 
-  m_image = make_partially_backed_image(renderer, m_render_index, m_clip_geometry.bounding_geometry().image_size(), colorspace, tile_regions);
-  m_clip_window = renderer.create_clip_window(m_clip_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
-                                              m_clip_geometry.bounding_geometry().pixel_rect().as_rect().size());
+  m_image = make_partially_backed_image(renderer, m_render_index, m_cull_geometry.bounding_geometry().image_size(), colorspace, tile_regions);
+  m_clip_window = renderer.create_clip_window(m_cull_geometry.bounding_geometry().pixel_rect().as_rect().m_min_point,
+                                              m_cull_geometry.bounding_geometry().pixel_rect().as_rect().size());
   m_uses_this_buffer_list = renderer.m_storage->allocate_buffer_list();
   m_dependency_list = renderer.m_storage->allocate_buffer_list();
 
@@ -634,7 +634,7 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
    * TODO: have a few special command list objects that are reused that are for
    *       command lists that are to never have commands added to them.
    */
-  m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_clip_geometry.bounding_geometry().pixel_rect());
+  m_command_list = renderer.m_storage->allocate_command_list(render_type, blit_processing, m_cull_geometry.bounding_geometry().pixel_rect());
 
   /* is this really needed? Moreover, can we make the transformation stack also
    * shared for this case?
@@ -752,7 +752,7 @@ create_backing_image(void)
       return;
     }
 
-  uvec2 sz(m_clip_geometry.bounding_geometry().image_size());
+  uvec2 sz(m_cull_geometry.bounding_geometry().image_size());
   if (sz.x() > 0 && sz.y() > 0)
     {
       c_array<const uvec2> empty_tiles;
@@ -766,15 +766,15 @@ create_backing_image(void)
               /* No more commands will be added, thus we can view any tile not
                * hit by a command as an empty tile.
                */
-              empty_tiles = m_renderer.m_workroom->m_tile_hit_detection.compute_empty_tiles(*m_renderer.m_storage, clip_geometry(),
+              empty_tiles = m_renderer.m_workroom->m_tile_hit_detection.compute_empty_tiles(*m_renderer.m_storage, cull_geometry(),
                                                                                             *command_list(), m_use_pixel_rect_tile_culling, &bb);
             }
           else
             {
-              /* Commands can still be added, so only the clip_geometry() can
+              /* Commands can still be added, so only the cull_geometry() can
                * be used to cull tiles.
                */
-              empty_tiles = m_renderer.m_workroom->m_tile_hit_detection.compute_empty_tiles(*m_renderer.m_storage, clip_geometry(),
+              empty_tiles = m_renderer.m_workroom->m_tile_hit_detection.compute_empty_tiles(*m_renderer.m_storage, cull_geometry(),
                                                                                             m_use_pixel_rect_tile_culling, &bb);
             }
 
@@ -799,8 +799,8 @@ create_backing_image(void)
           m_render_rect.m_min_point.x() = t_max(0, m_render_rect.m_min_point.x() - required_slack);
           m_render_rect.m_min_point.y() = t_max(0, m_render_rect.m_min_point.y() - required_slack);
 
-          m_render_rect.m_max_point.x() = t_min(m_clip_geometry.bounding_geometry().image_size().x(), m_render_rect.m_max_point.x() + required_slack);
-          m_render_rect.m_max_point.y() = t_min(m_clip_geometry.bounding_geometry().image_size().y(), m_render_rect.m_max_point.y() + required_slack);
+          m_render_rect.m_max_point.x() = t_min(m_cull_geometry.bounding_geometry().image_size().x(), m_render_rect.m_max_point.x() + required_slack);
+          m_render_rect.m_max_point.y() = t_min(m_cull_geometry.bounding_geometry().image_size().y(), m_render_rect.m_max_point.y() + required_slack);
         }
       else
         {
@@ -2046,10 +2046,10 @@ generate_child_proxy(const RelativeBoundingBox &logical_rect,
 
   if (!logical_rect.m_bb.empty() && m_type != degenerate_buffer)
     {
-      Implement::CullGeometryGroup clip_geometry;
+      Implement::CullGeometryGroup cull_geometry;
 
-      clip_geometry = child_clip_geometry(scale_factor, logical_rect, pixel_slack);
-      return_value = m_renderer.m_storage->create_virtual_buffer_proxy(transformation(), clip_geometry);
+      cull_geometry = child_cull_geometry(scale_factor, logical_rect, pixel_slack);
+      return_value = m_renderer.m_storage->create_virtual_buffer_proxy(transformation(), cull_geometry);
     }
 
   return return_value;
@@ -2066,7 +2066,7 @@ generate_buffer_from_proxy(RenderSupportTypes::Proxy proxy,
 {
   RenderEncoderBase return_value;
 
-  if (!proxy.m_data || proxy.m_data->m_clip_geometry.bounding_geometry().image_size() == ivec2(0, 0))
+  if (!proxy.m_data || proxy.m_data->m_cull_geometry.bounding_geometry().image_size() == ivec2(0, 0))
     {
       /* return a degenerate VirtualBuffer, i.e. it has state tracking,
        * but all rendering commands are dropped.
@@ -2079,7 +2079,7 @@ generate_buffer_from_proxy(RenderSupportTypes::Proxy proxy,
   else
     {
       return_value = m_renderer.m_storage->create_virtual_buffer(VB_TAG, proxy.m_data->m_transformation,
-                                                                 proxy.m_data->m_clip_geometry,
+                                                                 proxy.m_data->m_cull_geometry,
                                                                  render_type, blit_processing,
                                                                  colorspace, fill_rule,
                                                                  image_create_spec);
@@ -2107,10 +2107,10 @@ generate_child_buffer(const RelativeBoundingBox &logical_rect,
 
   if (!logical_rect.m_bb.empty() && (m_type != degenerate_buffer || !logical_rect.m_inherit_culling_of_parent))
     {
-      Implement::CullGeometryGroup clip_geometry;
+      Implement::CullGeometryGroup cull_geometry;
 
-      clip_geometry = child_clip_geometry(in_scale_factor, logical_rect, pixel_slack);
-      return_value = m_renderer.m_storage->create_virtual_buffer(VB_TAG, transformation(), clip_geometry,
+      cull_geometry = child_cull_geometry(in_scale_factor, logical_rect, pixel_slack);
+      return_value = m_renderer.m_storage->create_virtual_buffer(VB_TAG, transformation(), cull_geometry,
                                                                  render_type, blit_processing,
                                                                  colorspace, fill_rule,
                                                                  image_create_spec);
@@ -2134,7 +2134,7 @@ generate_child_buffer(const RelativeBoundingBox &logical_rect,
 
 astral::Renderer::Implement::CullGeometryGroup
 astral::Renderer::VirtualBuffer::
-child_clip_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox &logical_rect, unsigned int pixel_slack)
+child_cull_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox &logical_rect, unsigned int pixel_slack)
 {
   float sf(in_scale_factor.m_scale_factor);
 
@@ -2145,7 +2145,7 @@ child_clip_geometry(RenderScaleFactor in_scale_factor, const RelativeBoundingBox
 
   return Implement::CullGeometryGroup(m_renderer, transformation(),
                                       m_transformation_stack.back().singular_values().x(),
-                                      sf, logical_rect, clip_geometry(), pixel_slack);
+                                      sf, logical_rect, cull_geometry(), pixel_slack);
 }
 
 void
@@ -2240,8 +2240,8 @@ clip_element(enum mask_type_t mask_type,
       Implement::ClipElement *p;
 
       ASTRALassert(finish_issued());
-      p = m_renderer.m_storage->create_clip_element(clip_geometry().bounding_geometry(),
-                                                    clip_geometry().token(),
+      p = m_renderer.m_storage->create_clip_element(cull_geometry().bounding_geometry(),
+                                                    cull_geometry().token(),
                                                     fetch_image(), mask_type, mask_channel);
       m_clip_elements[idx] = p;
     }

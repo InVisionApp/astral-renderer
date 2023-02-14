@@ -153,7 +153,7 @@ add_backed_region(Storage &storage, ClipEqStack &eq_stack,
     }
   else
     {
-      CullGeometry::Backing *backing(&storage.clip_geometry_backing());
+      CullGeometry::Backing *backing(&storage.cull_geometry_backing());
 
       eq_stack.init(geometry.equations(backing));
       if (!eq_stack.current_clipping().empty())

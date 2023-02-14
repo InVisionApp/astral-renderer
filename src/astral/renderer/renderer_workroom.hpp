@@ -289,7 +289,7 @@ public:
    * constructing a CullGeometryGroup
    */
   std::vector<CullGeometry> m_clip_geometries;
-  CullGeometryGroup::Intersection m_clip_geometry_intersection;
+  CullGeometryGroup::Intersection m_cull_geometry_intersection;
 
   /* scratch space for RenderEncoderLayer */
   RenderEncoderLayer::Backing::ScratchSpace m_render_encoder_layer;

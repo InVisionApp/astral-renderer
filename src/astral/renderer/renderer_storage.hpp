@@ -92,7 +92,7 @@ public:
     m_unsigned_int_array_pool.clear();
     m_virtual_buffer_proxies.clear();
     m_clip_geometries.clear();
-    m_clip_geometry_sub_rects.clear();
+    m_cull_geometry_sub_rects.clear();
     m_vertex_ranges.clear();
     m_shader_ptrs.clear();
     m_blit_rects.clear();
@@ -100,7 +100,7 @@ public:
     m_encoder_layers.clear();
     m_render_effect_data.clear();
     m_stroke_builders.clear();
-    m_clip_geometry_backing.clear();
+    m_cull_geometry_backing.clear();
   }
 
   DrawCommandList*
@@ -133,14 +133,14 @@ public:
   CullGeometry
   create_clip(Args&&... args)
   {
-    return CullGeometry(&m_clip_geometry_backing, std::forward<Args>(args)...);
+    return CullGeometry(&m_cull_geometry_backing, std::forward<Args>(args)...);
   }
 
   /*!
    * Have an internal array store copies of CullGeometry values,
    * these values can be fetched by calling backed_clip_geometries().
    * In addition, allocate backing rects which are fetched by
-   * backed_clip_geometry_sub_rects() using the value written to
+   * backed_cull_geometry_sub_rects() using the value written to
    * out_rects_token
    */
   range_type<unsigned int>
@@ -155,9 +155,9 @@ public:
       }
     return_value.m_end = m_clip_geometries.size();
 
-    out_rects_token->m_begin = m_clip_geometry_sub_rects.size();
-    out_rects_token->m_end = m_clip_geometry_sub_rects.size() + values.size();
-    m_clip_geometry_sub_rects.resize(out_rects_token->m_end);
+    out_rects_token->m_begin = m_cull_geometry_sub_rects.size();
+    out_rects_token->m_end = m_cull_geometry_sub_rects.size() + values.size();
+    m_cull_geometry_sub_rects.resize(out_rects_token->m_end);
 
     return return_value;
   }
@@ -175,20 +175,20 @@ public:
   }
 
   range_type<unsigned int>
-  create_intersected_backed_clip_geometry_rects(range_type<unsigned int> R, const BoundingBox<float> &pixel_rect)
+  create_intersected_backed_cull_geometry_rects(range_type<unsigned int> R, const BoundingBox<float> &pixel_rect)
   {
     range_type<unsigned int> return_value;
 
-    return_value.m_begin = m_clip_geometry_sub_rects.size();
+    return_value.m_begin = m_cull_geometry_sub_rects.size();
     for (unsigned int i = R.m_begin; i < R.m_end; ++i)
       {
-        BoundingBox<float> tmp(pixel_rect, m_clip_geometry_sub_rects[i]);
+        BoundingBox<float> tmp(pixel_rect, m_cull_geometry_sub_rects[i]);
         if (!tmp.empty())
           {
-            m_clip_geometry_sub_rects.push_back(tmp);
+            m_cull_geometry_sub_rects.push_back(tmp);
           }
       }
-    return_value.m_end = m_clip_geometry_sub_rects.size();
+    return_value.m_end = m_cull_geometry_sub_rects.size();
     return R;
   }
 
@@ -196,9 +196,9 @@ public:
    * with create_backed_rects_and_clips().
    */
   c_array<BoundingBox<float>>
-  backed_clip_geometry_sub_rects(range_type<unsigned int> R)
+  backed_cull_geometry_sub_rects(range_type<unsigned int> R)
   {
-    return make_c_array(m_clip_geometry_sub_rects).sub_array(R);
+    return make_c_array(m_cull_geometry_sub_rects).sub_array(R);
   }
 
   std::vector<VirtualBuffer*>*
@@ -424,7 +424,7 @@ public:
   }
 
   RenderEncoderStrokeMask::Backing*
-  create_stroke_builder(const CullGeometryGroup &parent_clip_geometry,
+  create_stroke_builder(const CullGeometryGroup &parent_cull_geometry,
                         const StrokeMaskProperties &mask_params,
                         const Transformation &pixel_transformation_logical,
                         float render_accuracy)
@@ -432,7 +432,7 @@ public:
     RenderEncoderStrokeMask::Backing *return_value;
 
     return_value = m_stroke_builders.allocate();
-    return_value->init(m_renderer, parent_clip_geometry,
+    return_value->init(m_renderer, parent_cull_geometry,
                        mask_params, pixel_transformation_logical,
                        render_accuracy);
 
@@ -505,9 +505,9 @@ public:
   }
 
   CullGeometry::Backing&
-  clip_geometry_backing(void)
+  cull_geometry_backing(void)
   {
-    return m_clip_geometry_backing;
+    return m_cull_geometry_backing;
   }
 
 private:
@@ -519,7 +519,7 @@ private:
   ObjectPoolClear<std::vector<unsigned int>> m_unsigned_int_array_pool;
   MemoryPool<RenderSupportTypes::Proxy::Backing, 4096> m_virtual_buffer_proxies;
   std::vector<CullGeometry> m_clip_geometries;
-  std::vector<BoundingBox<float>> m_clip_geometry_sub_rects;
+  std::vector<BoundingBox<float>> m_cull_geometry_sub_rects;
   std::vector<std::pair<unsigned int, range_type<int>>> m_vertex_ranges;
   std::vector<pointer<const ItemShader>> m_shader_ptrs;
   ObjectPoolClear<std::vector<RectT<int>>> m_blit_rects;
@@ -528,7 +528,7 @@ private:
   MemoryObjectPool<RenderEncoderLayer::Backing, 4096> m_encoder_layers;
   ObjectPoolClear<RenderEncoderLayer::Backing::EffectData> m_render_effect_data;
   ObjectPoolClear<RenderEncoderStrokeMask::Backing> m_stroke_builders;
-  CullGeometry::Backing m_clip_geometry_backing;
+  CullGeometry::Backing m_cull_geometry_backing;
 
   /* These are NOT cleared every frame since clip objects
    * can be reused across frames.

@@ -26,7 +26,7 @@ void
 astral::Renderer::Implement::Filler::
 create_mask(float logical_tol,
             enum fill_rule_t fill_rule, enum anti_alias_t aa_mode,
-            const CombinedPath &path, const CullGeometrySimple &clip_geometry,
+            const CombinedPath &path, const CullGeometrySimple &cull_geometry,
             c_array<const BoundingBox<float>> restrict_bbs,
             const Transformation &image_transformation_logical,
             const ClipElement *clip_element,
@@ -34,11 +34,11 @@ create_mask(float logical_tol,
             TileTypeTable *out_clip_combine_tile_data,
             MaskDetails *out_data)
 {
-  ivec2 rect_size(clip_geometry.image_size());
+  ivec2 rect_size(cull_geometry.image_size());
   reference_counted_ptr<const Image> mask_image;
 
   ASTRALassert(out_data);
-  ASTRALassert(!clip_element || &clip_element->clip_geometry() == &clip_geometry);
+  ASTRALassert(!clip_element || &clip_element->cull_geometry() == &cull_geometry);
 
   if (rect_size.x() > 0 && rect_size.y() > 0)
     {
@@ -54,16 +54,16 @@ create_mask(float logical_tol,
           mask_image = create_mask_non_sparse(rect_size, path, clip_element, out_clip_combine_tile_data);
         }
     }
-  compute_mask_details(clip_geometry, mask_image, out_data);
+  compute_mask_details(cull_geometry, mask_image, out_data);
 }
 
 void
 astral::Renderer::Implement::Filler::
-compute_mask_details(const CullGeometrySimple &clip_geometry,
+compute_mask_details(const CullGeometrySimple &cull_geometry,
                      const reference_counted_ptr<const Image> &mask_image,
                      MaskDetails *out_data)
 {
-  out_data->m_mask_transformation_pixel = clip_geometry.image_transformation_pixel();
+  out_data->m_mask_transformation_pixel = cull_geometry.image_transformation_pixel();
   out_data->m_mask = mask_image;
 
   if (mask_image)
@@ -145,17 +145,17 @@ void
 astral::Renderer::Implement::Filler::
 create_mask_via_item_path_shader(Renderer::Implement &renderer, const MaskItemPathShader &shader,
                                  float tol, enum fill_rule_t fill_rule,
-                                 const CombinedPath &combined_path, const CullGeometrySimple &clip_geometry,
+                                 const CombinedPath &combined_path, const CullGeometrySimple &cull_geometry,
                                  const Transformation &image_transformation_logical,
                                  const ClipElement *clip_element,
                                  TileTypeTable *out_clip_combine_tile_data, MaskDetails *out_data)
 {
-  ivec2 rect_size(clip_geometry.image_size());
+  ivec2 rect_size(cull_geometry.image_size());
   reference_counted_ptr<Image> mask_image;
 
   ASTRALassert(out_data);
   ASTRALassert(combined_path.paths<AnimatedPath>().empty());
-  ASTRALassert(!clip_element || &clip_element->clip_geometry() == &clip_geometry);
+  ASTRALassert(!clip_element || &clip_element->cull_geometry() == &cull_geometry);
 
   if (rect_size.x() > 0 && rect_size.y() > 0)
     {
@@ -247,7 +247,7 @@ create_mask_via_item_path_shader(Renderer::Implement &renderer, const MaskItemPa
 
       mask_image = im.image();
     }
-  compute_mask_details(clip_geometry, mask_image, out_data);
+  compute_mask_details(cull_geometry, mask_image, out_data);
 }
 
 void

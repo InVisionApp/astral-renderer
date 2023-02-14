@@ -251,7 +251,7 @@ clear(void)
 void
 astral::RenderEncoderStrokeMask::Backing::
 init(Renderer::Implement &renderer,
-     const Renderer::Implement::CullGeometryGroup &parent_clip_geometry,
+     const Renderer::Implement::CullGeometryGroup &parent_cull_geometry,
      const StrokeMaskProperties &mask_params,
      const Transformation &pixel_transformation_logical,
      float render_accuracy)
@@ -265,11 +265,11 @@ init(Renderer::Implement &renderer,
   m_renderer = &renderer;
   m_mask_params = mask_params;
   m_render_accuracy = render_accuracy;
-  m_parent_clip_geometry = parent_clip_geometry;
+  m_parent_cull_geometry = parent_cull_geometry;
   m_current_clip_mode = mask_item_shader_clip_cutoff;
 
   m_mask_params.m_restrict_bb = &m_restrict_bb_backing;
-  m_restrict_bb_backing = parent_clip_geometry.bounding_geometry().pixel_rect();
+  m_restrict_bb_backing = parent_cull_geometry.bounding_geometry().pixel_rect();
   if (mask_params.m_restrict_bb)
     {
       m_restrict_bb_backing.intersect_against(*mask_params.m_restrict_bb);
@@ -294,7 +294,7 @@ render_scale_factor(void) const
   float sf(m_mask_params.m_render_scale_factor.m_scale_factor);
   if (m_mask_params.m_render_scale_factor.m_relative)
     {
-      sf *= m_parent_clip_geometry.bounding_geometry().scale_factor();
+      sf *= m_parent_cull_geometry.bounding_geometry().scale_factor();
     }
 
   return sf;
@@ -580,14 +580,14 @@ compute_mask(void)
   const Transformation identity;
   const float identity_norm(1.0f);
   const int pixel_padding(ImageAtlas::tile_padding);
-  Renderer::Implement::CullGeometryGroup clip_geometry;
+  Renderer::Implement::CullGeometryGroup cull_geometry;
   RelativeBoundingBox relative_bounding_box(bb);
 
   relative_bounding_box.m_inherit_culling_of_parent = m_mask_params.m_apply_clip_equations_clipping;
-  clip_geometry = Renderer::Implement::CullGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
-                                                         relative_bounding_box, m_parent_clip_geometry, pixel_padding);
+  cull_geometry = Renderer::Implement::CullGeometryGroup(*m_renderer, identity, identity_norm, render_scale_factor(),
+                                                         relative_bounding_box, m_parent_cull_geometry, pixel_padding);
 
-  if (clip_geometry.bounding_geometry().image_size() == ivec2(0, 0))
+  if (cull_geometry.bounding_geometry().image_size() == ivec2(0, 0))
     {
       /* mask will be empty anyways */
       return;
@@ -596,16 +596,16 @@ compute_mask(void)
   /* Step 3: run the query */
   Renderer::Implement::WorkRoom::Stroke &workroom(m_renderer->m_workroom->m_stroke);
   StrokeQuery &stroke_query(*workroom.m_query);
-  ivec2 rect_size(clip_geometry.bounding_geometry().image_size());
-  Transformation image_transformation_pixel(clip_geometry.bounding_geometry().image_transformation_pixel());
+  ivec2 rect_size(cull_geometry.bounding_geometry().image_size());
+  Transformation image_transformation_pixel(cull_geometry.bounding_geometry().image_transformation_pixel());
 
-  /* Recall that clip_geometry.sub_rects() is empty if it has not clipping sub-geometry
+  /* Recall that cull_geometry.sub_rects() is empty if it has not clipping sub-geometry
    * and that StrokeQuery::begin_query() interprets an empty array as that all of the
    * rect specified by rect_size is covered.
    */
-  stroke_query.begin_query(clip_geometry.bounding_geometry().image_transformation_pixel(),
+  stroke_query.begin_query(cull_geometry.bounding_geometry().image_transformation_pixel(),
                            rect_size, m_mask_params.m_sparse_mask,
-                           clip_geometry.sub_rects(*m_renderer->m_storage));
+                           cull_geometry.sub_rects(*m_renderer->m_storage));
 
   unsigned int client_id(0u);
   for (const auto &c : m_contours)
@@ -630,7 +630,7 @@ compute_mask(void)
 
   if (count == 1)
     {
-      encoder = m_renderer->m_storage->create_virtual_buffer(VB_TAG, Transformation(), clip_geometry, number_fill_rule,
+      encoder = m_renderer->m_storage->create_virtual_buffer(VB_TAG, Transformation(), cull_geometry, number_fill_rule,
                                                              Renderer::VirtualBuffer::ImageCreationSpec());
       workroom.m_render_encoders.push_back(encoder);
     }
@@ -647,7 +647,7 @@ compute_mask(void)
           workroom.m_tmp_tile_regions[i] = stroke_query.elements()[i].tile_range();
         }
 
-      encoder = m_renderer->m_storage->create_virtual_buffer(VB_TAG, Transformation(), clip_geometry, number_fill_rule,
+      encoder = m_renderer->m_storage->create_virtual_buffer(VB_TAG, Transformation(), cull_geometry, number_fill_rule,
                                                              make_c_array(workroom.m_tmp_tile_regions),
                                                              make_c_array(workroom.m_tmp_virtual_buffer_pointers));
 
@@ -675,7 +675,7 @@ compute_mask(void)
 
   /* Step 5: fill the fields of m_mask_details */
   m_mask_details[0].m_mask = encoder.image();
-  m_mask_details[0].m_mask_transformation_pixel = clip_geometry.bounding_geometry().image_transformation_pixel();
+  m_mask_details[0].m_mask_transformation_pixel = cull_geometry.bounding_geometry().image_transformation_pixel();
   if (m_mask_details[0].m_mask)
     {
       vec2 tr(pixel_padding, pixel_padding);
@@ -719,8 +719,8 @@ compute_mask(void)
 
   for (unsigned int m = 0; m < number_mask_type; ++m)
     {
-      m_clip_element[m] = m_renderer->m_storage->create_clip_element(clip_geometry.bounding_geometry(),
-                                                                     clip_geometry.token(),
+      m_clip_element[m] = m_renderer->m_storage->create_clip_element(cull_geometry.bounding_geometry(),
+                                                                     cull_geometry.token(),
                                                                      encoder.image(),
                                                                      mask_channels,
                                                                      static_cast<enum mask_type_t>(m));
