@@ -817,6 +817,13 @@ namespace astral
                      FixedPointColor<colorspace> clear_color);
 
     /*!
+     * Returns true if inside a begin() / end()
+     * pair.
+     */
+    bool
+    rendering(void);
+
+    /*!
      * Begin a rendering session. Doing so also guarantees that the
      * 3D API state is set correctly for use by Astral. It is an error
      * to modify the 3D API state within a begin() / end() pair.

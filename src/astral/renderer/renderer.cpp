@@ -269,6 +269,13 @@ default_use_pixel_rect_tile_culling(void) const
   return implement().m_default_use_pixel_rect_tile_culling;
 }
 
+bool
+astral::Renderer::
+rendering(void)
+{
+  return implement().m_backend->rendering();
+}
+
 void
 astral::Renderer::
 begin(enum colorspace_t c)
