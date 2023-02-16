@@ -2700,7 +2700,11 @@ namespace astral
      * Begin a clipping node defined by the pixels of an astral::MaskDetails. The
      * actual blit of the clipped contents is issued on end_clip_node().
      * \param blend_mode the blend mode to apply when blitting the offscreen buffers
-     *                   to this encoder's surface
+     *                   to this encoder's surface. A value of astral::number_blend_modes
+     *                   indicates to instead of blending the offscreen content to instead
+     *                   copy the pixels from this encoder to the offscreen encoders and
+     *                   then blit without blending. This is more expensive in every case
+     *                   than using src-over blending, astral::blend_mode_porter_duff_src_over
      * \param flags specifies which (or both or none) of clip-in and clip-out to do
      * \param mask description of mask by which to clip-in and clip-out against
      * \param clip_in_bbox clipping region in PIXEL coordinates that clip-in
@@ -2720,15 +2724,16 @@ namespace astral
                           const ItemMask &clip = ItemMask()) const;
 
     /*!
-     * Begin a clipping node defined by the results of combine_clipping().
-     * Both the clip-in and clip-out data is clipped by the original
-     * astral::RenderClipElement; the clip-in content will be clipped-in
-     * against the path-fill and the original astral::RenderClipElement;
-     * the clip-out content will be clipped-out against the path-fill and
-     * clipped-in against the original astral::RenderClipElement. The
-     * actual blit of the clipped contents is issued on end_clip_node().
+     * Begin a clipping node defined by the results of combine_clipping(). The
+     * clip-in content will be clipped by RenderClipCombineResult::clip_in() and
+     * the clip-out content will be clipped by RenderClipCombineResult::clip_out().
+     * The actual blit of the clipped contents is issued on end_clip_node().
      * \param blend_mode the blend mode to apply when blitting the offscreen buffers
-     *                   to this encoder's surface
+     *                   to this encoder's surface. A value of astral::number_blend_modes
+     *                   indicates to instead of blending the offscreen content to instead
+     *                   copy the pixels from this encoder to the offscreen encoders and
+     *                   then blit without blending. This is more expensive in every case
+     *                   than using src-over blending, astral::blend_mode_porter_duff_src_over
      * \param flags specifies which (or both or none) of clip-in and clip-out to do
      * \param mask_buffer astral::RenderClipCombineResult that provides the mask
      * \param clip_in_bbox clipping region in PIXEL coordinates that clip-in
@@ -2748,11 +2753,16 @@ namespace astral
                           const ItemMask &clip = ItemMask());
 
     /*!
-     * Begin a clipping node defined by the pixels of an astral::ImageSampler.
-     * In contrast to clip_node_logical(), clip_node_pixel() works in pixel
-     * coordinates. Generally speaking, clip_node_pixel() should be used instead
-     * of clip_node_logical() when issuing a clip node with raw image data. The
-     * actual blit of the clipped contents is issued on end_clip_node().
+     * Begin a clipping node defined by the pixels of an astral::MaskDetails. The
+     * actual blit of the clipped contents is issued on end_clip_node(). This
+     * is equivalent to
+     * \code
+     * begin_clip_node_pixel(number_blend_modes,
+     *                       flags, mask,
+     *                       clip_in_bbox, clip_out_bbox,
+     *                       mask_filter,
+     *                       clip);
+     * \endcode
      * \param flags specifies which (or both or none) of clip-in and clip-out to do
      * \param mask description of mask by which to clip-in and clip-out against
      * \param clip_in_bbox clipping region in PIXEL coordinates that clip-in
@@ -2771,13 +2781,17 @@ namespace astral
                           const ItemMask &clip = ItemMask()) const;
 
     /*!
-     * Begin a clipping node defined by the results of combine_clipping().
-     * Both the clip-in and clip-out data is clipped by the original
-     * astral::RenderClipElement; the clip-in content will be clipped-in
-     * against the path-fill and the original astral::RenderClipElement;
-     * the clip-out content will be clipped-out against the path-fill and
-     * clipped-int against the original astral::RenderClipElement. The
-     * actual blit of the clipped contents is issued on end_clip_node().
+     * Begin a clipping node defined by the results of combine_clipping(). The
+     * clip-in content will be clipped by RenderClipCombineResult::clip_in() and
+     * the clip-out content will be clipped by RenderClipCombineResult::clip_out().
+     * The actual blit of the clipped contents is issued on end_clip_node().
+     * This is equivalent to
+     * \code
+     * begin_clip_node_pixel(number_blend_modes,
+     *                       flags, mask_buffer,
+     *                       clip_in_bbox, clip_out_bbox,
+     *                       mask_filter,
+     *                       clip);
      * \param flags specifies which (or both or none) of clip-in and clip-out to do
      * \param mask_buffer astral::RenderClipCombineResult the mask
      * \param clip_in_bbox clipping region in PIXEL coordinates that clip-in
@@ -2821,7 +2835,15 @@ namespace astral
 
     /*!
      * Begin an offscreen clipping node defined by the fill of a astral::CombinedPath.
-     * The actual blit of the clipped contents is issued on end_clip_node().
+     * The actual blit of the clipped contents is issued on end_clip_node(). This
+     * is equivanle to
+     * \code
+     * begin_clip_node_pixel(number_blend_modes,
+     *                       flags, path,
+     *                       clip_in_bbox, clip_out_bbox,
+     *                       mask_filter,
+     *                       clip);
+     * \endcode
      * \param flags specifies which (or both or none) of clip-in and clip-out to do
      * \param paths paths to clip against
      * \param params fill path parameters
