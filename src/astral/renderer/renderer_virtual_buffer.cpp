@@ -1740,7 +1740,7 @@ create_image_sampler(enum filter_t filter) const
 {
   ASTRALassert(m_image);
 
-  ImageSampler im(*m_image, filter, mipmap_none);
+  ImageSampler im(*m_image, filter, mipmap_none, color_post_sampling_mode_direct, tile_mode_decal, tile_mode_decal);
   return m_renderer.create_value(im);
 }
 
