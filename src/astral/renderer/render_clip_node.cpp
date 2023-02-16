@@ -23,6 +23,7 @@
 bool
 astral::RenderClipNode::Backing::Begin::
 init(enum clip_node_flags_t flags,
+     const ScaleTranslate &mask_transform_pixel,
      const BoundingBox<float> &clip_in_rect,
      const BoundingBox<float> &clip_out_rect,
      RenderClipNode::Backing *out_encoders) const
@@ -65,13 +66,13 @@ init(enum clip_node_flags_t flags,
 
   if (out_encoders->m_has_clip_in)
     {
-      in_rect = inverse_transformation().apply_to_bb(out_encoders->m_clip_in.pixel_bounding_box());
+      in_rect = mask_transform_pixel.apply_to_bb(out_encoders->m_clip_in.virtual_buffer().unpadded_pixel_rect(clip_node_padding()));
       out_encoders->m_has_clip_in = out_encoders->m_has_clip_in && !in_rect.empty();
     }
 
   if (out_encoders->m_has_clip_out)
     {
-      out_rect = inverse_transformation().apply_to_bb(out_encoders->m_clip_out.pixel_bounding_box());
+      out_rect = mask_transform_pixel.apply_to_bb(out_encoders->m_clip_out.virtual_buffer().unpadded_pixel_rect(clip_node_padding()));
       out_encoders->m_has_clip_out = out_encoders->m_has_clip_out && !out_rect.empty();
     }
 
@@ -258,7 +259,7 @@ begin_clip_node_pixel_implement(enum blend_mode_t blend_mode,
       clip_in_bbox.intersect_against(return_value->m_mask_bbox);
     }
 
-  non_empty = init(flags,
+  non_empty = init(flags, mask_transformation_pixel,
                    clip_in_bbox, return_value->m_clip_out_bbox,
                    return_value);
 
@@ -464,7 +465,6 @@ end_clip_node_implement(void) const
   AutoRestore restorer(*this);
 
   ItemMaterial im_brush_clip_in, im_brush_clip_out;
-  std::vector<RectT<int>> *clip_in_blit_rects(nullptr), *clip_out_blit_rects(nullptr);
   RenderValue<ScaleTranslate> clip_in_tr, clip_out_tr;
   Renderer::Implement::WorkRoom &W(*renderer_implement().m_workroom);
 
@@ -502,7 +502,7 @@ end_clip_node_implement(void) const
 
       /* entire dawing takes place in pixel coordinates */
       transformation(Transformation());
-      im = m_clip_node.m_clip_out.virtual_buffer().create_image_sampler(filter_nearest);
+      im = m_clip_node.create_image_sampler(m_clip_node.m_clip_out, 0u); //no padding, we remove the padding by taking a smaller pixel rect
       image_transformation_pixel = m_clip_node.m_clip_out.image_transformation_pixel();
 
       brush
@@ -510,7 +510,7 @@ end_clip_node_implement(void) const
         .image_transformation(create_value(Transformation(image_transformation_pixel)));
 
       material = ItemMaterial(create_value(brush), m_clip_node.m_additional_clipping);
-      draw_rect(m_clip_node.m_clip_out.pixel_bounding_box().as_rect(), material, m_clip_node.m_blend_mode);
+      draw_rect(m_clip_node.m_clip_out.virtual_buffer().unpadded_pixel_rect(clip_node_padding()).as_rect(), material, m_clip_node.m_blend_mode);
 
       return;
     }
@@ -522,37 +522,31 @@ end_clip_node_implement(void) const
 
   if (m_clip_node.m_has_clip_in)
     {
-      VirtualBuffer &vb(m_clip_node.m_clip_in.virtual_buffer());
       RenderValue<ImageSampler> im;
-      Transformation image_transformation;
-      ScaleTranslate sc(vb.image_transformation_pixel() * m_clip_node.m_pixel_transformation_mask);
+      RenderValue<Transformation> im_tr;
 
-      im = vb.create_image_sampler(filter_nearest);
-      image_transformation = Transformation(sc);
-      clip_in_tr = create_value(sc);
+      im = m_clip_node.create_image_sampler(m_clip_node.m_clip_in);
+      clip_in_tr = m_clip_node.create_image_transformation_mask(m_clip_node.m_clip_in);
+      im_tr = create_value(Transformation(clip_in_tr.value()));
 
-      clip_in_blit_rects = renderer_implement().m_storage->allocate_rect_array();
       im_brush_clip_in = ItemMaterial(create_value(Brush()
                                                    .image(im)
-                                                   .image_transformation(create_value(image_transformation))),
+                                                   .image_transformation(im_tr)),
                                       m_clip_node.m_additional_clipping);
     }
 
   if (m_clip_node.m_has_clip_out)
     {
-      VirtualBuffer &vb(m_clip_node.m_clip_out.virtual_buffer());
       RenderValue<ImageSampler> im;
-      Transformation image_transformation;
-      ScaleTranslate sc(vb.image_transformation_pixel() * m_clip_node.m_pixel_transformation_mask);
+      RenderValue<Transformation> im_tr;
 
-      im = vb.create_image_sampler(filter_nearest);
-      image_transformation = Transformation(sc);
-      clip_out_tr = create_value(sc);
+      im = m_clip_node.create_image_sampler(m_clip_node.m_clip_out);
+      clip_out_tr = m_clip_node.create_image_transformation_mask(m_clip_node.m_clip_out);
+      im_tr = create_value(Transformation(clip_out_tr.value()));
 
-      clip_out_blit_rects = renderer_implement().m_storage->allocate_rect_array();
       im_brush_clip_out = ItemMaterial(create_value(Brush()
                                                     .image(im)
-                                                    .image_transformation(create_value(image_transformation))),
+                                                    .image_transformation(im_tr)),
                                        m_clip_node.m_additional_clipping);
     }
 
@@ -668,38 +662,7 @@ end_clip_node_implement(void) const
             {
               draw_rect(rects[i], false, im_brush_clip_out, m_clip_node.m_blend_mode);
             }
-
-          if (clip_out_blit_rects)
-            {
-              add_raw_blit_rects(clip_out_blit_rects, rects, clip_out_tr.value());
-            }
         }
-    }
-
-  if (clip_out_blit_rects)
-    {
-      /* we can skip a fair amount of blitting to the image atlas
-       * by only blitting those regions that are either partially
-       * covered or not covered at all by the mask.
-       */
-      add_blit_rects(clip_out_blit_rects, make_c_array(W.m_clip_out.m_full_tiles), clip_out_tr.value());
-      add_blit_rects(clip_out_blit_rects, make_c_array(W.m_clip_out.m_color_tiles), clip_out_tr.value());
-      add_blit_rects(clip_out_blit_rects, make_c_array(W.m_intersection), clip_out_tr.value());
-
-      m_clip_node.m_clip_out.virtual_buffer().specify_blit_rects(clip_out_blit_rects);
-    }
-
-  if (clip_in_blit_rects)
-    {
-      /* we can skip a fair amount of blitting to the image atlas
-       * by only blitting those regions that are either partially
-       * covered or not covered at all by the mask.
-       */
-      add_blit_rects(clip_in_blit_rects, make_c_array(W.m_clip_in.m_full_tiles), clip_in_tr.value());
-      add_blit_rects(clip_in_blit_rects, make_c_array(W.m_clip_in.m_color_tiles), clip_in_tr.value());
-      add_blit_rects(clip_in_blit_rects, make_c_array(W.m_intersection), clip_in_tr.value());
-
-      m_clip_node.m_clip_in.virtual_buffer().specify_blit_rects(clip_in_blit_rects);
     }
 
   enum mask_type_t clip_in_mask_type, clip_out_mask_type;
@@ -956,32 +919,6 @@ add_raw_blit_rects(std::vector<astral::RectT<int>> *blit_rects,
       astral::BoundingBox<float> frect(tile);
       astral::BoundingBox<float> bb(blit_transformation_tile.apply_to_bb(frect));
       astral::RectT<int> ibb(bb.as_rect());
-
-      if (ibb.m_max_point.x() < bb.as_rect().m_max_point.x())
-        {
-          ++ibb.m_max_point.x();
-        }
-
-      if (ibb.m_max_point.y() < bb.as_rect().m_max_point.y())
-        {
-          ++ibb.m_max_point.y();
-        }
-
-      blit_rects->push_back(ibb);
-    }
-}
-
-void
-astral::RenderClipNode::Backing::End::
-add_blit_rects(std::vector<RectT<int>> *blit_rects,
-               c_array<const ClippedTile> tiles,
-               ScaleTranslate blit_transformation_tile)
-{
-  for (const ClippedTile &tile : tiles)
-    {
-      BoundingBox<float> frect(tile.m_rect);
-      BoundingBox<float> bb(blit_transformation_tile.apply_to_bb(frect));
-      RectT<int> ibb(bb.as_rect());
 
       if (ibb.m_max_point.x() < bb.as_rect().m_max_point.x())
         {

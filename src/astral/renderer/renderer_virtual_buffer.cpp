@@ -88,7 +88,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(stc_fill_rule),
-  m_blit_rects(nullptr),
   m_image_create_spec(image_create_spec),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
@@ -146,7 +145,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(stc_fill_rule),
-  m_blit_rects(nullptr),
   m_image_create_spec(image_create_spec),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
@@ -204,7 +202,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(number_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -299,7 +296,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(number_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -361,7 +357,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(number_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -434,7 +429,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_render_target_clear_color(clear_color),
   m_start_z(0u),
   m_stc_fill_rule(number_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -492,7 +486,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(src_buffer.m_stc_fill_rule),
-  m_blit_rects(src_buffer.m_blit_rects),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -614,7 +607,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(stc_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_uses_shadow_map(false)
@@ -656,16 +648,8 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
        * the pixels of padding shared with such a neighboring
        * tile are never blitted.
        *
-       * The right thing to do is a bit of a pain.
-       *  1) set encoder.m_render_rect as with the padding
-       *  2) add to encoder.m_blit_rects the following rects
-       *    a) the region without the padding
-       *    b) for each side and each tile whose neighbor is
-       *       an empty tile, an additional rect of the padding.
-       *       This is not just a single rect for each side
-       *       because a side can have multiple neighbors when
-       *       either of the ranges from tile_regions[i] is
-       *       bigger than one in size.
+       * The right thing to do is a bit of a pain to avoid
+       * overdraw in the atlas when padding comes into play.
        *
        * For now, we allow for the overdraw in the image-atlas.
        * Note that we do NOT include the padding on the start
@@ -729,7 +713,6 @@ VirtualBuffer(CreationTag C, unsigned int render_index, Renderer::Implement &ren
   m_pause_snapshot_counter(0),
   m_start_z(0u),
   m_stc_fill_rule(number_fill_rule),
-  m_blit_rects(nullptr),
   m_images_with_mips(nullptr),
   m_last_mip_only(nullptr),
   m_shadow_map(shadow_map),
@@ -1528,69 +1511,13 @@ render_performed_implement(ColorBuffer *color_src, DepthStencilBuffer *depth_src
           ASTRALassert(m_image);
           ASTRALassert(m_image->number_mipmap_levels() <= 2u);
 
-          if (!m_blit_rects)
-            {
-              cnt = m_image->copy_pixels(0, //dst LOD
-                                         m_render_rect.m_min_point, //dst min-corner
-                                         m_render_rect.size(), //size
-                                         *color_src,
-                                         m_location_in_color_buffer.m_location, //src min corner
-                                         blit_processing(),
-                                         m_location_in_color_buffer.m_permute_xy);
-            }
-          else
-            {
-              for (const RectT<int> &R: *m_blit_rects)
-                {
-                  ivec2 R_sz;
-                  RectT<int> blit_rect;
-
-                  /* clip the rect to m_render_rect and blit the intersection */
-                  if (RectT<int>::compute_intersection(R, m_render_rect, &blit_rect)
-                      && blit_rect.m_max_point.x() > blit_rect.m_min_point.x()
-                      && blit_rect.m_max_point.y() > blit_rect.m_min_point.y())
-                    {
-                      ivec2 src_min_corner;
-
-                      /* The contents from color_src on the rect S where
-                       *
-                       *   S.m_min_corner = m_location_in_color_buffer.m_location
-                       *   S.size() = m_render_rect.size()
-                       *
-                       * maps to in the image the rect m_render_rect. Thus, the
-                       * transformation from *color_src coordinates to image
-                       * coordinate is given by
-                       *
-                       *   image_coordinate = V + color_src_coordinate
-                       *
-                       *   color_src_coordinate = image_coordinate - V
-                       *
-                       * where
-                       *
-                       *   V = m_render_rect.m_min_corner - m_location_in_color_buffer.m_location
-                       *
-                       * We have that blit_rect is in image coordinate and the value
-                       * of stc_min_corner is blit_rect.m_min_point in color_src
-                       * which gives
-                       *
-                       *  src_min_corner = blit_rect.m_min_point - V
-                       *                 = blit_rect.m_min_point - m_render_rect.m_min_corner + m_location_in_color_buffer.m_location
-                       */
-
-                      src_min_corner =  blit_rect.m_min_point
-                        + m_location_in_color_buffer.m_location
-                        - m_render_rect.m_min_point;
-
-                      cnt += m_image->copy_pixels(0, //dst LOD
-                                                  blit_rect.m_min_point, //dst min-corner
-                                                  blit_rect.size(), //size
-                                                  *color_src,
-                                                  src_min_corner,
-                                                  blit_processing(),
-                                                  m_location_in_color_buffer.m_permute_xy);
-                    }
-                }
-            }
+          cnt = m_image->copy_pixels(0, //dst LOD
+                                     m_render_rect.m_min_point, //dst min-corner
+                                     m_render_rect.size(), //size
+                                     *color_src,
+                                     m_location_in_color_buffer.m_location, //src min corner
+                                     blit_processing(),
+                                     m_location_in_color_buffer.m_permute_xy);
 
           /* We have to do a full-blit even if blit-rects is provided
            * because there is no guarnatee that the blit-rects have
@@ -1732,16 +1659,6 @@ add_dependency(const ShadowMapID &ID)
       return add_dependency(p->offscreen_render_index());
     }
   return nullptr;
-}
-
-astral::RenderValue<astral::ImageSampler>
-astral::Renderer::VirtualBuffer::
-create_image_sampler(enum filter_t filter) const
-{
-  ASTRALassert(m_image);
-
-  ImageSampler im(*m_image, filter, mipmap_none, color_post_sampling_mode_direct, tile_mode_decal, tile_mode_decal);
-  return m_renderer.create_value(im);
 }
 
 void

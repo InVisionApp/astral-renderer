@@ -685,6 +685,13 @@ public:
     return cull_geometry().bounding_geometry().pixel_rect();
   }
 
+  /* Pixel rect of the geometry with the named amount of padding removed */
+  BoundingBox<float>
+  unpadded_pixel_rect(float padding) const
+  {
+    return cull_geometry().bounding_geometry().unpadded_pixel_rect(padding);
+  }
+
   /*!
    * Gives the transformation from coordinates
    * of pixel_rect() to coordinate of the
@@ -959,14 +966,6 @@ public:
     return m_transformation_stack.back().logical_rendering_accuracy(m_render_accuracy);
   }
 
-  /* Conveniance method to create and return a
-   * RenderValue<ImageSampler> derived from
-   * image() with the passed filter and
-   * color transfer mode.
-   */
-  RenderValue<ImageSampler>
-  create_image_sampler(enum filter_t filter) const;
-
   /* Return (and create on demand) a RenderValue<Transformation>
    * of the current transformation
    */
@@ -1057,24 +1056,6 @@ public:
 
   void
   add_occluder(RenderValue<Transformation> tr, const Rect &rect);
-
-  /* Instead of blitting to the entire area of the backing image,
-   * instead only blit to the named rects. The pointer of the
-   * array is copied, so the object must stay alive until
-   * Renderer::Implement::end(). This is accomplished by having the array
-   * allocated/managed by Renderer::Implement::Storage.
-   *
-   * DANGER: these rects are in coordinates of the astral::Image(),
-   *         thus one must take into accout the value of
-   *         image_transformation_pixel() to get it to do the right
-   *         thing.
-   */
-  void
-  specify_blit_rects(const std::vector<RectT<int>> *rects)
-  {
-    ASTRALassert(!m_blit_rects);
-    m_blit_rects = rects;
-  }
 
   /* Generate a VirtualBufferProxy that corresponds to a child
    * buffer.
@@ -1515,12 +1496,6 @@ private:
     };
 
   vecN<reference_counted_ptr<const RenderClipElement>, num_clip_elements> m_clip_elements;
-
-  /* If non-null, indicates that when blitting from the
-   * ColorBuffer to the ImageAtlas, only these rects are
-   * to be blitted.
-   */
-  const std::vector<RectT<int>> *m_blit_rects;
 
   /* The sub-rect of m_image to which this VirtualBuffer renders,
    * this value is set in on_renderer_end() and its size is used

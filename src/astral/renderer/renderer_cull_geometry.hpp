@@ -37,12 +37,22 @@ public:
   {}
 
   /* Pixel rect of the geometry; includes the padding
-   * around specified by pixel_padding().
+   * that may have been added by the ctor of CullGeometry
    */
   const BoundingBox<float>&
   pixel_rect(void) const
   {
     return m_pixel_rect;
+  }
+
+  /* Pixel rect of the geometry with the named amount of padding removed */
+  BoundingBox<float>
+  unpadded_pixel_rect(float padding) const
+  {
+    BoundingBox<float> return_value;
+
+    m_pixel_rect.shrink(vec2(padding * scale_factor()), &return_value);
+    return return_value;
   }
 
   /* returns the smallest RectT<int> that contains pixel_rect() */

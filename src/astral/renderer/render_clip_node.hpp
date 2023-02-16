@@ -59,7 +59,47 @@ public:
   unsigned int
   clip_node_padding(void)
   {
-    return 0u;
+    return 2u;
+  }
+
+  /* Given a RenderEncoderImage representing either the clipped-in or clipped-out
+   * content, produce a RenderValue<ImageSampler> that is suitable for sampling
+   * from RenderEncoderImage.image() for drawing rects in coordinates of
+   * m_mask_image
+   */
+  RenderValue<ImageSampler>
+  create_image_sampler(RenderEncoderImage image_encoder, unsigned int padding) const
+  {
+    reference_counted_ptr<const Image> image(image_encoder.image());
+    SubImage sub_image(*image, uvec2(padding), image->size() - uvec2(2u * padding));
+    ImageSampler im(sub_image, filter_nearest, mipmap_none, color_post_sampling_mode_direct, tile_mode_decal, tile_mode_decal);
+    return m_parent_encoder.create_value(sub_image);
+  }
+
+  RenderValue<ImageSampler>
+  create_image_sampler(RenderEncoderImage image_encoder) const
+  {
+    return create_image_sampler(image_encoder, clip_node_padding());
+  }
+
+  /* Given a RenderEncoderImage representing either the clipped-in or clipped-out
+   * content, produce a RenderValue<ScaleTranslate> that transforms from coordinates
+   * of m_mask_image to the coordinates of the SubImage taken from image_encoder.image()
+   * where the SubImage is that image with the padding pixels clipped.
+   */
+  RenderValue<ScaleTranslate>
+  create_image_transformation_mask(RenderEncoderImage image_encoder)
+  {
+    ScaleTranslate image_transformation_mask;
+
+    image_transformation_mask = image_encoder.image_transformation_pixel() * m_pixel_transformation_mask;
+
+    /* adjust for slack. We want to map (clip_node_padding(), clip_node_padding())
+     * to (0, 0), whic means just offer the negation of it.
+     */
+    image_transformation_mask = ScaleTranslate(-vec2(clip_node_padding())) * image_transformation_mask;
+
+    return m_parent_encoder.create_value(image_transformation_mask);
   }
 
   /* encoder that created the clip-node */
@@ -68,14 +108,23 @@ public:
   /* encoders for the clipped content */
   RenderEncoderImage m_clip_in, m_clip_out;
 
-  /* This is true if the mask is null; in this case
-   * there is no clipped-in content to draw and the
-   * clipped-out content should just be blitted.
+  /* This is true if the mask specified ends up
+   * saying that all content is clipped out; in
+   * this case then we are just blitting the
+   * clipped-out content directly.
    */
   bool m_blit_clip_out_content_only;
 
-  /* Rects used issue the blit of the clipped content */
+  /* transformation from m_mask_image coordinates to pixel coordinates
+   * of m_parent_encoder. We perform the blit in m_mask_image coordinates
+   * and so we need the transformation from those coordiantes to pixel
+   * coordinates
+   */
   ScaleTranslate m_pixel_transformation_mask;
+
+  /* Rects used issue the blit of the clipped content.
+   * All rects are in m_mask_image coordinates.
+   */
   bool m_has_clip_in, m_has_clip_out, m_non_empty_intersection;
   unsigned int m_num_clip_in_rects, m_num_clip_out_rects;
   vecN<Rect, 4> m_clip_in_rects, m_clip_out_rects;
@@ -88,7 +137,9 @@ public:
   reference_counted_ptr<const RenderClipCombineResult> m_clip_combine;
   BoundingBox<float> m_mask_bbox, m_clip_out_bbox;
 
-  /* use only when clipping against a MaskDetails */
+  /* use only when clipping against a m_mask_image directly,
+   * i.e. when m_clip_combine is nullptr.
+   */
   enum mask_channel_t m_mask_channel;
   enum mask_type_t m_mask_type;
 
@@ -140,6 +191,7 @@ private:
    */
   bool //returns false if nothing to draw
   init(enum clip_node_flags_t flags,
+       const ScaleTranslate &mask_transform_pixel,
        const BoundingBox<float> &clip_in_rect,
        const BoundingBox<float> &clip_out_rect,
        RenderClipNode::Backing *out_encoders) const;
@@ -186,12 +238,6 @@ private:
   compute_tiles(const Rect &rect,
                 const vecN<range_type<unsigned int>, 2> &tile_range,
                 const ClippedTileCollector &collector) const;
-
-  static
-  void
-  add_blit_rects(std::vector<RectT<int>> *blit_rects,
-                 c_array<const ClippedTile> tiles,
-                 ScaleTranslate blit_transformation_tile);
 
   void
   blit_full_tiles(c_array<const ClippedTile> tiles,
