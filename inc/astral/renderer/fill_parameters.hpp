@@ -181,9 +181,11 @@ namespace astral
     RenderScaleFactor m_render_scale_factor;
 
     /*!
-     * If non-null, gives the bounding box of the path to use
-     * when filling with one of the complement fill rules;
-     * a null value indicates to use the tight bounding box
+     * If non-null, gives the bounding box of the generate mask
+     * in local coordinates. Its main use case is when the mask
+     * is used for one of the complement fill rules; regions outside
+     * of the box are never filled regardless of the fill rule.
+     * A null value indicates to use the tight bounding box
      * of the path geometries.
      */
     const BoundingBox<float> *m_complement_bbox;

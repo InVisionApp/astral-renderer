@@ -2026,7 +2026,7 @@ generate_mask(const CombinedPath &paths,
       return;
     }
 
-  if (mask_properties.m_complement_bbox && fill_rule_is_complement_rule(params.m_fill_rule))
+  if (mask_properties.m_complement_bbox)
     {
       bb = *mask_properties.m_complement_bbox;
     }
