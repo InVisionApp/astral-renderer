@@ -453,6 +453,10 @@ astral::RenderEncoderLayer::Backing::
 end_layer(Renderer::Implement::Storage &storage)
 {
   ASTRALassert(!m_end_layer_called);
+  if (m_end_layer_called)
+    {
+      return;
+    }
 
   if (!m_encoder.finished())
     {
