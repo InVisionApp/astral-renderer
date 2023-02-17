@@ -1310,7 +1310,9 @@ namespace astral
 
       /*!
        * Returns the bounding box in pixel-coordinates
-       * of the rendering region.
+       * of the rendering region. This includes the region
+       * occupied by the pixels in the pixel_slack argument
+       * passed to RenderEncoderBase::proxy_relative().
        */
       BoundingBox<float>
       pixel_bounding_box(void) const;
@@ -1997,7 +1999,11 @@ namespace astral
 
     /*!
      * Returns the bounding box in pixel-coordinates
-     * of the rendering region of the encoder.
+     * of the rendering region of the encoder. For
+     * RenderEncoderImage encoder, this includes the
+     * area occupied by the pixels in the pixel_slack
+     * (or padding) argument passed to
+     * RenderEncoderBase::encoder_image_relative().
      */
     BoundingBox<float>
     pixel_bounding_box(void) const;
