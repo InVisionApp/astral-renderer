@@ -1,3 +1,6 @@
+| :warning: This project is no longer actively supported.
+| ---
+
 Astral
 ======
 
@@ -145,7 +148,7 @@ the path where the libraries are located to LD_LIBRARY_PATH. A simple
 quick hack is to do `export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH`. For
 MacOS, the current working directory is already part of the library
 search path which can be added to by `DYLD_LIBRARY_PATH`.
-  
+
 All demos have options which can be see by passing `--help` as the one
 and only command line option to the demo.
 
